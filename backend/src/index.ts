@@ -3,8 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 import { DatabaseConnection } from './database/DatabaseConnection';
 import { Logger } from './utils/Logger';
+import { swaggerSpec } from './config/swagger';
 import carRoutes from './routes/carRoutes';
 import clientRoutes from './routes/clientRoutes';
 import rentalRoutes from './routes/rentalRoutes';
@@ -39,6 +41,9 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API Routes
 app.use('/api/cars', carRoutes);
