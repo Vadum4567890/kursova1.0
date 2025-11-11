@@ -1,12 +1,12 @@
 /**
- * Singleton Pattern для логування
- * Забезпечує централізоване логування для всієї системи
+ * Singleton Pattern for logging
+ * Provides centralized logging for the entire system
  */
 export class Logger {
   private static instance: Logger;
 
   private constructor() {
-    // Приватний конструктор для Singleton
+    // Private constructor for Singleton
   }
 
   public static getInstance(): Logger {

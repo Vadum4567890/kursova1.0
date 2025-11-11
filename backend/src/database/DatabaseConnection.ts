@@ -2,15 +2,15 @@ import { DataSource } from 'typeorm';
 import { Logger } from '../utils/Logger';
 
 /**
- * Singleton Pattern для підключення до бази даних
- * Забезпечує єдине підключення для всієї системи
+ * Singleton Pattern for database connection
+ * Ensures a single connection instance for the entire system
  */
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
   private dataSource: DataSource | null = null;
 
   private constructor() {
-    // Приватний конструктор для Singleton
+    // Private constructor for Singleton
   }
 
   public static getInstance(): DatabaseConnection {

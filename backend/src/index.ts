@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { DatabaseConnection } from './database/DatabaseConnection';
 import { Logger } from './utils/Logger';
 
-// Завантаження змінних оточення
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -21,7 +21,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Базовий роут
+// Base route
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Car Rental API',
@@ -35,17 +35,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Ініціалізація сервера
+// Server initialization
 async function startServer() {
   try {
-    // Підключення до БД
+    // Connect to database
     const dbConnection = DatabaseConnection.getInstance();
     await dbConnection.connect();
     
     const logger = Logger.getInstance();
     logger.log('Database connected successfully', 'info');
 
-    // Запуск сервера
+    // Start server
     app.listen(PORT, () => {
       logger.log(`Server is running on port ${PORT}`, 'info');
       console.log(`🚀 Server started at http://localhost:${PORT}`);

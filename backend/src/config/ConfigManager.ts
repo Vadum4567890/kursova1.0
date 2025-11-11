@@ -1,6 +1,6 @@
 /**
- * Singleton Pattern для управління конфігурацією
- * Централізоване зберігання та доступ до налаштувань
+ * Singleton Pattern for configuration management
+ * Centralized storage and access to settings
  */
 export class ConfigManager {
   private static instance: ConfigManager;
