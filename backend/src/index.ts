@@ -15,6 +15,8 @@ import penaltyRoutes from './routes/penaltyRoutes';
 import reportRoutes from './routes/reportRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import searchRoutes from './routes/searchRoutes';
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +55,8 @@ app.get('/health', (req, res) => {
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/cars', carRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/rentals', rentalRoutes);

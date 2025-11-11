@@ -5,6 +5,7 @@ import { Car } from '../models/Car.entity';
 import { Client } from '../models/Client.entity';
 import { Rental } from '../models/Rental.entity';
 import { Penalty } from '../models/Penalty.entity';
+import { User } from '../models/User.entity';
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +19,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'car_rental_db',
   synchronize: process.env.NODE_ENV === 'development',
   logging: process.env.NODE_ENV === 'development',
-  entities: [Car, Client, Rental, Penalty],
+  entities: [Car, Client, Rental, Penalty, User],
   migrations: [__dirname + '/../../database/migrations/**/*{.ts,.js}'],
   subscribers: [],
 });

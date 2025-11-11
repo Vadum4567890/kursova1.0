@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { RentalController } from '../controllers/RentalController';
 import { validateId, validateRentalData, validatePenaltyData } from '../middleware/validation';
 import { paginationMiddleware } from '../middleware/pagination';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
 
 const router = Router();
 const rentalController = new RentalController();
@@ -16,7 +18,7 @@ const rentalController = new RentalController();
  *       200:
  *         description: List of all rentals
  */
-router.get('/', rentalController.getAllRentals);
+router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), rentalController.getAllRentals);
 
 /**
  * @swagger
@@ -28,7 +30,7 @@ router.get('/', rentalController.getAllRentals);
  *       200:
  *         description: List of active rentals
  */
-router.get('/active', rentalController.getActiveRentals);
+router.get('/active', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), rentalController.getActiveRentals);
 
 /**
  * @swagger
@@ -46,7 +48,7 @@ router.get('/active', rentalController.getActiveRentals);
  *       200:
  *         description: List of client rentals
  */
-router.get('/client/:clientId', rentalController.getRentalsByClientId);
+router.get('/client/:clientId', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, rentalController.getRentalsByClientId);
 
 /**
  * @swagger
@@ -64,7 +66,7 @@ router.get('/client/:clientId', rentalController.getRentalsByClientId);
  *       200:
  *         description: List of car rentals
  */
-router.get('/car/:carId', rentalController.getRentalsByCarId);
+router.get('/car/:carId', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, rentalController.getRentalsByCarId);
 
 /**
  * @swagger
@@ -82,7 +84,7 @@ router.get('/car/:carId', rentalController.getRentalsByCarId);
  *       200:
  *         description: Rental details
  */
-router.get('/:id', rentalController.getRentalById);
+router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, rentalController.getRentalById);
 
 /**
  * @swagger
@@ -116,7 +118,7 @@ router.get('/:id', rentalController.getRentalById);
  *       201:
  *         description: Rental created successfully
  */
-router.post('/', rentalController.createRental);
+router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateRentalData, rentalController.createRental);
 
 /**
  * @swagger
@@ -143,7 +145,7 @@ router.post('/', rentalController.createRental);
  *       200:
  *         description: Rental completed successfully
  */
-router.post('/:id/complete', rentalController.completeRental);
+router.post('/:id/complete', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, rentalController.completeRental);
 
 /**
  * @swagger
@@ -161,7 +163,7 @@ router.post('/:id/complete', rentalController.completeRental);
  *       200:
  *         description: Rental cancelled successfully
  */
-router.post('/:id/cancel', rentalController.cancelRental);
+router.post('/:id/cancel', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, rentalController.cancelRental);
 
 /**
  * @swagger
@@ -193,6 +195,6 @@ router.post('/:id/cancel', rentalController.cancelRental);
  *       201:
  *         description: Penalty added successfully
  */
-router.post('/:id/penalty', rentalController.addPenalty);
+router.post('/:id/penalty', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, validatePenaltyData, rentalController.addPenalty);
 
 export default router;

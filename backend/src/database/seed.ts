@@ -4,7 +4,9 @@ import { Car, CarType, CarStatus } from '../models/Car.entity';
 import { Client } from '../models/Client.entity';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { Penalty } from '../models/Penalty.entity';
+import { User, UserRole } from '../models/User.entity';
 import { AppDataSource } from './data-source';
+import bcrypt from 'bcrypt';
 
 // Load environment variables
 require('dotenv').config();
@@ -24,11 +26,53 @@ async function seed() {
     const clientRepository = AppDataSource.getRepository(Client);
     const rentalRepository = AppDataSource.getRepository(Rental);
     const penaltyRepository = AppDataSource.getRepository(Penalty);
+    const userRepository = AppDataSource.getRepository(User);
 
     // Clear existing data (optional - comment out if you want to keep existing data)
     // Must use CASCADE to handle foreign key constraints
     console.log('Clearing existing data...');
-    await AppDataSource.query('TRUNCATE TABLE penalties, rentals, cars, clients CASCADE');
+    await AppDataSource.query('TRUNCATE TABLE penalties, rentals, cars, clients, users CASCADE');
+
+    // Create Users (Admin, Manager, Employee)
+    console.log('Creating users...');
+    const saltRounds = 10;
+    const adminPassword = await bcrypt.hash('admin123', saltRounds);
+    const managerPassword = await bcrypt.hash('manager123', saltRounds);
+    const employeePassword = await bcrypt.hash('employee123', saltRounds);
+
+    const users = [
+      userRepository.create({
+        username: 'admin',
+        email: 'admin@carrental.com',
+        password: adminPassword,
+        fullName: 'Адміністратор Системи',
+        role: UserRole.ADMIN,
+        isActive: true,
+      }),
+      userRepository.create({
+        username: 'manager',
+        email: 'manager@carrental.com',
+        password: managerPassword,
+        fullName: 'Менеджер Прокату',
+        role: UserRole.MANAGER,
+        isActive: true,
+      }),
+      userRepository.create({
+        username: 'employee',
+        email: 'employee@carrental.com',
+        password: employeePassword,
+        fullName: 'Співробітник',
+        role: UserRole.EMPLOYEE,
+        isActive: true,
+      }),
+    ];
+
+    const savedUsers = await userRepository.save(users);
+    console.log(`Created ${savedUsers.length} users`);
+    console.log('Default credentials:');
+    console.log('  Admin: username=admin, password=admin123');
+    console.log('  Manager: username=manager, password=manager123');
+    console.log('  Employee: username=employee, password=employee123');
 
     // Create Cars
     console.log('Creating cars...');

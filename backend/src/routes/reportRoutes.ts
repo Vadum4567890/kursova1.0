@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { ReportController } from '../controllers/ReportController';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
 
 const router = Router();
 const reportController = new ReportController();
@@ -29,7 +31,7 @@ const reportController = new ReportController();
  *       200:
  *         description: Financial report generated
  */
-router.get('/financial', reportController.generateFinancialReport);
+router.get('/financial', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), reportController.generateFinancialReport);
 
 /**
  * @swagger
@@ -41,7 +43,7 @@ router.get('/financial', reportController.generateFinancialReport);
  *       200:
  *         description: Occupancy report generated
  */
-router.get('/occupancy', reportController.generateOccupancyReport);
+router.get('/occupancy', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), reportController.generateOccupancyReport);
 
 /**
  * @swagger
@@ -53,6 +55,6 @@ router.get('/occupancy', reportController.generateOccupancyReport);
  *       200:
  *         description: Availability report generated
  */
-router.get('/availability', reportController.generateAvailabilityReport);
+router.get('/availability', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), reportController.generateAvailabilityReport);
 
 export default router;

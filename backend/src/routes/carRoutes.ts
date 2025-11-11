@@ -3,6 +3,8 @@ import { CarController } from '../controllers/CarController';
 import { validateId, validateCarData, validateCarStatus } from '../middleware/validation';
 import { paginationMiddleware } from '../middleware/pagination';
 import { filteringMiddleware } from '../middleware/filtering';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
 
 const router = Router();
 const carController = new CarController();
@@ -88,6 +90,8 @@ router.get('/:id', validateId, carController.getCarById);
  *   post:
  *     summary: Create a new car
  *     tags: [Cars]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -97,8 +101,12 @@ router.get('/:id', validateId, carController.getCarById);
  *     responses:
  *       201:
  *         description: Car created successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires admin or manager role)
  */
-router.post('/', validateCarData, carController.createCar);
+router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), validateCarData, carController.createCar);
 
 /**
  * @swagger
@@ -106,6 +114,8 @@ router.post('/', validateCarData, carController.createCar);
  *   put:
  *     summary: Update car
  *     tags: [Cars]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -121,8 +131,12 @@ router.post('/', validateCarData, carController.createCar);
  *     responses:
  *       200:
  *         description: Car updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires admin or manager role)
  */
-router.put('/:id', validateId, carController.updateCar);
+router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), validateId, carController.updateCar);
 
 /**
  * @swagger
@@ -150,7 +164,7 @@ router.put('/:id', validateId, carController.updateCar);
  *       200:
  *         description: Status updated successfully
  */
-router.patch('/:id/status', validateId, carController.updateCarStatus);
+router.patch('/:id/status', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, carController.updateCarStatus);
 
 /**
  * @swagger
@@ -158,6 +172,8 @@ router.patch('/:id/status', validateId, carController.updateCarStatus);
  *   delete:
  *     summary: Delete car
  *     tags: [Cars]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -167,10 +183,14 @@ router.patch('/:id/status', validateId, carController.updateCarStatus);
  *     responses:
  *       204:
  *         description: Car deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires admin role)
  *       404:
  *         description: Car not found
  */
-router.delete('/:id', validateId, carController.deleteCar);
+router.delete('/:id', authenticate, authorize(UserRole.ADMIN), validateId, carController.deleteCar);
 
 export default router;
 

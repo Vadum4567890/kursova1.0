@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { SearchController } from '../controllers/SearchController';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
 
 const router = Router();
 const searchController = new SearchController();
@@ -38,7 +40,7 @@ const searchController = new SearchController();
  *       200:
  *         description: List of matching cars
  */
-router.post('/cars', searchController.searchCars);
+router.post('/cars', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), searchController.searchCars);
 
 /**
  * @swagger
@@ -56,7 +58,7 @@ router.post('/cars', searchController.searchCars);
  *       200:
  *         description: List of matching clients
  */
-router.get('/clients', searchController.searchClients);
+router.get('/clients', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), searchController.searchClients);
 
 /**
  * @swagger
@@ -87,7 +89,7 @@ router.get('/clients', searchController.searchClients);
  *       200:
  *         description: List of matching rentals
  */
-router.post('/rentals', searchController.searchRentals);
+router.post('/rentals', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), searchController.searchRentals);
 
 export default router;
 
