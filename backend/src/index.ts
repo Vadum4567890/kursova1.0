@@ -35,6 +35,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// API Routes
+import carRoutes from './routes/carRoutes';
+import clientRoutes from './routes/clientRoutes';
+import rentalRoutes from './routes/rentalRoutes';
+import penaltyRoutes from './routes/penaltyRoutes';
+import reportRoutes from './routes/reportRoutes';
+
+app.use('/api/cars', carRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/rentals', rentalRoutes);
+app.use('/api/penalties', penaltyRoutes);
+app.use('/api/reports', reportRoutes);
+
 // Server initialization
 async function startServer() {
   try {
