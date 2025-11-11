@@ -5,6 +5,11 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { DatabaseConnection } from './database/DatabaseConnection';
 import { Logger } from './utils/Logger';
+import carRoutes from './routes/carRoutes';
+import clientRoutes from './routes/clientRoutes';
+import rentalRoutes from './routes/rentalRoutes';
+import penaltyRoutes from './routes/penaltyRoutes';
+import reportRoutes from './routes/reportRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -36,12 +41,6 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-import carRoutes from './routes/carRoutes';
-import clientRoutes from './routes/clientRoutes';
-import rentalRoutes from './routes/rentalRoutes';
-import penaltyRoutes from './routes/penaltyRoutes';
-import reportRoutes from './routes/reportRoutes';
-
 app.use('/api/cars', carRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/rentals', rentalRoutes);
