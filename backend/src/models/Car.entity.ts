@@ -16,50 +16,50 @@ export enum CarStatus {
 @Entity('cars')
 export class Car {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column()
-  brand: string;
+  brand!: string;
 
   @Column()
-  model: string;
+  model!: string;
 
   @Column()
-  year: number;
+  year!: number;
 
   @Column({
     type: 'enum',
     enum: CarType,
     default: CarType.ECONOMY,
   })
-  type: CarType;
+  type!: CarType;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  pricePerDay: number;
+  pricePerDay!: number;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  deposit: number;
+  deposit!: number;
 
   @Column({
     type: 'enum',
     enum: CarStatus,
     default: CarStatus.AVAILABLE,
   })
-  status: CarStatus;
+  status!: CarStatus;
 
   @Column({ nullable: true })
-  description: string;
+  description?: string;
 
   @Column({ nullable: true })
-  imageUrl: string;
+  imageUrl?: string;
 
   @OneToMany(() => Rental, (rental) => rental.car)
-  rentals: Rental[];
+  rentals!: Rental[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 

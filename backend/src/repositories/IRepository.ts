@@ -1,8 +1,10 @@
+import { ObjectLiteral } from 'typeorm';
+
 /**
  * Generic Repository Interface
  * Defines the base contract for all repositories
  */
-export interface IRepository<T> {
+export interface IRepository<T extends ObjectLiteral> {
   findAll(): Promise<T[]>;
   findById(id: number): Promise<T | null>;
   create(entity: Partial<T>): Promise<T>;
