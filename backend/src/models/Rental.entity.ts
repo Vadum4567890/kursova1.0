@@ -12,48 +12,48 @@ export enum RentalStatus {
 @Entity('rentals')
 export class Rental {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @ManyToOne(() => Client, (client) => client.rentals)
   @JoinColumn({ name: 'client_id' })
-  client: Client;
+  client!: Client;
 
   @ManyToOne(() => Car, (car) => car.rentals)
   @JoinColumn({ name: 'car_id' })
-  car: Car;
+  car!: Car;
 
   @Column({ type: 'timestamp' })
-  startDate: Date;
+  startDate!: Date;
 
   @Column({ type: 'timestamp' })
-  expectedEndDate: Date;
+  expectedEndDate!: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  actualEndDate: Date;
+  actualEndDate?: Date;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  depositAmount: number;
+  depositAmount!: number;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  totalCost: number;
+  totalCost!: number;
 
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
-  penaltyAmount: number;
+  penaltyAmount!: number;
 
   @Column({
     type: 'enum',
     enum: RentalStatus,
     default: RentalStatus.ACTIVE,
   })
-  status: RentalStatus;
+  status!: RentalStatus;
 
   @OneToMany(() => Penalty, (penalty) => penalty.rental)
-  penalties: Penalty[];
+  penalties!: Penalty[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 

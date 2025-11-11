@@ -1,18 +1,17 @@
 import { BaseRepository } from './BaseRepository';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { Repository } from 'typeorm';
-import { DatabaseConnection } from '../database/DatabaseConnection';
 
 /**
  * Repository for working with rentals
  */
 export class RentalRepository extends BaseRepository<Rental> {
-  private rentalRepository: Repository<Rental>;
+  private get rentalRepository(): Repository<Rental> {
+    return this.repository;
+  }
 
   constructor() {
     super(Rental);
-    const dataSource = DatabaseConnection.getInstance().getDataSource();
-    this.rentalRepository = dataSource.getRepository(Rental);
   }
 
   /**

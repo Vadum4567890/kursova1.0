@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { DatabaseConnection } from './database/DatabaseConnection';
 import { Logger } from './utils/Logger';
 import { swaggerSpec } from './config/swagger';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import carRoutes from './routes/carRoutes';
 import clientRoutes from './routes/clientRoutes';
 import rentalRoutes from './routes/rentalRoutes';
@@ -20,10 +21,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for Swagger UI
+}));
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
-  credentials: true
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -51,6 +56,10 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/rentals', rentalRoutes);
 app.use('/api/penalties', penaltyRoutes);
 app.use('/api/reports', reportRoutes);
+
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Server initialization
 async function startServer() {

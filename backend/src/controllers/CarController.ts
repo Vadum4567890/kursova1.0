@@ -13,24 +13,32 @@ export class CarController {
   }
 
   /**
-   * GET /api/cars - Get all cars
+   * GET /api/cars - Get all cars with pagination and filtering
    */
   getAllCars = async (req: Request, res: Response): Promise<void> => {
     try {
-      const cars = await this.carService.getAllCars();
-      res.json(cars);
+      const pagination = req.pagination;
+      const filters = req.filters || {};
+      const sort = req.sort || { field: 'id', order: 'ASC' };
+      
+      const result = await this.carService.getAllCars(pagination, filters, sort);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   };
 
   /**
-   * GET /api/cars/available - Get available cars
+   * GET /api/cars/available - Get available cars with pagination
    */
   getAvailableCars = async (req: Request, res: Response): Promise<void> => {
     try {
-      const cars = await this.carService.getAvailableCars();
-      res.json(cars);
+      const pagination = req.pagination;
+      const filters = req.filters || {};
+      const sort = req.sort || { field: 'id', order: 'ASC' };
+      
+      const result = await this.carService.getAvailableCars(pagination, filters, sort);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -42,6 +50,11 @@ export class CarController {
   getCarById = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
+      if (isNaN(id) || id <= 0) {
+        res.status(400).json({ error: 'Invalid ID' });
+        return;
+      }
+      
       const car = await this.carService.getCarById(id);
       
       if (!car) {
@@ -61,8 +74,14 @@ export class CarController {
   getCarsByType = async (req: Request, res: Response): Promise<void> => {
     try {
       const type = req.params.type as CarType;
-      const cars = await this.carService.getCarsByType(type);
-      res.json(cars);
+      if (!Object.values(CarType).includes(type)) {
+        res.status(400).json({ error: `Invalid car type. Must be one of: ${Object.values(CarType).join(', ')}` });
+        return;
+      }
+      
+      const pagination = req.pagination;
+      const result = await this.carService.getCarsByType(type, pagination);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
