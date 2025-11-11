@@ -14,10 +14,59 @@ export class CarService {
   }
 
   /**
-   * Get all cars
+   * Get all cars with pagination and filtering
    */
-  async getAllCars(): Promise<Car[]> {
-    return await this.carRepository.findAll();
+  async getAllCars(
+    pagination?: { page: number; limit: number; offset: number },
+    filters?: { [key: string]: any },
+    sort?: { field: string; order: 'ASC' | 'DESC' }
+  ): Promise<any> {
+    if (!pagination) {
+      // Return all without pagination (backward compatibility)
+      return await this.carRepository.findAll();
+    }
+
+    // Apply filters and get total count
+    const query = this.carRepository.getRepository().createQueryBuilder('car');
+    
+    if (filters?.type) {
+      query.andWhere('car.type = :type', { type: filters.type });
+    }
+    if (filters?.status) {
+      query.andWhere('car.status = :status', { status: filters.status });
+    }
+    if (filters?.brand) {
+      query.andWhere('car.brand ILIKE :brand', { brand: `%${filters.brand}%` });
+    }
+    if (filters?.model) {
+      query.andWhere('car.model ILIKE :model', { model: `%${filters.model}%` });
+    }
+
+    // Get total count
+    const total = await query.getCount();
+
+    // Apply sorting
+    const sortField = sort?.field || 'id';
+    const sortOrder = sort?.order || 'ASC';
+    query.orderBy(`car.${sortField}`, sortOrder);
+
+    // Apply pagination
+    query.skip(pagination.offset).take(pagination.limit);
+
+    const cars = await query.getMany();
+
+    // Return paginated response
+    return {
+      data: cars,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1,
+      },
+    };
   }
 
   /**
@@ -28,17 +77,81 @@ export class CarService {
   }
 
   /**
-   * Get available cars
+   * Get available cars with pagination
    */
-  async getAvailableCars(): Promise<Car[]> {
-    return await this.carRepository.findAvailableCars();
+  async getAvailableCars(
+    pagination?: { page: number; limit: number; offset: number },
+    filters?: { [key: string]: any },
+    sort?: { field: string; order: 'ASC' | 'DESC' }
+  ): Promise<any> {
+    if (!pagination) {
+      return await this.carRepository.findAvailableCars();
+    }
+
+    const query = this.carRepository.getRepository().createQueryBuilder('car')
+      .where('car.status = :status', { status: 'available' });
+
+    if (filters?.type) {
+      query.andWhere('car.type = :type', { type: filters.type });
+    }
+    if (filters?.brand) {
+      query.andWhere('car.brand ILIKE :brand', { brand: `%${filters.brand}%` });
+    }
+
+    const total = await query.getCount();
+
+    const sortField = sort?.field || 'id';
+    const sortOrder = sort?.order || 'ASC';
+    query.orderBy(`car.${sortField}`, sortOrder);
+
+    query.skip(pagination.offset).take(pagination.limit);
+
+    const cars = await query.getMany();
+
+    return {
+      data: cars,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1,
+      },
+    };
   }
 
   /**
-   * Get cars by type
+   * Get cars by type with pagination
    */
-  async getCarsByType(type: CarType): Promise<Car[]> {
-    return await this.carRepository.findByType(type);
+  async getCarsByType(
+    type: CarType,
+    pagination?: { page: number; limit: number; offset: number }
+  ): Promise<any> {
+    if (!pagination) {
+      return await this.carRepository.findByType(type);
+    }
+
+    const query = this.carRepository.getRepository().createQueryBuilder('car')
+      .where('car.type = :type', { type });
+
+    const total = await query.getCount();
+    query.orderBy('car.id', 'ASC');
+    query.skip(pagination.offset).take(pagination.limit);
+
+    const cars = await query.getMany();
+
+    return {
+      data: cars,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1,
+      },
+    };
   }
 
   /**

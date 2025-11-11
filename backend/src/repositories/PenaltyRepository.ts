@@ -1,18 +1,17 @@
 import { BaseRepository } from './BaseRepository';
 import { Penalty } from '../models/Penalty.entity';
 import { Repository } from 'typeorm';
-import { DatabaseConnection } from '../database/DatabaseConnection';
 
 /**
  * Repository for working with penalties
  */
 export class PenaltyRepository extends BaseRepository<Penalty> {
-  private penaltyRepository: Repository<Penalty>;
+  private get penaltyRepository(): Repository<Penalty> {
+    return this.repository;
+  }
 
   constructor() {
     super(Penalty);
-    const dataSource = DatabaseConnection.getInstance().getDataSource();
-    this.penaltyRepository = dataSource.getRepository(Penalty);
   }
 
   /**

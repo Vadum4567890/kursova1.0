@@ -1,8 +1,13 @@
+import 'reflect-metadata';
+import dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 import { Car } from '../models/Car.entity';
 import { Client } from '../models/Client.entity';
 import { Rental } from '../models/Rental.entity';
 import { Penalty } from '../models/Penalty.entity';
+
+// Load environment variables
+dotenv.config();
 
 export const AppDataSource = new DataSource({
   type: 'postgres',

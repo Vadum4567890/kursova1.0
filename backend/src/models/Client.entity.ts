@@ -4,27 +4,27 @@ import { Rental } from './Rental.entity';
 @Entity('clients')
 export class Client {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column()
-  fullName: string;
+  fullName!: string;
 
   @Column()
-  address: string;
+  address!: string;
 
   @Column()
-  phone: string;
+  phone!: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  registrationDate: Date;
+  registrationDate!: Date;
 
   @OneToMany(() => Rental, (rental) => rental.client)
-  rentals: Rental[];
+  rentals!: Rental[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 

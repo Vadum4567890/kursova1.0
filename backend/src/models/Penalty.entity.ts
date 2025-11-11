@@ -4,22 +4,22 @@ import { Rental } from './Rental.entity';
 @Entity('penalties')
 export class Penalty {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @ManyToOne(() => Rental, (rental) => rental.penalties)
   @JoinColumn({ name: 'rental_id' })
-  rental: Rental;
+  rental!: Rental;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  amount: number;
+  amount!: number;
 
   @Column()
-  reason: string;
+  reason!: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  date: Date;
+  date!: Date;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
+  createdAt!: Date;
 }
 

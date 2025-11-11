@@ -1,4 +1,4 @@
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, ObjectLiteral, DataSource } from 'typeorm';
 import { IRepository } from './IRepository';
 import { DatabaseConnection } from '../database/DatabaseConnection';
 
@@ -6,12 +6,20 @@ import { DatabaseConnection } from '../database/DatabaseConnection';
  * Base repository with CRUD operations implementation
  * Uses Repository Pattern for data access abstraction
  */
-export abstract class BaseRepository<T> implements IRepository<T> {
-  protected repository: Repository<T>;
+export abstract class BaseRepository<T extends ObjectLiteral> implements IRepository<T> {
+  protected entity: new () => T;
+  private _repository: Repository<T> | null = null;
 
   constructor(entity: new () => T) {
-    const dataSource = DatabaseConnection.getInstance().getDataSource();
-    this.repository = dataSource.getRepository(entity);
+    this.entity = entity;
+  }
+
+  protected get repository(): Repository<T> {
+    if (!this._repository) {
+      const dataSource = DatabaseConnection.getInstance().getDataSource();
+      this._repository = dataSource.getRepository(this.entity);
+    }
+    return this._repository;
   }
 
   async findAll(): Promise<T[]> {
@@ -20,13 +28,15 @@ export abstract class BaseRepository<T> implements IRepository<T> {
 
   async findById(id: number): Promise<T | null> {
     return await this.repository.findOne({
-      where: { id } as FindOptionsWhere<T>,
+      where: { id } as unknown as FindOptionsWhere<T>,
     } as any);
   }
 
   async create(entity: Partial<T>): Promise<T> {
     const newEntity = this.repository.create(entity as any);
-    return await this.repository.save(newEntity);
+    const saved = await this.repository.save(newEntity);
+    // save can return T or T[], ensure we return single entity
+    return Array.isArray(saved) ? saved[0] : saved;
   }
 
   async update(id: number, entity: Partial<T>): Promise<T> {

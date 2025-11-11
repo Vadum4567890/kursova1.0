@@ -1,18 +1,17 @@
 import { BaseRepository } from './BaseRepository';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { Repository } from 'typeorm';
-import { DatabaseConnection } from '../database/DatabaseConnection';
 
 /**
  * Repository for working with rentals
  */
 export class RentalRepository extends BaseRepository<Rental> {
-  private rentalRepository: Repository<Rental>;
+  private get rentalRepository(): Repository<Rental> {
+    return this.repository;
+  }
 
   constructor() {
     super(Rental);
-    const dataSource = DatabaseConnection.getInstance().getDataSource();
-    this.rentalRepository = dataSource.getRepository(Rental);
   }
 
   /**
@@ -68,6 +67,22 @@ export class RentalRepository extends BaseRepository<Rental> {
       .where('rental.startDate >= :startDate', { startDate })
       .andWhere('rental.startDate <= :endDate', { endDate })
       .getMany();
+  }
+
+  /**
+   * Find all rentals with relations loaded
+   */
+  async findAllWithRelations(): Promise<Rental[]> {
+    return await this.rentalRepository.find({
+      relations: ['client', 'car'],
+    });
+  }
+
+  /**
+   * Get repository instance for query builder access
+   */
+  getRepository() {
+    return this.rentalRepository;
   }
 }
 

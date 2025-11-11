@@ -1,0 +1,58 @@
+import { Router } from 'express';
+import { ReportController } from '../controllers/ReportController';
+
+const router = Router();
+const reportController = new ReportController();
+
+/**
+ * @swagger
+ * /api/reports/financial:
+ *   get:
+ *     summary: Generate financial report
+ *     tags: [Reports]
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-01-01"
+ *         description: Start date in ISO format (YYYY-MM-DD) or any valid date string
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-12-31"
+ *         description: End date in ISO format (YYYY-MM-DD) or any valid date string
+ *     responses:
+ *       200:
+ *         description: Financial report generated
+ */
+router.get('/financial', reportController.generateFinancialReport);
+
+/**
+ * @swagger
+ * /api/reports/occupancy:
+ *   get:
+ *     summary: Generate occupancy report
+ *     tags: [Reports]
+ *     responses:
+ *       200:
+ *         description: Occupancy report generated
+ */
+router.get('/occupancy', reportController.generateOccupancyReport);
+
+/**
+ * @swagger
+ * /api/reports/availability:
+ *   get:
+ *     summary: Generate availability report
+ *     tags: [Reports]
+ *     responses:
+ *       200:
+ *         description: Availability report generated
+ */
+router.get('/availability', reportController.generateAvailabilityReport);
+
+export default router;
