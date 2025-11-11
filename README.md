@@ -254,17 +254,15 @@ ER-діаграма та детальний опис див. в документ
 
 ## 👤 Автор
 
-[Ваше ім'я]
+Vadum4567890
 
 ## 📞 Контакти
 
-[Ваш email]
+GitHub: [@Vadum4567890](https://github.com/Vadum4567890)
 
 ## 🔗 GitHub
 
-Репозиторій проекту: [https://github.com/YOUR_USERNAME/kursova1.0](https://github.com/YOUR_USERNAME/kursova1.0)
-
-**Примітка**: Замініть `YOUR_USERNAME` на ваш GitHub username після створення репозиторію.
+Репозиторій проекту: [https://github.com/Vadum4567890/kursova1.0](https://github.com/Vadum4567890/kursova1.0)
 
 Інструкції з налаштування GitHub див. в [GITHUB_SETUP.md](./GITHUB_SETUP.md)
 
