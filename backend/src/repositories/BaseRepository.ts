@@ -1,4 +1,4 @@
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, ObjectLiteral } from 'typeorm';
 import { IRepository } from './IRepository';
 import { DatabaseConnection } from '../database/DatabaseConnection';
 
@@ -6,7 +6,7 @@ import { DatabaseConnection } from '../database/DatabaseConnection';
  * Base repository with CRUD operations implementation
  * Uses Repository Pattern for data access abstraction
  */
-export abstract class BaseRepository<T> implements IRepository<T> {
+export abstract class BaseRepository<T extends ObjectLiteral> implements IRepository<T> {
   protected repository: Repository<T>;
 
   constructor(entity: new () => T) {
@@ -26,7 +26,8 @@ export abstract class BaseRepository<T> implements IRepository<T> {
 
   async create(entity: Partial<T>): Promise<T> {
     const newEntity = this.repository.create(entity as any);
-    return await this.repository.save(newEntity);
+    const saved = await this.repository.save(newEntity);
+    return saved;
   }
 
   async update(id: number, entity: Partial<T>): Promise<T> {
