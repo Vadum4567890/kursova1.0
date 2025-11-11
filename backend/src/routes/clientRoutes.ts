@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ClientController } from '../controllers/ClientController';
 import { validateId, validateClientData } from '../middleware/validation';
 import { paginationMiddleware } from '../middleware/pagination';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
 
 const router = Router();
 const clientController = new ClientController();
@@ -80,7 +82,7 @@ router.get('/:id', clientController.getClientById);
  *       201:
  *         description: Client created successfully
  */
-router.post('/', clientController.createClient);
+router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateClientData, clientController.createClient);
 
 /**
  * @swagger
@@ -122,7 +124,7 @@ router.post('/register', clientController.registerOrGetClient);
  *       200:
  *         description: Client updated successfully
  */
-router.put('/:id', clientController.updateClient);
+router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, clientController.updateClient);
 
 /**
  * @swagger
@@ -142,6 +144,6 @@ router.put('/:id', clientController.updateClient);
  *       404:
  *         description: Client not found
  */
-router.delete('/:id', clientController.deleteClient);
+router.delete('/:id', authenticate, authorize(UserRole.ADMIN), validateId, clientController.deleteClient);
 
 export default router;
