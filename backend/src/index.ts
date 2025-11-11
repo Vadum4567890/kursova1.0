@@ -13,6 +13,8 @@ import clientRoutes from './routes/clientRoutes';
 import rentalRoutes from './routes/rentalRoutes';
 import penaltyRoutes from './routes/penaltyRoutes';
 import reportRoutes from './routes/reportRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import searchRoutes from './routes/searchRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +58,8 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/rentals', rentalRoutes);
 app.use('/api/penalties', penaltyRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/search', searchRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
@@ -71,10 +75,31 @@ async function startServer() {
     const logger = Logger.getInstance();
     logger.log('Database connected successfully', 'info');
 
-    // Start server
-    app.listen(PORT, () => {
+    // Start server with error handling for port conflicts
+    const server = app.listen(PORT, () => {
       logger.log(`Server is running on port ${PORT}`, 'info');
-      console.log(`🚀 Server started at http://localhost:${PORT}`);
+      logger.log(`🚀 Server started at http://localhost:${PORT}`, 'info');
+    });
+
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        const portNumber = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
+        logger.log(`Port ${PORT} is already in use. Trying alternative port ${portNumber + 1}...`, 'warn');
+        // Try next available port
+        const alternativePort = portNumber + 1;
+        const altServer = app.listen(alternativePort, () => {
+          logger.log(`Server is running on alternative port ${alternativePort}`, 'info');
+          logger.log(`🚀 Server started at http://localhost:${alternativePort}`, 'info');
+        });
+        altServer.on('error', (altErr: NodeJS.ErrnoException) => {
+          logger.log(`Failed to start server on alternative port: ${altErr.message}`, 'error');
+          logger.log('Please free up port 3000 or set a different PORT in .env', 'error');
+          process.exit(1);
+        });
+      } else {
+        logger.log(`Server error: ${err.message}`, 'error');
+        process.exit(1);
+      }
     });
   } catch (error) {
     const logger = Logger.getInstance();

@@ -68,5 +68,21 @@ export class RentalRepository extends BaseRepository<Rental> {
       .andWhere('rental.startDate <= :endDate', { endDate })
       .getMany();
   }
+
+  /**
+   * Find all rentals with relations loaded
+   */
+  async findAllWithRelations(): Promise<Rental[]> {
+    return await this.rentalRepository.find({
+      relations: ['client', 'car'],
+    });
+  }
+
+  /**
+   * Get repository instance for query builder access
+   */
+  getRepository() {
+    return this.rentalRepository;
+  }
 }
 

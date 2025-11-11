@@ -43,5 +43,12 @@ export class CarRepository extends BaseRepository<Car> {
   async updateStatus(id: number, status: CarStatus): Promise<Car> {
     return await this.update(id, { status } as Partial<Car>);
   }
+
+  /**
+   * Get repository instance for query builder access
+   */
+  getRepository() {
+    return this.repository;
+  }
 }
 
