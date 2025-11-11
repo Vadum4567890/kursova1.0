@@ -13,6 +13,8 @@ import clientRoutes from './routes/clientRoutes';
 import rentalRoutes from './routes/rentalRoutes';
 import penaltyRoutes from './routes/penaltyRoutes';
 import reportRoutes from './routes/reportRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import searchRoutes from './routes/searchRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +58,8 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/rentals', rentalRoutes);
 app.use('/api/penalties', penaltyRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/search', searchRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
