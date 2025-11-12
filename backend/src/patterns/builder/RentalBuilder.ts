@@ -23,16 +23,29 @@ export class RentalBuilder {
    */
   public setCar(car: Car): this {
     this.rental.car = car;
-    this.rental.depositAmount = car.deposit;
+    // Deposit will be calculated based on rental duration in setDates
     return this;
   }
 
   /**
-   * Set rental dates
+   * Set rental dates and calculate deposit based on duration
    */
   public setDates(startDate: Date, expectedEndDate: Date): this {
     this.rental.startDate = startDate;
     this.rental.expectedEndDate = expectedEndDate;
+    
+    // Calculate deposit: base deposit + additional amount per day
+    if (this.rental.car) {
+      const days = Math.ceil(
+        (expectedEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const baseDeposit = parseFloat(this.rental.car.deposit.toString());
+      // Additional deposit: 15% of daily price per additional day (starting from day 2)
+      const additionalPerDay = parseFloat(this.rental.car.pricePerDay.toString()) * 0.15;
+      const additionalDeposit = additionalPerDay * Math.max(0, days - 1); // First day is covered by base deposit
+      this.rental.depositAmount = baseDeposit + additionalDeposit;
+    }
+    
     return this;
   }
 

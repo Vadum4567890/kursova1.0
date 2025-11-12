@@ -87,27 +87,7 @@ async function seed() {
         deposit: 3000,
         status: CarStatus.AVAILABLE,
         description: 'Надійний економ-клас, ідеальний для міста',
-        imageUrl: 'https://example.com/toyota-corolla.jpg',
-      }),
-      carRepository.create({
-        brand: 'Hyundai',
-        model: 'Elantra',
-        year: 2019,
-        type: CarType.ECONOMY,
-        pricePerDay: 750,
-        deposit: 3000,
-        status: CarStatus.AVAILABLE,
-        description: 'Комфортний седан економ-класу',
-      }),
-      carRepository.create({
-        brand: 'Kia',
-        model: 'Rio',
-        year: 2021,
-        type: CarType.ECONOMY,
-        pricePerDay: 700,
-        deposit: 2500,
-        status: CarStatus.AVAILABLE,
-        description: 'Сучасний компактний автомобіль',
+        imageUrl: '/uploads/images/toyota-corolla.jpg',
       }),
 
       // Business cars
@@ -120,7 +100,7 @@ async function seed() {
         deposit: 10000,
         status: CarStatus.AVAILABLE,
         description: 'Преміум седан бізнес-класу',
-        imageUrl: 'https://example.com/bmw-3.jpg',
+        imageUrl: '/uploads/images/bmw-3-series.jpg',
       }),
       carRepository.create({
         brand: 'Mercedes-Benz',
@@ -131,16 +111,7 @@ async function seed() {
         deposit: 12000,
         status: CarStatus.AVAILABLE,
         description: 'Елегантний бізнес-седан',
-      }),
-      carRepository.create({
-        brand: 'Audi',
-        model: 'A4',
-        year: 2023,
-        type: CarType.BUSINESS,
-        pricePerDay: 1700,
-        deposit: 15000,
-        status: CarStatus.AVAILABLE,
-        description: 'Сучасний бізнес-седан з передовою технологією',
+        imageUrl: '/uploads/images/mercedes-c-class.jpg',
       }),
 
       // Premium cars
@@ -153,7 +124,7 @@ async function seed() {
         deposit: 20000,
         status: CarStatus.AVAILABLE,
         description: 'Розкішний позашляховик преміум-класу',
-        imageUrl: 'https://example.com/bmw-x5.jpg',
+        imageUrl: '/uploads/images/bmw-x5.jpg',
       }),
       carRepository.create({
         brand: 'Mercedes-Benz',
@@ -164,6 +135,7 @@ async function seed() {
         deposit: 25000,
         status: CarStatus.AVAILABLE,
         description: 'Флагманський седан з максимальним комфортом',
+        imageUrl: '/uploads/images/mercedes-s-class.jpg',
       }),
       carRepository.create({
         brand: 'Porsche',
@@ -174,6 +146,7 @@ async function seed() {
         deposit: 30000,
         status: CarStatus.AVAILABLE,
         description: 'Спортивний позашляховик преміум-класу',
+        imageUrl: '/uploads/images/porsche-cayenne.jpg',
       }),
 
       // Some cars in maintenance
@@ -186,6 +159,7 @@ async function seed() {
         deposit: 8000,
         status: CarStatus.MAINTENANCE,
         description: 'На обслуговуванні',
+        imageUrl: '/uploads/images/toyota-camry.jpg',
       }),
     ];
 

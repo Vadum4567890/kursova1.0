@@ -3,7 +3,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export enum UserRole {
   ADMIN = 'admin',
   MANAGER = 'manager',
-  EMPLOYEE = 'employee'
+  EMPLOYEE = 'employee',
+  USER = 'user'
 }
 
 @Entity('users')
@@ -29,6 +30,9 @@ export class User {
 
   @Column({ nullable: true })
   fullName?: string;
+
+  @Column({ nullable: true })
+  address?: string;
 
   @Column({ default: true })
   isActive!: boolean;

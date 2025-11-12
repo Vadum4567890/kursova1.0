@@ -24,7 +24,9 @@ export class AnalyticsService {
    */
   async getDashboardStats(startDate?: Date, endDate?: Date): Promise<any> {
     const now = new Date();
-    const start = startDate || new Date(now.getFullYear(), now.getMonth(), 1);
+    // If no dates provided, calculate for all time (don't filter by date)
+    const useDateFilter = !!startDate || !!endDate;
+    const start = startDate || new Date(2000, 0, 1);
     const end = endDate || now;
 
     const [
@@ -38,7 +40,7 @@ export class AnalyticsService {
       this.carRepository.findAll(),
       this.carRepository.findAvailableCars(),
       this.rentalRepository.findActiveRentals(),
-      this.getTotalRevenue(start, end),
+      this.getTotalRevenue(start, end, useDateFilter),
       this.getTotalPenalties(start, end),
       this.getTotalDeposits(),
     ]);
@@ -54,32 +56,23 @@ export class AnalyticsService {
     const occupancyRate = await this.calculateOccupancyRate();
 
     return {
-      overview: {
-        totalCars: totalCars.length,
-        availableCars: availableCars.length,
-        rentedCars: totalCars.filter(c => c.status === CarStatus.RENTED).length,
-        maintenanceCars: totalCars.filter(c => c.status === CarStatus.MAINTENANCE).length,
-        totalClients: totalClients.length,
-        activeRentals: activeRentals.length,
-        completedRentals: completedRentals.length,
-      },
-      financial: {
-        totalRevenue: totalRevenue,
-        totalPenalties: totalPenalties,
-        totalDeposits: totalDeposits,
-        netRevenue: totalRevenue + totalPenalties,
-      },
-      metrics: {
-        averageRentalDuration: avgRentalDuration,
-        occupancyRate: occupancyRate,
-        averageRevenuePerRental: completedRentals.length > 0 
-          ? totalRevenue / completedRentals.length 
-          : 0,
-      },
-      period: {
-        startDate: start,
-        endDate: end,
-      },
+      totalCars: totalCars.length,
+      availableCars: availableCars.length,
+      rentedCars: totalCars.filter(c => c.status === CarStatus.RENTED).length,
+      maintenanceCars: totalCars.filter(c => c.status === CarStatus.MAINTENANCE).length,
+      totalClients: totalClients.length,
+      activeRentals: activeRentals.length,
+      completedRentals: completedRentals.length,
+      totalRevenue: totalRevenue,
+      totalPenalties: totalPenalties,
+      totalDeposits: totalDeposits,
+      // Net revenue includes: completed rentals + active rentals (expected) + deposits + penalties
+      netRevenue: totalRevenue,
+      averageRentalDuration: avgRentalDuration,
+      occupancyRate: occupancyRate,
+      averageRevenuePerRental: completedRentals.length > 0 
+        ? totalRevenue / completedRentals.length 
+        : 0,
     };
   }
 
@@ -149,9 +142,30 @@ export class AnalyticsService {
         };
       }
       carRentalCount[carId].count++;
+      
+      // Calculate net revenue: cost + penalties - deposit return
+      // Deposit is NOT revenue - it's money we need to return (minus penalties if any)
+      let revenue = 0;
+      const deposit = Number(rental.depositAmount || 0);
+      const cost = Number(rental.totalCost || 0);
+      const penalty = Number(rental.penaltyAmount || 0);
+      
       if (rental.status === RentalStatus.COMPLETED) {
-        carRentalCount[carId].revenue += Number(rental.totalCost || 0);
+        // Completed: actual cost + penalties - deposit return
+        // Deposit return = deposit - penalties (if penalties exceed deposit, return 0)
+        const depositToReturn = Math.max(0, deposit - penalty);
+        revenue = cost + penalty - depositToReturn;
+      } else if (rental.status === RentalStatus.ACTIVE) {
+        // Active: expected cost (deposit will be returned if no penalties)
+        // Net revenue = cost (deposit is not revenue, it will be returned)
+        revenue = cost;
+      } else if (rental.status === RentalStatus.CANCELLED) {
+        // Cancelled: charge for actual days used + penalties - deposit return
+        const depositToReturn = Math.max(0, deposit - penalty);
+        revenue = cost + penalty - depositToReturn;
       }
+      
+      carRentalCount[carId].revenue += revenue;
     });
 
     return Object.values(carRentalCount)
@@ -170,13 +184,24 @@ export class AnalyticsService {
   }
 
   /**
-   * Get top clients (most active)
+   * Get top clients (most active) with detailed financial information
    */
   async getTopClients(limit: number = 10): Promise<any[]> {
     // Get all rentals with relations loaded
     const rentals = await this.rentalRepository.findAllWithRelations();
     
-    const clientRentalCount: { [key: number]: { client: any; count: number; totalSpent: number } } = {};
+    const clientRentalCount: { 
+      [key: number]: { 
+        client: any; 
+        count: number; 
+        totalReceived: number;  // Total money received from client
+        totalCost: number;      // Total rental cost (without deposit)
+        totalPenalties: number; // Total penalties
+        totalDeposits: number;  // Total deposits paid
+        totalToReturn: number;  // Total deposit to return (deposit - penalties if any)
+        netRevenue: number;     // Net revenue (cost + penalties - deposit return)
+      } 
+    } = {};
 
     rentals.forEach((rental: Rental) => {
       // Check if client relation is loaded
@@ -189,27 +214,96 @@ export class AnalyticsService {
         clientRentalCount[clientId] = {
           client: rental.client,
           count: 0,
-          totalSpent: 0,
+          totalReceived: 0,
+          totalCost: 0,
+          totalPenalties: 0,
+          totalDeposits: 0,
+          totalToReturn: 0,
+          netRevenue: 0,
         };
       }
-      clientRentalCount[clientId].count++;
+      
+      const stats = clientRentalCount[clientId];
+      stats.count++;
+      
+      const deposit = Number(rental.depositAmount || 0);
+      const cost = Number(rental.totalCost || 0);
+      const penalty = Number(rental.penaltyAmount || 0);
+      
+      // Accumulate values
+      stats.totalDeposits += deposit;
+      stats.totalPenalties += penalty;
+      
       if (rental.status === RentalStatus.COMPLETED) {
-        clientRentalCount[clientId].totalSpent += Number(rental.totalCost || 0) + Number(rental.penaltyAmount || 0);
+        // Completed rental: actual cost + penalties
+        stats.totalCost += cost;
+        
+        // Calculate deposit return: deposit minus penalties (if penalties exceed deposit, return 0)
+        const depositToReturn = Math.max(0, deposit - penalty);
+        stats.totalToReturn += depositToReturn;
+        
+        // Net revenue: cost + penalties - deposit return
+        stats.netRevenue += cost + penalty - depositToReturn;
+        
+        // Total received: deposit + cost + penalty (client paid everything)
+        stats.totalReceived += deposit + cost + penalty;
+      } else if (rental.status === RentalStatus.ACTIVE) {
+        // Active rental: expected cost
+        stats.totalCost += cost;
+        
+        // Total received: deposit + expected cost (client has paid both)
+        stats.totalReceived += deposit + cost;
+        
+        // Deposit will be returned if no penalties (we don't know yet)
+        // For display, we assume full deposit return for active rentals
+        stats.totalToReturn += deposit;
+        
+        // Net revenue: total received minus what we need to return
+        // For active rentals: (deposit + cost) - deposit = cost
+        // This represents expected revenue, will be adjusted when completed
+        // Calculate as: totalReceived - totalToReturn to ensure consistency
+        const expectedNetRevenue = (deposit + cost) - deposit; // = cost
+        stats.netRevenue += expectedNetRevenue;
+      } else if (rental.status === RentalStatus.CANCELLED) {
+        // Cancelled rental: charge for actual days used
+        stats.totalCost += cost;
+        
+        // Calculate deposit return: deposit minus penalties (if any)
+        const depositToReturn = Math.max(0, deposit - penalty);
+        stats.totalToReturn += depositToReturn;
+        
+        // Net revenue: cost + penalties - deposit return
+        stats.netRevenue += cost + penalty - depositToReturn;
+        
+        // Total received: deposit + cost + penalty (if any)
+        stats.totalReceived += deposit + cost + penalty;
       }
     });
 
     return Object.values(clientRentalCount)
-      .sort((a, b) => b.totalSpent - a.totalSpent)
-      .slice(0, limit)
-      .map(item => ({
-        client: {
-          id: item.client.id,
-          fullName: item.client.fullName,
-          phone: item.client.phone,
-        },
-        rentalCount: item.count,
-        totalSpent: item.totalSpent,
-      }));
+      .map(item => {
+        // Recalculate netRevenue as totalReceived - totalToReturn for consistency
+        // This ensures netRevenue always reflects actual profit
+        const calculatedNetRevenue = item.totalReceived - item.totalToReturn;
+        
+        return {
+          client: {
+            id: item.client.id,
+            fullName: item.client.fullName,
+            phone: item.client.phone,
+          },
+          rentalCount: item.count,
+          totalSpent: item.totalReceived, // For backward compatibility
+          totalReceived: item.totalReceived,
+          totalCost: item.totalCost,
+          totalPenalties: item.totalPenalties,
+          totalDeposits: item.totalDeposits,
+          totalToReturn: item.totalToReturn,
+          netRevenue: calculatedNetRevenue, // Use calculated value for consistency
+        };
+      })
+      .sort((a, b) => b.netRevenue - a.netRevenue)
+      .slice(0, limit);
   }
 
   /**
@@ -226,12 +320,63 @@ export class AnalyticsService {
 
   /**
    * Get total revenue for period
+   * Simply sums up netRevenue from all clients (from getTopClients)
+   * This is the cleanest approach: total revenue = sum of all clients' net revenue
    */
-  private async getTotalRevenue(startDate: Date, endDate: Date): Promise<number> {
-    const rentals = await this.rentalRepository.findByDateRange(startDate, endDate);
-    return rentals
-      .filter(r => r.status === RentalStatus.COMPLETED)
-      .reduce((sum, rental) => sum + Number(rental.totalCost), 0);
+  private async getTotalRevenue(startDate: Date, endDate: Date, useDateFilter: boolean = true): Promise<number> {
+    // Get all clients with their net revenue
+    // Use a very large limit to get all clients
+    const allClients = await this.getTopClients(10000);
+    
+    // If date filter is used, we need to recalculate for filtered period
+    if (useDateFilter) {
+      // Get all rentals and filter by date
+      const allRentals = await this.rentalRepository.findAllWithRelations();
+      const clientNetRevenue: { [key: number]: number } = {};
+      
+      allRentals.forEach(rental => {
+        if (!rental.client || !rental.client.id) return;
+        
+        const deposit = Number(rental.depositAmount || 0);
+        const cost = Number(rental.totalCost || 0);
+        const penalty = Number(rental.penaltyAmount || 0);
+        
+        // Check if rental should be included in this period
+        let includeInPeriod = false;
+        
+        if (rental.status === RentalStatus.COMPLETED) {
+          const completionDate = rental.actualEndDate || rental.expectedEndDate;
+          includeInPeriod = completionDate >= startDate && completionDate <= endDate;
+        } else if (rental.status === RentalStatus.ACTIVE) {
+          includeInPeriod = rental.startDate >= startDate && rental.startDate <= endDate;
+        } else if (rental.status === RentalStatus.CANCELLED) {
+          const cancellationDate = rental.actualEndDate || rental.expectedEndDate;
+          includeInPeriod = cancellationDate >= startDate && cancellationDate <= endDate;
+        }
+        
+        if (includeInPeriod) {
+          if (!clientNetRevenue[rental.client.id]) {
+            clientNetRevenue[rental.client.id] = 0;
+          }
+          
+          if (rental.status === RentalStatus.COMPLETED) {
+            const depositToReturn = Math.max(0, deposit - penalty);
+            clientNetRevenue[rental.client.id] += cost + penalty - depositToReturn;
+          } else if (rental.status === RentalStatus.ACTIVE) {
+            clientNetRevenue[rental.client.id] += cost;
+          } else if (rental.status === RentalStatus.CANCELLED) {
+            const depositToReturn = Math.max(0, deposit - penalty);
+            clientNetRevenue[rental.client.id] += cost + penalty - depositToReturn;
+          }
+        }
+      });
+      
+      // Sum up all clients' net revenue
+      return Object.values(clientNetRevenue).reduce((sum, revenue) => sum + revenue, 0);
+    } else {
+      // No date filter: simply sum up netRevenue from all clients
+      return allClients.reduce((sum, client) => sum + client.netRevenue, 0);
+    }
   }
 
   /**

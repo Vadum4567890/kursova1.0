@@ -51,7 +51,38 @@ export class Car {
   description?: string;
 
   @Column({ nullable: true })
-  imageUrl?: string;
+  imageUrl?: string; // Main image (for backward compatibility)
+
+  @Column({ type: 'text', nullable: true })
+  imageUrls?: string; // Multiple images (JSON array stored as text)
+
+  // Additional car specifications (optional)
+  @Column({ nullable: true })
+  bodyType?: string; // sedan, hatchback, suv, coupe, etc.
+
+  @Column({ nullable: true })
+  driveType?: string; // front-wheel, rear-wheel, all-wheel
+
+  @Column({ nullable: true })
+  transmission?: string; // manual, automatic, cvt
+
+  @Column({ nullable: true })
+  engine?: string; // 1.4, 2.0, etc.
+
+  @Column({ nullable: true })
+  fuelType?: string; // gasoline, diesel, hybrid, electric
+
+  @Column({ nullable: true, type: 'int' })
+  seats?: number;
+
+  @Column({ nullable: true, type: 'int' })
+  mileage?: number; // in km
+
+  @Column({ nullable: true })
+  color?: string;
+
+  @Column({ nullable: true, type: 'text' })
+  features?: string; // JSON string or comma-separated features
 
   @OneToMany(() => Rental, (rental) => rental.car)
   rentals!: Rental[];

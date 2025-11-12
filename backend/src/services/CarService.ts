@@ -23,7 +23,18 @@ export class CarService {
   ): Promise<any> {
     if (!pagination) {
       // Return all without pagination (backward compatibility)
-      return await this.carRepository.findAll();
+      const cars = await this.carRepository.findAll();
+      // Parse imageUrls for each car
+      cars.forEach(car => {
+        if (car.imageUrls && typeof car.imageUrls === 'string') {
+          try {
+            (car as any).imageUrls = JSON.parse(car.imageUrls);
+          } catch {
+            (car as any).imageUrls = [];
+          }
+        }
+      });
+      return cars;
     }
 
     // Apply filters and get total count
@@ -55,6 +66,17 @@ export class CarService {
 
     const cars = await query.getMany();
 
+    // Parse imageUrls for each car
+    cars.forEach(car => {
+      if (car.imageUrls && typeof car.imageUrls === 'string') {
+        try {
+          (car as any).imageUrls = JSON.parse(car.imageUrls);
+        } catch {
+          (car as any).imageUrls = [];
+        }
+      }
+    });
+
     // Return paginated response
     return {
       data: cars,
@@ -73,7 +95,16 @@ export class CarService {
    * Get car by ID
    */
   async getCarById(id: number): Promise<Car | null> {
-    return await this.carRepository.findById(id);
+    const car = await this.carRepository.findById(id);
+    if (car && car.imageUrls && typeof car.imageUrls === 'string') {
+      try {
+        (car as any).imageUrls = JSON.parse(car.imageUrls);
+      } catch {
+        // If parsing fails, keep as string or set to empty array
+        (car as any).imageUrls = [];
+      }
+    }
+    return car;
   }
 
   /**
@@ -85,7 +116,18 @@ export class CarService {
     sort?: { field: string; order: 'ASC' | 'DESC' }
   ): Promise<any> {
     if (!pagination) {
-      return await this.carRepository.findAvailableCars();
+      const cars = await this.carRepository.findAvailableCars();
+      // Parse imageUrls for each car
+      cars.forEach(car => {
+        if (car.imageUrls && typeof car.imageUrls === 'string') {
+          try {
+            (car as any).imageUrls = JSON.parse(car.imageUrls);
+          } catch {
+            (car as any).imageUrls = [];
+          }
+        }
+      });
+      return cars;
     }
 
     const query = this.carRepository.getRepository().createQueryBuilder('car')
@@ -108,6 +150,17 @@ export class CarService {
 
     const cars = await query.getMany();
 
+    // Parse imageUrls for each car
+    cars.forEach(car => {
+      if (car.imageUrls && typeof car.imageUrls === 'string') {
+        try {
+          (car as any).imageUrls = JSON.parse(car.imageUrls);
+        } catch {
+          (car as any).imageUrls = [];
+        }
+      }
+    });
+
     return {
       data: cars,
       pagination: {
@@ -129,7 +182,18 @@ export class CarService {
     pagination?: { page: number; limit: number; offset: number }
   ): Promise<any> {
     if (!pagination) {
-      return await this.carRepository.findByType(type);
+      const cars = await this.carRepository.findByType(type);
+      // Parse imageUrls for each car
+      cars.forEach(car => {
+        if (car.imageUrls && typeof car.imageUrls === 'string') {
+          try {
+            (car as any).imageUrls = JSON.parse(car.imageUrls);
+          } catch {
+            (car as any).imageUrls = [];
+          }
+        }
+      });
+      return cars;
     }
 
     const query = this.carRepository.getRepository().createQueryBuilder('car')
@@ -140,6 +204,17 @@ export class CarService {
     query.skip(pagination.offset).take(pagination.limit);
 
     const cars = await query.getMany();
+
+    // Parse imageUrls for each car
+    cars.forEach(car => {
+      if (car.imageUrls && typeof car.imageUrls === 'string') {
+        try {
+          (car as any).imageUrls = JSON.parse(car.imageUrls);
+        } catch {
+          (car as any).imageUrls = [];
+        }
+      }
+    });
 
     return {
       data: cars,
@@ -160,6 +235,12 @@ export class CarService {
   async createCar(data: CarData, carType: CarType = CarType.ECONOMY): Promise<Car> {
     const factory = CarFactoryProvider.getFactory(carType);
     const car = factory.registerCar(data);
+    
+    // Convert imageUrls array to JSON string if present
+    if (car.imageUrls && Array.isArray(car.imageUrls)) {
+      (car as any).imageUrls = JSON.stringify(car.imageUrls);
+    }
+    
     return await this.carRepository.create(car);
   }
 
@@ -167,13 +248,59 @@ export class CarService {
    * Update car
    */
   async updateCar(id: number, data: Partial<Car>): Promise<Car> {
-    return await this.carRepository.update(id, data);
+    // Convert imageUrls array to JSON string if present
+    const updateData = { ...data };
+    if (updateData.imageUrls !== undefined) {
+      if (Array.isArray(updateData.imageUrls) && updateData.imageUrls.length > 0) {
+        (updateData as any).imageUrls = JSON.stringify(updateData.imageUrls);
+      } else if (Array.isArray(updateData.imageUrls) && updateData.imageUrls.length === 0) {
+        // Empty array - set to null to clear it
+        (updateData as any).imageUrls = null;
+      }
+    }
+    
+    const updated = await this.carRepository.update(id, updateData);
+    
+    // Parse imageUrls back to array for response
+    if (updated.imageUrls && typeof updated.imageUrls === 'string') {
+      try {
+        (updated as any).imageUrls = JSON.parse(updated.imageUrls);
+      } catch {
+        // If parsing fails, keep as string or set to empty array
+        (updated as any).imageUrls = [];
+      }
+    } else if (!updated.imageUrls) {
+      (updated as any).imageUrls = [];
+    }
+    
+    return updated;
   }
 
   /**
    * Delete car
+   * Checks if car has active rentals before deletion
    */
   async deleteCar(id: number): Promise<boolean> {
+    // Check if car has active rentals
+    const car = await this.carRepository.findById(id);
+    if (!car) {
+      throw new Error('Car not found');
+    }
+
+    // Check for active rentals
+    const { AppDataSource } = await import('../database/data-source');
+    const { Rental } = await import('../models/Rental.entity');
+    const rentalRepository = AppDataSource.getRepository(Rental);
+    const activeRentals = await rentalRepository
+      .createQueryBuilder('rental')
+      .where('rental.car_id = :carId', { carId: id })
+      .andWhere('rental.status = :status', { status: 'active' })
+      .getCount();
+
+    if (activeRentals > 0) {
+      throw new Error(`Cannot delete car: it has ${activeRentals} active rental(s). Please complete or cancel the rentals first.`);
+    }
+
     return await this.carRepository.delete(id);
   }
 

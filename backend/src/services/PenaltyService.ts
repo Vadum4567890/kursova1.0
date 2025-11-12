@@ -16,21 +16,30 @@ export class PenaltyService {
   }
 
   /**
-   * Get all penalties
+   * Get all penalties with relations (rental, client, car)
    */
   async getAllPenalties(): Promise<Penalty[]> {
-    return await this.penaltyRepository.findAll();
+    return await this.penaltyRepository.findAllWithRelations();
   }
 
   /**
-   * Get penalty by ID
+   * Get penalty by ID with relations
    */
   async getPenaltyById(id: number): Promise<Penalty | null> {
-    return await this.penaltyRepository.findById(id);
+    const penalty = await this.penaltyRepository.findById(id);
+    if (!penalty) return null;
+    
+    // Load relations if not already loaded
+    if (!penalty.rental) {
+      const penalties = await this.penaltyRepository.findAllWithRelations();
+      return penalties.find(p => p.id === id) || penalty;
+    }
+    
+    return penalty;
   }
 
   /**
-   * Get penalties by rental ID
+   * Get penalties by rental ID with relations
    */
   async getPenaltiesByRentalId(rentalId: number): Promise<Penalty[]> {
     return await this.penaltyRepository.findByRentalId(rentalId);

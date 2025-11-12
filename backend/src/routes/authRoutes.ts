@@ -156,5 +156,73 @@ router.post('/login', authController.login);
  */
 router.get('/me', authenticate, authController.getMe);
 
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   put:
+ *     summary: Update user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               fullName:
+ *                 type: string
+ *           example:
+ *             email: "newemail@example.com"
+ *             fullName: "New Full Name"
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Bad request (validation error)
+ *       401:
+ *         description: Unauthorized
+ */
+router.put('/profile', authenticate, authController.updateProfile);
+
+/**
+ * @swagger
+ * /api/auth/password:
+ *   put:
+ *     summary: Change user password
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 6
+ *           example:
+ *             currentPassword: "oldpassword123"
+ *             newPassword: "newpassword123"
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Bad request (validation error or incorrect current password)
+ *       401:
+ *         description: Unauthorized
+ */
+router.put('/password', authenticate, authController.changePassword);
+
 export default router;
 

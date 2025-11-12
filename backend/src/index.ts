@@ -17,6 +17,8 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import searchRoutes from './routes/searchRoutes';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
+import uploadRoutes from './routes/uploadRoutes';
+import path from 'path';
 
 // Load environment variables
 dotenv.config();
@@ -26,16 +28,38 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP for Swagger UI
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "http://localhost:3000", "http://localhost:3001", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({
   origin: true, // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded images statically with CORS headers
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // Base route
 app.get('/', (req, res) => {
@@ -57,6 +81,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/cars', carRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/rentals', rentalRoutes);
@@ -87,19 +112,12 @@ async function startServer() {
 
     server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
-        const portNumber = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
-        logger.log(`Port ${PORT} is already in use. Trying alternative port ${portNumber + 1}...`, 'warn');
-        // Try next available port
-        const alternativePort = portNumber + 1;
-        const altServer = app.listen(alternativePort, () => {
-          logger.log(`Server is running on alternative port ${alternativePort}`, 'info');
-          logger.log(`🚀 Server started at http://localhost:${alternativePort}`, 'info');
-        });
-        altServer.on('error', (altErr: NodeJS.ErrnoException) => {
-          logger.log(`Failed to start server on alternative port: ${altErr.message}`, 'error');
-          logger.log('Please free up port 3000 or set a different PORT in .env', 'error');
-          process.exit(1);
-        });
+        logger.log(`❌ Port ${PORT} is already in use!`, 'error');
+        logger.log(`Please free up port ${PORT} or kill the process using it.`, 'error');
+        logger.log(`On Windows, you can run: netstat -ano | findstr :${PORT}`, 'info');
+        logger.log(`Then kill the process: taskkill /PID <PID> /F`, 'info');
+        logger.log(`Or use: npm run kill-port`, 'info');
+        process.exit(1);
       } else {
         logger.log(`Server error: ${err.message}`, 'error');
         process.exit(1);

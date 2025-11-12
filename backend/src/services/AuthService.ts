@@ -10,6 +10,7 @@ export interface RegisterData {
   email: string;
   password: string;
   fullName?: string;
+  address?: string;
   role?: UserRole;
 }
 
@@ -25,6 +26,7 @@ export interface AuthResponse {
     email: string;
     role: UserRole;
     fullName?: string;
+    address?: string;
   };
   token: string;
 }
@@ -66,7 +68,8 @@ export class AuthService {
       email: data.email,
       password: hashedPassword,
       fullName: data.fullName,
-      role: data.role || UserRole.EMPLOYEE,
+      address: data.address,
+      role: data.role || UserRole.USER,
       isActive: true
     };
 
@@ -82,7 +85,8 @@ export class AuthService {
         username: user.username,
         email: user.email,
         role: user.role,
-        fullName: user.fullName
+        fullName: user.fullName,
+        address: user.address
       },
       token
     };
@@ -120,7 +124,8 @@ export class AuthService {
         username: user.username,
         email: user.email,
         role: user.role,
-        fullName: user.fullName
+        fullName: user.fullName,
+        address: user.address
       },
       token
     };
@@ -160,6 +165,63 @@ export class AuthService {
    */
   async getUserById(id: number): Promise<User | null> {
     return await this.userRepository.findById(id);
+  }
+
+  /**
+   * Update user profile (email, fullName)
+   */
+  async updateProfile(userId: number, data: { email?: string; fullName?: string; address?: string }): Promise<User> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (data.email && data.email !== user.email) {
+      const existingUser = await this.userRepository.findByEmail(data.email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('Email already exists');
+      }
+    }
+
+    const updateData: Partial<User> = {};
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.fullName !== undefined) updateData.fullName = data.fullName;
+    if (data.address !== undefined) updateData.address = data.address;
+
+    const updated = await this.userRepository.update(userId, updateData);
+    this.logger.log(`User profile updated: ${user.username}`, 'info');
+    
+    return updated;
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long');
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await this.userRepository.update(userId, { password: hashedPassword });
+    this.logger.log(`User password changed: ${user.username}`, 'info');
   }
 }
 

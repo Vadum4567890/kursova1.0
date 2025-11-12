@@ -12,10 +12,60 @@ export class PenaltyController {
   }
 
   /**
-   * GET /api/penalties - Get all penalties
+   * GET /api/penalties - Get all penalties (or user's penalties for USER role)
    */
   getAllPenalties = async (req: Request, res: Response): Promise<void> => {
     try {
+      const user = req.user;
+      
+      // For USER role, return only penalties for their rentals
+      if (user?.role === 'user') {
+        const { RentalService } = await import('../services/RentalService');
+        const rentalService = new RentalService();
+        const { UserRepository } = await import('../repositories/UserRepository');
+        const userRepository = new UserRepository();
+        const userData = await userRepository.findById(user.id);
+        
+        // Get all rentals for user (this now finds all possible clients)
+        const rentals = await rentalService.getRentalsForUser(
+          user.id,
+          user.email,
+          userData?.fullName
+        );
+        
+        const rentalIds = rentals.map(r => r.id);
+        if (rentalIds.length === 0) {
+          res.json([]);
+          return;
+        }
+        
+        // Get penalties for user's rentals with relations loaded
+        const userPenalties = [];
+        for (const rentalId of rentalIds) {
+          const penalties = await this.penaltyService.getPenaltiesByRentalId(rentalId);
+          userPenalties.push(...penalties);
+        }
+        
+        // Remove duplicates
+        const uniquePenalties = userPenalties.filter((penalty, index, self) =>
+          index === self.findIndex(p => p.id === penalty.id)
+        );
+        
+        // Ensure all penalties have relations loaded
+        const penaltiesWithRelations = await Promise.all(
+          uniquePenalties.map(async (penalty) => {
+            if (!penalty.rental) {
+              const fullPenalty = await this.penaltyService.getPenaltyById(penalty.id);
+              return fullPenalty || penalty;
+            }
+            return penalty;
+          })
+        );
+        
+        res.json(penaltiesWithRelations);
+        return;
+      }
+      
       const penalties = await this.penaltyService.getAllPenalties();
       res.json(penalties);
     } catch (error: any) {
