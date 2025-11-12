@@ -20,7 +20,17 @@ export class PenaltyRepository extends BaseRepository<Penalty> {
   async findByRentalId(rentalId: number): Promise<Penalty[]> {
     return await this.penaltyRepository.find({
       where: { rental: { id: rentalId } } as any,
-      relations: ['rental'],
+      relations: ['rental', 'rental.client', 'rental.car'],
+    });
+  }
+
+  /**
+   * Find all penalties with relations
+   */
+  async findAllWithRelations(): Promise<Penalty[]> {
+    return await this.penaltyRepository.find({
+      relations: ['rental', 'rental.client', 'rental.car'],
+      order: { date: 'DESC' },
     });
   }
 

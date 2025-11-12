@@ -125,13 +125,108 @@ export class RentalController {
   };
 
   /**
+   * GET /api/rentals/my - Get rentals for current user (USER role)
+   */
+  getMyRentals = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = req.user;
+      if (!user) {
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
+      }
+      
+      // Get user full name from database if needed
+      const { UserRepository } = await import('../repositories/UserRepository');
+      const userRepository = new UserRepository();
+      const userData = await userRepository.findById(user.id);
+      
+      const rentals = await this.rentalService.getRentalsForUser(
+        user.id,
+        user.email,
+        userData?.fullName
+      );
+      res.json(rentals);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  /**
+   * POST /api/rentals/book - Create booking for user (USER role)
+   */
+  createBooking = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = req.user;
+      if (!user) {
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
+      }
+      
+      const { carId, startDate, expectedEndDate } = req.body;
+      
+      if (!carId || !startDate || !expectedEndDate) {
+        res.status(400).json({ error: 'Missing required fields: carId, startDate, expectedEndDate' });
+        return;
+      }
+      
+      // Get user full name from database
+      const { UserRepository } = await import('../repositories/UserRepository');
+      const userRepository = new UserRepository();
+      const userData = await userRepository.findById(user.id);
+      
+      const rental = await this.rentalService.createBookingForUser(
+        user.id,
+        user.email,
+        userData?.fullName,
+        carId,
+        new Date(startDate),
+        new Date(expectedEndDate)
+      );
+      
+      res.status(201).json(rental);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  };
+
+  /**
    * POST /api/rentals/:id/cancel - Cancel a rental
    */
   cancelRental = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
-      const rental = await this.rentalService.cancelRental(id);
-      res.json(rental);
+      const user = req.user;
+      
+      // For USER role, check if rental belongs to user
+      if (user?.role === 'user') {
+        const rental = await this.rentalService.getRentalById(id);
+        if (!rental) {
+          res.status(404).json({ error: 'Rental not found' });
+          return;
+        }
+        
+        // Get user's client
+        const { UserRepository } = await import('../repositories/UserRepository');
+        const userRepository = new UserRepository();
+        const userData = await userRepository.findById(user.id);
+        const client = await this.rentalService.getOrCreateClientForUser(
+          user.id,
+          user.email,
+          userData?.fullName
+        );
+        
+        if (rental.client.id !== client.id) {
+          res.status(403).json({ error: 'You can only cancel your own rentals' });
+          return;
+        }
+      }
+      
+      const { cancellationDate } = req.body;
+      const cancelledRental = await this.rentalService.cancelRental(
+        id,
+        cancellationDate ? new Date(cancellationDate) : undefined
+      );
+      res.json(cancelledRental);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

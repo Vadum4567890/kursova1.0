@@ -16,6 +16,16 @@ export class AppError extends Error {
   }
 }
 
+/**
+ * Wrapper for async route handlers to catch errors
+ * This ensures that errors thrown in async functions are properly passed to error handler
+ */
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
 export const errorHandler = (
   err: Error | AppError,
   req: Request,

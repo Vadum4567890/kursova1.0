@@ -24,7 +24,7 @@ const clientController = new ClientController();
  *               items:
  *                 $ref: '#/components/schemas/Client'
  */
-router.get('/', clientController.getAllClients);
+router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), clientController.getAllClients);
 
 /**
  * @swagger

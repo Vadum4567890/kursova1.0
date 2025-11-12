@@ -67,7 +67,7 @@ export class ClientController {
   createClient = async (req: Request, res: Response): Promise<void> => {
     try {
       const client = await this.clientService.createClient(req.body);
-      res.status(201).json(client);
+      res.status(201).json({ data: client });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -80,7 +80,7 @@ export class ClientController {
     try {
       const id = parseInt(req.params.id);
       const client = await this.clientService.updateClient(id, req.body);
-      res.json(client);
+      res.json({ data: client });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

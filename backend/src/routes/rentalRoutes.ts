@@ -70,6 +70,18 @@ router.get('/car/:carId', authenticate, authorize(UserRole.ADMIN, UserRole.MANAG
 
 /**
  * @swagger
+ * /api/rentals/my:
+ *   get:
+ *     summary: Get rentals for current user (USER role)
+ *     tags: [Rentals]
+ *     responses:
+ *       200:
+ *         description: List of user's rentals
+ */
+router.get('/my', authenticate, rentalController.getMyRentals);
+
+/**
+ * @swagger
  * /api/rentals/{id}:
  *   get:
  *     summary: Get rental by ID
@@ -149,6 +161,37 @@ router.post('/:id/complete', authenticate, authorize(UserRole.ADMIN, UserRole.MA
 
 /**
  * @swagger
+ * /api/rentals/book:
+ *   post:
+ *     summary: Create booking for user (USER role)
+ *     tags: [Rentals]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - carId
+ *               - startDate
+ *               - expectedEndDate
+ *             properties:
+ *               carId:
+ *                 type: integer
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               expectedEndDate:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       201:
+ *         description: Booking created successfully
+ */
+router.post('/book', authenticate, rentalController.createBooking);
+
+/**
+ * @swagger
  * /api/rentals/{id}/cancel:
  *   post:
  *     summary: Cancel a rental
@@ -163,7 +206,7 @@ router.post('/:id/complete', authenticate, authorize(UserRole.ADMIN, UserRole.MA
  *       200:
  *         description: Rental cancelled successfully
  */
-router.post('/:id/cancel', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, rentalController.cancelRental);
+router.post('/:id/cancel', authenticate, validateId, rentalController.cancelRental);
 
 /**
  * @swagger

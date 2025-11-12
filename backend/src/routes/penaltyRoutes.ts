@@ -17,7 +17,8 @@ const penaltyController = new PenaltyController();
  *       200:
  *         description: List of all penalties
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), penaltyController.getAllPenalties);
+// USER role can see their own penalties
+router.get('/', authenticate, penaltyController.getAllPenalties);
 
 /**
  * @swagger

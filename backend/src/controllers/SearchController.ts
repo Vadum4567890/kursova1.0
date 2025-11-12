@@ -18,7 +18,7 @@ export class SearchController {
     try {
       const criteria = req.body;
       const cars = await this.searchService.searchCars(criteria);
-      res.json(cars);
+      res.json({ data: cars });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -35,7 +35,7 @@ export class SearchController {
         return;
       }
       const clients = await this.searchService.searchClients(query);
-      res.json(clients);
+      res.json({ data: clients });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -51,7 +51,7 @@ export class SearchController {
       if (criteria.endDate) criteria.endDate = new Date(criteria.endDate);
       
       const rentals = await this.searchService.searchRentals(criteria);
-      res.json(rentals);
+      res.json({ data: rentals });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

@@ -47,6 +47,22 @@ router.get('/available', paginationMiddleware, filteringMiddleware(['type', 'bra
 
 /**
  * @swagger
+ * /api/cars/{id}/booked-dates:
+ *   get:
+ *     summary: Get booked dates for a car
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of booked date ranges
+ */
+/**
+ * @swagger
  * /api/cars/type/{type}:
  *   get:
  *     summary: Get cars by type
@@ -82,6 +98,24 @@ router.get('/type/:type', paginationMiddleware, carController.getCarsByType);
  *       404:
  *         description: Car not found
  */
+/**
+ * @swagger
+ * /api/cars/{id}/booked-dates:
+ *   get:
+ *     summary: Get booked dates for a car
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of booked date ranges
+ */
+router.get('/:id/booked-dates', authenticate, validateId, carController.getBookedDates);
+
 router.get('/:id', validateId, carController.getCarById);
 
 /**

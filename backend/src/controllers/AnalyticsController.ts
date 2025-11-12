@@ -23,7 +23,7 @@ export class AnalyticsController {
         endDate ? new Date(endDate as string) : undefined
       );
       
-      res.json(stats);
+      res.json({ data: stats });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -41,7 +41,7 @@ export class AnalyticsController {
         endDate ? new Date(endDate as string) : undefined
       );
       
-      res.json(stats);
+      res.json({ data: stats });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -54,7 +54,7 @@ export class AnalyticsController {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const cars = await this.analyticsService.getPopularCars(limit);
-      res.json(cars);
+      res.json({ data: cars });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -67,7 +67,7 @@ export class AnalyticsController {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const clients = await this.analyticsService.getTopClients(limit);
-      res.json(clients);
+      res.json({ data: clients });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -79,7 +79,7 @@ export class AnalyticsController {
   getOccupancyRate = async (req: Request, res: Response): Promise<void> => {
     try {
       const rate = await this.analyticsService.calculateOccupancyRate();
-      res.json({ occupancyRate: rate });
+      res.json({ data: { occupancyRate: rate } });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

@@ -23,7 +23,7 @@ export class ReportController {
         endDate ? new Date(endDate as string) : undefined
       );
       
-      res.json(report);
+      res.json({ data: report });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -35,7 +35,7 @@ export class ReportController {
   generateOccupancyReport = async (req: Request, res: Response): Promise<void> => {
     try {
       const report = await this.reportService.generateOccupancyReport();
-      res.json(report);
+      res.json({ data: report });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -47,7 +47,7 @@ export class ReportController {
   generateAvailabilityReport = async (req: Request, res: Response): Promise<void> => {
     try {
       const report = await this.reportService.generateAvailabilityReport();
-      res.json(report);
+      res.json({ data: report });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
