@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Typography,
@@ -37,13 +37,27 @@ import {
   VisibilityOff,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { authService } from '../services/authService';
-import { rentalService, Rental } from '../services/rentalService';
-import { penaltyService, Penalty } from '../services/penaltyService';
+import { useUpdateProfile, useChangePassword } from '../hooks/queries/useAuth';
+import { useMyRentals, useRentals } from '../hooks/queries/useRentals';
+import { useMyPenalties, usePenalties } from '../hooks/queries/usePenalties';
 
 const ProfilePage: React.FC = () => {
   const { user, refreshUser } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const updateProfile = useUpdateProfile();
+  const changePassword = useChangePassword();
+  
+  // React Query hooks - load data based on user role
+  const { data: myRentals = [], isLoading: loadingMyRentals } = useMyRentals();
+  const { data: allRentals = [], isLoading: loadingAllRentals } = useRentals();
+  const { data: myPenalties = [], isLoading: loadingMyPenalties } = useMyPenalties();
+  const { data: allPenalties = [], isLoading: loadingAllPenalties } = usePenalties();
+  
+  const rentals = user?.role === 'user' ? myRentals : allRentals;
+  const penalties = user?.role === 'user' ? myPenalties : allPenalties;
+  const loadingData = user?.role === 'user' 
+    ? (loadingMyRentals || loadingMyPenalties)
+    : (loadingAllRentals || loadingAllPenalties);
+  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [tabValue, setTabValue] = useState(0);
@@ -69,66 +83,26 @@ const ProfilePage: React.FC = () => {
   });
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
-  // User data
-  const [rentals, setRentals] = useState<Rental[]>([]);
-  const [penalties, setPenalties] = useState<Penalty[]>([]);
-  const [loadingData, setLoadingData] = useState(false);
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (user) {
       setProfileForm({
         email: user.email || '',
         fullName: user.fullName || '',
         address: user.address || '',
       });
-      loadUserData();
     }
   }, [user]);
 
-  const loadUserData = async () => {
-    try {
-      setLoadingData(true);
-      // Load rentals and penalties based on user role
-      let rentalsData: Rental[] = [];
-      let penaltiesData: Penalty[] = [];
-      
-      if (user?.role === 'user') {
-        // For USER role, load only their own rentals and penalties
-        [rentalsData, penaltiesData] = await Promise.all([
-          rentalService.getMyRentals().catch(() => []),
-          penaltyService.getAllPenalties().catch(() => []), // Already filtered by backend for USER
-        ]);
-      } else {
-        // For staff roles (admin, manager, employee), load all rentals and penalties
-        [rentalsData, penaltiesData] = await Promise.all([
-          rentalService.getAllRentals().catch(() => []),
-          penaltyService.getAllPenalties().catch(() => []),
-        ]);
-      }
-      
-      setRentals(rentalsData);
-      setPenalties(penaltiesData);
-    } catch (err) {
-      console.error('Error loading user data:', err);
-      setError('Помилка завантаження даних');
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
   const handleUpdateProfile = async () => {
     try {
-      setLoading(true);
       setError('');
-      await authService.updateProfile(profileForm);
+      await updateProfile.mutateAsync(profileForm);
       await refreshUser();
       setProfileDialogOpen(false);
       setSuccess('Профіль успішно оновлено');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка оновлення профілю');
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.error || err.message || 'Помилка оновлення профілю');
     }
   };
 
@@ -144,17 +118,17 @@ const ProfilePage: React.FC = () => {
     }
 
     try {
-      setLoading(true);
       setError('');
-      await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      await changePassword.mutateAsync({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
       setPasswordDialogOpen(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setSuccess('Пароль успішно змінено');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка зміни пароля');
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.error || err.message || 'Помилка зміни пароля');
     }
   };
 
@@ -421,8 +395,8 @@ const ProfilePage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setProfileDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={handleUpdateProfile} variant="contained" disabled={loading}>
-            {loading ? <CircularProgress size={20} /> : 'Зберегти'}
+          <Button onClick={handleUpdateProfile} variant="contained" disabled={updateProfile.isPending}>
+            {updateProfile.isPending ? <CircularProgress size={20} /> : 'Зберегти'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -484,8 +458,8 @@ const ProfilePage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPasswordDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={handleChangePassword} variant="contained" disabled={loading}>
-            {loading ? <CircularProgress size={20} /> : 'Змінити'}
+          <Button onClick={handleChangePassword} variant="contained" disabled={changePassword.isPending}>
+            {changePassword.isPending ? <CircularProgress size={20} /> : 'Змінити'}
           </Button>
         </DialogActions>
       </Dialog>

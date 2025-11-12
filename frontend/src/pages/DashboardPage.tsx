@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Container,
   Grid,
@@ -44,71 +44,59 @@ import {
   AreaChart,
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
-import { analyticsService, DashboardStats, PopularCar } from '../services/analyticsService';
-import { carService } from '../services/carService';
-import { clientService } from '../services/clientService';
-import { rentalService } from '../services/rentalService';
+import { DashboardStats, PopularCar } from '../services/analyticsService';
+import { useDashboardStats, usePopularCars, useRevenueStats } from '../hooks/queries/useAnalytics';
+import { useCars } from '../hooks/queries/useCars';
+import { useClients } from '../hooks/queries/useClients';
+import { useRentals } from '../hooks/queries/useRentals';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [popularCars, setPopularCars] = useState<PopularCar[]>([]);
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        setLoading(true);
-        if (user?.role === 'admin' || user?.role === 'manager') {
-          const [dashboardStats, popularCarsData, revenueStats] = await Promise.all([
-            analyticsService.getDashboardStats(),
-            analyticsService.getPopularCars(5),
-            analyticsService.getRevenueStats(),
-          ]);
-          setStats(dashboardStats);
-          setPopularCars(popularCarsData);
-          
-          // Format revenue data for chart
-          const formattedRevenue = revenueStats?.revenueByDay
-            ?.slice(-7)
-            .map((item: any) => ({
-              date: new Date(item.date).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }),
-              Дохід: Math.round(item.amount),
-            })) || [];
-          setRevenueData(formattedRevenue);
-        } else {
-          // For employees, load basic stats
-          const [cars, clients, rentals] = await Promise.all([
-            carService.getAllCars(),
-            clientService.getAllClients(),
-            rentalService.getAllRentals(),
-          ]);
-          setStats({
-            totalCars: cars.data.length,
-            availableCars: cars.data.filter(c => c.status === 'available').length,
-            rentedCars: cars.data.filter(c => c.status === 'rented').length,
-            totalClients: clients.length,
-            activeRentals: rentals.filter(r => r.status === 'active').length,
-            totalRevenue: 0,
-            totalPenalties: 0,
-            averageRentalDuration: 0,
-          });
-        }
-      } catch (err: any) {
-        console.error('Error loading dashboard stats:', err);
-        const errorMessage = err.message || err.response?.data?.error || 'Помилка завантаження даних';
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
+  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  
+  // React Query hooks for admin/manager
+  const { data: dashboardStats, isLoading: loadingStats, error: statsError } = useDashboardStats();
+  const { data: popularCars = [], isLoading: loadingPopular, error: popularError } = usePopularCars(5);
+  const { data: revenueStats, isLoading: loadingRevenue, error: revenueError } = useRevenueStats();
+  
+  // React Query hooks for employees
+  const { data: carsResponse, isLoading: loadingCars } = useCars();
+  const { data: clients = [], isLoading: loadingClients } = useClients();
+  const { data: rentals = [], isLoading: loadingRentals } = useRentals();
+  
+  // Calculate employee stats from data
+  const employeeStats: DashboardStats | null = React.useMemo(() => {
+    if (isAdminOrManager || !carsResponse?.data) return null;
+    const cars = carsResponse.data;
+    return {
+      totalCars: cars.length,
+      availableCars: cars.filter((c: any) => c.status === 'available').length,
+      rentedCars: cars.filter((c: any) => c.status === 'rented').length,
+      totalClients: clients.length,
+      activeRentals: rentals.filter((r: any) => r.status === 'active').length,
+      totalRevenue: 0,
+      totalPenalties: 0,
+      averageRentalDuration: 0,
     };
-
-    if (user) {
-      loadStats();
-    }
-  }, [user]);
+  }, [carsResponse, clients, rentals, isAdminOrManager]);
+  
+  // Select stats based on role
+  const stats = isAdminOrManager ? dashboardStats : employeeStats;
+  const loading = isAdminOrManager 
+    ? (loadingStats || loadingPopular || loadingRevenue)
+    : (loadingCars || loadingClients || loadingRentals);
+  const error = statsError?.message || popularError?.message || revenueError?.message;
+  
+  // Format revenue data for chart
+  const revenueData = React.useMemo(() => {
+    if (!revenueStats?.revenueByDay) return [];
+    return revenueStats.revenueByDay
+      .slice(-7)
+      .map((item: any) => ({
+        date: new Date(item.date).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }),
+        Дохід: Math.round(item.amount),
+      }));
+  }, [revenueStats]);
 
   if (loading) {
     return (
@@ -133,7 +121,7 @@ const DashboardPage: React.FC = () => {
     { name: 'На обслуговуванні', value: (stats as any).maintenanceCars || 0, color: '#d32f2f' },
   ].filter(item => item.value > 0) : [];
 
-  const popularCarsData = popularCars.map(car => ({
+  const popularCarsData = popularCars.map((car: PopularCar) => ({
     name: `${car.car.brand} ${car.car.model}`,
     Прокатів: car.rentalCount,
     Дохід: Math.round(car.totalRevenue),

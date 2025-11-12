@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -33,8 +33,6 @@ import {
   Speed,
   Palette,
   CheckCircle,
-  ChevronLeft,
-  ChevronRight,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -43,9 +41,24 @@ import dayjs, { Dayjs } from 'dayjs';
 import 'dayjs/locale/uk';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { carService, Car } from '../services/carService';
-import { rentalService } from '../services/rentalService';
 import { useAuth } from '../context/AuthContext';
+import ImageSlider from '../components/car/ImageSlider';
+import {
+  getStatusLabel,
+  getStatusColor,
+  getTypeLabel,
+  getBodyTypeLabel,
+  getDriveTypeLabel,
+  getTransmissionLabel,
+  getFuelTypeLabel,
+} from '../utils/labels';
+import { useCar, useBookedDates } from '../hooks/queries/useCars';
+import { useCreateBooking } from '../hooks/queries/useRentals';
+import {
+  getAllCarImages,
+  calculateTotalCost,
+  formatCurrency,
+} from '../utils/calculations';
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
@@ -54,120 +67,32 @@ const CarDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [car, setCar] = useState<Car | null>(null);
-  const [loading, setLoading] = useState(true);
+  const carId = id ? Number(id) : undefined;
+  
+  // React Query hooks
+  const { data: car, isLoading: loading, error: carError } = useCar(carId);
+  const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carId);
+  const createBooking = useCreateBooking();
+  
+  // Local UI state
   const [error, setError] = useState('');
+  
+  // Combine errors
+  const displayError = error || carError?.message;
   const [tabValue, setTabValue] = useState(0);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingData, setBookingData] = useState({
     startDate: null as Dayjs | null,
     expectedEndDate: null as Dayjs | null,
   });
-  const [bookingSubmitting, setBookingSubmitting] = useState(false);
-  const [bookedDates, setBookedDates] = useState<Array<{ startDate: string; endDate: string }>>([]);
-  const [loadingBookedDates, setLoadingBookedDates] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<string>('1-2');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const isUser = user?.role === 'user';
 
-  // Get all images: main image (imageUrl) first, then additional images (imageUrls)
-  const getAllImages = (): string[] => {
-    if (!car) return [];
-    
-    const images: string[] = [];
-    
-    // Add main image first if it exists
-    if (car.imageUrl) {
-      images.push(car.imageUrl);
-    }
-    
-    // Handle imageUrls - can be array or JSON string
-    let imageUrlsArray: string[] = [];
-    if (car.imageUrls) {
-      if (Array.isArray(car.imageUrls)) {
-        imageUrlsArray = car.imageUrls;
-      } else if (typeof car.imageUrls === 'string') {
-        try {
-          imageUrlsArray = JSON.parse(car.imageUrls);
-        } catch {
-          // If parsing fails, treat as single URL
-          imageUrlsArray = [car.imageUrls];
-        }
-      }
-    }
-    
-    // Add additional images, but avoid duplicates with main image
-    imageUrlsArray.forEach(url => {
-      if (url && !images.includes(url)) {
-        images.push(url);
-      }
-    });
-    
-    return images;
-  };
+  // Get all images using utility function
+  const images = useMemo(() => getAllCarImages(car || null), [car]);
 
-  const images = getAllImages();
-  const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
-
-  // Auto-scroll images every 7 seconds
-  useEffect(() => {
-    if (images.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 7000); // 7 seconds
-
-    return () => clearInterval(interval);
-  }, [images.length]);
-
-  const handlePreviousImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
-  };
-
-  const handleNextImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
-  };
-
-  const getImageUrl = (url: string): string => {
-    if (url.startsWith('http')) return url;
-    return `${window.location.protocol}//${window.location.hostname}:3000${url}`;
-  };
-
-  useEffect(() => {
-    if (id) {
-      loadCar();
-    }
-  }, [id]);
-
-  const loadCar = async () => {
-    try {
-      setLoading(true);
-      const data = await carService.getCarById(Number(id));
-      // Ensure imageUrls is properly parsed
-      if (data.imageUrls !== undefined && data.imageUrls !== null) {
-        if (typeof data.imageUrls === 'string') {
-          try {
-            (data as any).imageUrls = JSON.parse(data.imageUrls);
-          } catch {
-            // If parsing fails, treat as single URL
-            (data as any).imageUrls = [data.imageUrls];
-          }
-        }
-        // If it's already an array, keep it as is
-      } else {
-        // If imageUrls is null or undefined, set to empty array
-        (data as any).imageUrls = [];
-      }
-      setCar(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження автомобіля');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBookClick = async () => {
+  const handleBookClick = () => {
     if (!car) return;
     
     if (car.status === 'maintenance') {
@@ -176,29 +101,19 @@ const CarDetailsPage: React.FC = () => {
     }
     
     setBookingDialogOpen(true);
-    setLoadingBookedDates(true);
     setError('');
     
-    const today = dayjs();
-    const in3Days = today.add(3, 'day');
+    // Set default dates (tomorrow and 3 days from tomorrow)
+    const tomorrow = dayjs().add(1, 'day');
+    const in4Days = tomorrow.add(3, 'day');
     setBookingData({
-      startDate: today,
-      expectedEndDate: in3Days,
+      startDate: tomorrow,
+      expectedEndDate: in4Days,
     });
-    
-    try {
-      const dates = await carService.getBookedDates(car.id);
-      setBookedDates(dates);
-    } catch (err: any) {
-      console.error('Failed to load booked dates:', err);
-      setBookedDates([]);
-    } finally {
-      setLoadingBookedDates(false);
-    }
   };
 
   const isDateBooked = (date: Dayjs): boolean => {
-    return bookedDates.some(period => {
+    return bookedDates.some((period: { startDate: string; endDate: string }) => {
       const start = dayjs(period.startDate);
       const end = dayjs(period.endDate);
       return date.isSameOrAfter(start, 'day') && date.isSameOrBefore(end, 'day');
@@ -208,7 +123,7 @@ const CarDetailsPage: React.FC = () => {
   const isDateRangeValid = (start: Dayjs | null, end: Dayjs | null): boolean => {
     if (!start || !end || start.isAfter(end)) return false;
     
-    return !bookedDates.some(period => {
+    return !bookedDates.some((period: { startDate: string; endDate: string }) => {
       const bookedStart = dayjs(period.startDate);
       const bookedEnd = dayjs(period.endDate);
       return (start.isSameOrBefore(bookedEnd, 'day') && end.isSameOrAfter(bookedStart, 'day'));
@@ -232,123 +147,26 @@ const CarDetailsPage: React.FC = () => {
     }
 
     try {
-      setBookingSubmitting(true);
       setError('');
-      await rentalService.createBooking(
-        car.id,
-        bookingData.startDate.toISOString(),
-        bookingData.expectedEndDate.toISOString()
-      );
+      // Format dates as YYYY-MM-DD (date only, no time)
+      const startDateStr = bookingData.startDate.format('YYYY-MM-DD');
+      const expectedEndDateStr = bookingData.expectedEndDate.format('YYYY-MM-DD');
+      
+      await createBooking.mutateAsync({
+        carId: Number(car.id),
+        startDate: startDateStr,
+        expectedEndDate: expectedEndDateStr,
+      });
       setBookingDialogOpen(false);
       setBookingData({ startDate: null, expectedEndDate: null });
-      setBookedDates([]);
       navigate('/my-rentals');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка бронювання');
-    } finally {
-      setBookingSubmitting(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available':
-        return 'success';
-      case 'rented':
-        return 'warning';
-      case 'maintenance':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'available':
-        return 'Доступний';
-      case 'rented':
-        return 'В прокаті';
-      case 'maintenance':
-        return 'На обслуговуванні';
-      default:
-        return status;
-    }
-  };
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'economy':
-        return 'Економ';
-      case 'business':
-        return 'Бізнес';
-      case 'premium':
-        return 'Преміум';
-      default:
-        return type;
-    }
-  };
-
-  const getBodyTypeLabel = (bodyType?: string) => {
-    if (!bodyType) return null;
-    const labels: { [key: string]: string } = {
-      'sedan': 'Седан',
-      'hatchback': 'Хетчбек',
-      'suv': 'Позашляховик',
-      'coupe': 'Купе',
-      'wagon': 'Універсал',
-      'convertible': 'Кабріолет',
-    };
-    return labels[bodyType.toLowerCase()] || bodyType;
-  };
-
-  const getDriveTypeLabel = (driveType?: string) => {
-    if (!driveType) return null;
-    const labels: { [key: string]: string } = {
-      'front-wheel': 'Передній привід',
-      'rear-wheel': 'Задній привід',
-      'all-wheel': 'Повний привід',
-    };
-    return labels[driveType.toLowerCase()] || driveType;
-  };
-
-  const getTransmissionLabel = (transmission?: string) => {
-    if (!transmission) return null;
-    const labels: { [key: string]: string } = {
-      'manual': 'Механіка',
-      'automatic': 'Автомат',
-      'cvt': 'Вариатор',
-    };
-    return labels[transmission.toLowerCase()] || transmission;
-  };
-
-  const getFuelTypeLabel = (fuelType?: string) => {
-    if (!fuelType) return null;
-    const labels: { [key: string]: string } = {
-      'gasoline': 'Бензин',
-      'diesel': 'Дизель',
-      'hybrid': 'Гібрид',
-      'electric': 'Електричний',
-    };
-    return labels[fuelType.toLowerCase()] || fuelType;
-  };
-
-  // Calculate price based on duration
-  const calculatePrice = (days: number): number => {
-    if (!car) return 0;
-    return days * Number(car.pricePerDay);
-  };
-
-  // Calculate deposit based on duration
-  const calculateDeposit = (days: number): number => {
-    if (!car) return 0;
-    const baseDeposit = Number(car.deposit);
-    const pricePerDay = Number(car.pricePerDay);
-    // Additional deposit: 15% of daily price per day (starting from day 2)
-    const additionalPerDay = pricePerDay * 0.15;
-    const additionalDeposit = additionalPerDay * Math.max(0, days - 1);
-    return baseDeposit + additionalDeposit;
-  };
 
   const getDurationDays = (duration: string): number => {
     switch (duration) {
@@ -375,11 +193,11 @@ const CarDetailsPage: React.FC = () => {
     );
   }
 
-  if (error && !car) {
+  if (displayError && !car) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {displayError}
         </Alert>
         <Button startIcon={<ArrowBack />} onClick={() => navigate('/cars')}>
           Повернутися до каталогу
@@ -393,8 +211,9 @@ const CarDetailsPage: React.FC = () => {
   }
 
   const days = getDurationDays(selectedDuration);
-  const totalPrice = calculatePrice(days);
-  const totalDeposit = calculateDeposit(days);
+  const { price: totalPrice, deposit: totalDeposit } = car
+    ? calculateTotalCost(days, car.pricePerDay, car.deposit)
+    : { price: 0, deposit: 0 };
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -416,139 +235,7 @@ const CarDetailsPage: React.FC = () => {
         {/* Left Column - Image Slider */}
         <Grid item xs={12} md={7}>
           <Card sx={{ position: 'relative', overflow: 'hidden' }}>
-            <Box
-              sx={{
-                position: 'relative',
-                width: '100%',
-                height: 500,
-                overflow: 'hidden',
-                backgroundColor: '#f0f0f0',
-              }}
-            >
-              {images.length > 0 ? (
-                <>
-                  <Box
-                    component="img"
-                    src={getImageUrl(images[currentImageIndex])}
-                    alt={`${car.brand} ${car.model} - Image ${currentImageIndex + 1}`}
-                    crossOrigin="anonymous"
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      transition: 'opacity 0.5s ease-in-out',
-                    }}
-                    onError={(e: any) => {
-                      e.target.src = defaultImage;
-                    }}
-                  />
-                  
-                  {/* Navigation Buttons */}
-                  {images.length > 1 && (
-                    <>
-                      <Button
-                        onClick={handlePreviousImage}
-                        sx={{
-                          position: 'absolute',
-                          left: 10,
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          minWidth: 40,
-                          width: 40,
-                          height: 40,
-                          borderRadius: '50%',
-                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                          color: 'white',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          },
-                          zIndex: 2,
-                        }}
-                      >
-                        <ChevronLeft />
-                      </Button>
-                      <Button
-                        onClick={handleNextImage}
-                        sx={{
-                          position: 'absolute',
-                          right: 10,
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          minWidth: 40,
-                          width: 40,
-                          height: 40,
-                          borderRadius: '50%',
-                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                          color: 'white',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          },
-                          zIndex: 2,
-                        }}
-                      >
-                        <ChevronRight />
-                      </Button>
-                      
-                      {/* Image Indicators */}
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          bottom: 10,
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          display: 'flex',
-                          gap: 1,
-                          zIndex: 2,
-                        }}
-                      >
-                        {images.map((_, index) => (
-                          <Box
-                            key={index}
-                            onClick={() => setCurrentImageIndex(index)}
-                            sx={{
-                              width: currentImageIndex === index ? 24 : 8,
-                              height: 8,
-                              borderRadius: 1,
-                              backgroundColor: currentImageIndex === index ? 'primary.main' : 'rgba(255, 255, 255, 0.5)',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                            }}
-                          />
-                        ))}
-                      </Box>
-                      
-                      {/* Image Counter */}
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 10,
-                          right: 10,
-                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                          color: 'white',
-                          padding: '4px 12px',
-                          borderRadius: 2,
-                          fontSize: '0.875rem',
-                          zIndex: 2,
-                        }}
-                      >
-                        {currentImageIndex + 1} / {images.length}
-                      </Box>
-                    </>
-                  )}
-                </>
-              ) : (
-                <Box
-                  component="img"
-                  src={defaultImage}
-                  alt="No image"
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-              )}
-            </Box>
+            <ImageSlider images={images} height={500} />
           </Card>
         </Grid>
 
@@ -691,16 +378,16 @@ const CarDetailsPage: React.FC = () => {
                 </Box>
                 <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Орієнтовна вартість: <strong>{totalPrice.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴</strong> ({days} дн.)
+                    Орієнтовна вартість: <strong>{formatCurrency(totalPrice)}</strong> ({days} дн.)
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Залог: <strong>{totalDeposit.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴</strong>
+                    Залог: <strong>{formatCurrency(totalDeposit)}</strong>
                     {days > 1 && (() => {
                       const baseDeposit = Number(car.deposit);
                       const additionalDeposit = totalDeposit - baseDeposit;
                       return (
                         <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                          (базовий: {baseDeposit.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴ + додатково за {days - 1} дн.: {additionalDeposit.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴)
+                          (базовий: {formatCurrency(baseDeposit)} + додатково за {days - 1} дн.: {formatCurrency(additionalDeposit)})
                         </Typography>
                       );
                     })()}
@@ -982,7 +669,7 @@ const CarDetailsPage: React.FC = () => {
                           Заброньовані періоди:
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          {bookedDates.map((period, idx) => (
+                          {bookedDates.map((period: { startDate: string; endDate: string }, idx: number) => (
                             <Typography key={idx} variant="caption" display="block">
                               {dayjs(period.startDate).format('DD.MM.YYYY')} - {dayjs(period.endDate).format('DD.MM.YYYY')}
                             </Typography>
@@ -991,46 +678,38 @@ const CarDetailsPage: React.FC = () => {
                       </Paper>
                     )}
 
-                    {bookingData.startDate && bookingData.expectedEndDate && (
-                      <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Орієнтовна вартість: {(() => {
-                            const days = bookingData.expectedEndDate.diff(bookingData.startDate, 'day') + 1;
-                            const pricePerDay = Number(car.pricePerDay);
-                            const cost = days * pricePerDay;
-                            return `${cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴ (${days} дн. × ${pricePerDay.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴)`;
-                          })()}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          Залог: {(() => {
-                            const days = bookingData.expectedEndDate.diff(bookingData.startDate, 'day') + 1;
-                            const baseDeposit = Number(car.deposit);
-                            const pricePerDay = Number(car.pricePerDay);
-                            const additionalPerDay = pricePerDay * 0.15;
-                            const additionalDeposit = additionalPerDay * Math.max(0, days - 1);
-                            const totalDeposit = baseDeposit + additionalDeposit;
-                            return `${totalDeposit.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`;
-                          })()}
-                          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {(() => {
-                              const days = bookingData.expectedEndDate.diff(bookingData.startDate, 'day') + 1;
-                              if (days > 1) {
-                                const pricePerDay = Number(car.pricePerDay);
-                                const additionalPerDay = pricePerDay * 0.15;
-                                const additionalDeposit = additionalPerDay * (days - 1);
-                                return `(базовий: ${Number(car.deposit).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴ + додатково за ${days - 1} дн.: ${additionalDeposit.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴)`;
-                              }
-                              return `(базовий завдаток)`;
-                            })()}
+                    {bookingData.startDate && bookingData.expectedEndDate && (() => {
+                      const days = bookingData.expectedEndDate.diff(bookingData.startDate, 'day') + 1;
+                      const { price, deposit } = calculateTotalCost(days, car.pricePerDay, car.deposit);
+                      const baseDeposit = Number(car.deposit);
+                      const additionalDeposit = deposit - baseDeposit;
+                      
+                      return (
+                        <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Орієнтовна вартість: {formatCurrency(price)} ({days} дн. × {formatCurrency(Number(car.pricePerDay))})
                           </Typography>
-                        </Typography>
-                        {!isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate) && (
-                          <Alert severity="error" sx={{ mt: 1 }}>
-                            Вибраний період перетинається з заброньованими датами
-                          </Alert>
-                        )}
-                      </Box>
-                    )}
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Залог: {formatCurrency(deposit)}
+                            {days > 1 && (
+                              <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                                (базовий: {formatCurrency(baseDeposit)} + додатково за {days - 1} дн.: {formatCurrency(additionalDeposit)})
+                              </Typography>
+                            )}
+                            {days === 1 && (
+                              <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                                (базовий завдаток)
+                              </Typography>
+                            )}
+                          </Typography>
+                          {!isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate) && (
+                            <Alert severity="error" sx={{ mt: 1 }}>
+                              Вибраний період перетинається з заброньованими датами
+                            </Alert>
+                          )}
+                        </Box>
+                      );
+                    })()}
                   </>
                 )}
               </Box>
@@ -1040,7 +719,6 @@ const CarDetailsPage: React.FC = () => {
         <DialogActions>
           <Button onClick={() => {
             setBookingDialogOpen(false);
-            setBookedDates([]);
             setBookingData({ startDate: null, expectedEndDate: null });
           }}>
             Скасувати
@@ -1048,9 +726,9 @@ const CarDetailsPage: React.FC = () => {
           <Button
             onClick={handleBookingSubmit}
             variant="contained"
-            disabled={bookingSubmitting || !bookingData.startDate || !bookingData.expectedEndDate || !isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate)}
+            disabled={createBooking.isPending || !bookingData.startDate || !bookingData.expectedEndDate || !isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate)}
           >
-            {bookingSubmitting ? <CircularProgress size={20} /> : 'Забронювати'}
+            {createBooking.isPending ? <CircularProgress size={20} /> : 'Забронювати'}
           </Button>
         </DialogActions>
       </Dialog>

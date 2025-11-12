@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Grid,
@@ -41,18 +41,30 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { carService, Car, CarFilters } from '../services/carService';
+import { Car, CarFilters } from '../services/carService';
 import { uploadService } from '../services/uploadService';
-import { rentalService } from '../services/rentalService';
+import { useCars, useBookedDates, useCreateCar, useUpdateCar, useDeleteCar } from '../hooks/queries/useCars';
+import { useCreateBooking } from '../hooks/queries/useRentals';
+import { useUIStore } from '../stores';
 
 const CarsPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [cars, setCars] = useState<Car[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  
+  // Filters and search
   const [filters, setFilters] = useState<CarFilters>({ page: 1, limit: 12 });
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // React Query hooks
+  const { data: carsResponse, isLoading: loading, error: carsError } = useCars(filters);
+  const cars = carsResponse?.data || [];
+  const createCar = useCreateCar();
+  const updateCar = useUpdateCar();
+  const deleteCar = useDeleteCar();
+  const createBooking = useCreateBooking();
+  
+  // UI state
+  const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCar, setEditingCar] = useState<Car | null>(null);
   const [formData, setFormData] = useState<Partial<Car>>({
@@ -71,52 +83,35 @@ const CarsPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [carToDelete, setCarToDelete] = useState<number | null>(null);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [carToBook, setCarToBook] = useState<Car | null>(null);
   const [bookingData, setBookingData] = useState({
     startDate: null as Dayjs | null,
     expectedEndDate: null as Dayjs | null,
   });
-  const [bookingSubmitting, setBookingSubmitting] = useState(false);
-  const [bookedDates, setBookedDates] = useState<Array<{ startDate: string; endDate: string }>>([]);
-  const [loadingBookedDates, setLoadingBookedDates] = useState(false);
-
-  useEffect(() => {
-    loadCars();
-  }, [filters, user?.role]);
-
-  const loadCars = async () => {
-    try {
-      setLoading(true);
-      // Load all cars for all users, but USER can only book available ones
-      const response = await carService.getAllCars(filters);
-      setCars(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження автомобілів');
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  // Zustand store for delete dialog
+  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
+  
+  // Booked dates for booking dialog
+  const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carToBook?.id);
+  
+  // Combine errors
+  const displayError = error || carsError?.message;
 
   const handleDeleteClick = (id: number) => {
-    setCarToDelete(id);
-    setDeleteDialogOpen(true);
+    openDeleteDialog(id, 'car');
   };
 
   const handleDeleteConfirm = async () => {
-    if (!carToDelete) return;
+    if (!deleteDialogItemId) return;
     try {
-      await carService.deleteCar(carToDelete);
+      await deleteCar.mutateAsync(deleteDialogItemId);
       setError('');
-      setDeleteDialogOpen(false);
-      setCarToDelete(null);
-      loadCars();
+      closeDeleteDialog();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка видалення');
-      setDeleteDialogOpen(false);
-      setCarToDelete(null);
+      closeDeleteDialog();
     }
   };
 
@@ -282,7 +277,6 @@ const CarsPage: React.FC = () => {
   const handleSubmit = async () => {
     try {
       setError('');
-      setLoading(true);
       
       // If there's a selected file but not uploaded yet, upload it first
       if (selectedFile && !formData.imageUrl) {
@@ -307,16 +301,13 @@ const CarsPage: React.FC = () => {
       };
 
       if (editingCar) {
-        await carService.updateCar(editingCar.id, dataToSubmit);
+        await updateCar.mutateAsync({ id: editingCar.id, data: dataToSubmit });
       } else {
-        await carService.createCar(dataToSubmit);
+        await createCar.mutateAsync(dataToSubmit);
       }
       handleCloseDialog();
-      loadCars();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка збереження');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -359,7 +350,7 @@ const CarsPage: React.FC = () => {
     }
   };
 
-  const handleBookClick = async (car: Car) => {
+  const handleBookClick = (car: Car) => {
     // Prevent booking only if car is in maintenance
     if (car.status === 'maintenance') {
       setError('Цей автомобіль на обслуговуванні і недоступний для бронювання');
@@ -368,32 +359,20 @@ const CarsPage: React.FC = () => {
     
     setCarToBook(car);
     setBookingDialogOpen(true);
-    setLoadingBookedDates(true);
     setError(''); // Clear any previous errors
     
-    // Set default dates (today and 3 days from now)
-    const today = dayjs();
-    const in3Days = today.add(3, 'day');
+    // Set default dates (tomorrow and 3 days from tomorrow)
+    const tomorrow = dayjs().add(1, 'day');
+    const in4Days = tomorrow.add(3, 'day');
     setBookingData({
-      startDate: today,
-      expectedEndDate: in3Days,
+      startDate: tomorrow,
+      expectedEndDate: in4Days,
     });
-    
-    // Load booked dates to show availability
-    try {
-      const dates = await carService.getBookedDates(car.id);
-      setBookedDates(dates);
-    } catch (err: any) {
-      console.error('Failed to load booked dates:', err);
-      setBookedDates([]);
-    } finally {
-      setLoadingBookedDates(false);
-    }
   };
 
   // Check if a date is booked
   const isDateBooked = (date: Dayjs): boolean => {
-    return bookedDates.some(period => {
+    return bookedDates.some((period: { startDate: string; endDate: string }) => {
       const start = dayjs(period.startDate);
       const end = dayjs(period.endDate);
       return date.isSameOrAfter(start, 'day') && date.isSameOrBefore(end, 'day');
@@ -404,7 +383,7 @@ const CarsPage: React.FC = () => {
   const isDateRangeValid = (start: Dayjs | null, end: Dayjs | null): boolean => {
     if (!start || !end || start.isAfter(end)) return false;
     
-    return !bookedDates.some(period => {
+    return !bookedDates.some((period: { startDate: string; endDate: string }) => {
       const bookedStart = dayjs(period.startDate);
       const bookedEnd = dayjs(period.endDate);
       // Check if ranges overlap
@@ -429,29 +408,28 @@ const CarsPage: React.FC = () => {
     }
 
     try {
-      setBookingSubmitting(true);
       setError('');
-      await rentalService.createBooking(
-        carToBook.id,
-        bookingData.startDate.toISOString(),
-        bookingData.expectedEndDate.toISOString()
-      );
+      // Format dates as YYYY-MM-DD (date only, no time)
+      const startDateStr = bookingData.startDate.format('YYYY-MM-DD');
+      const expectedEndDateStr = bookingData.expectedEndDate.format('YYYY-MM-DD');
+      
+      await createBooking.mutateAsync({
+        carId: Number(carToBook.id),
+        startDate: startDateStr,
+        expectedEndDate: expectedEndDateStr,
+      });
       setBookingDialogOpen(false);
       setCarToBook(null);
       setBookingData({ startDate: null, expectedEndDate: null });
-      setBookedDates([]);
-      loadCars(); // Reload to update car status
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка бронювання');
-    } finally {
-      setBookingSubmitting(false);
     }
   };
 
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
   const isUser = user?.role === 'user';
 
-  const filteredCars = cars.filter(car =>
+  const filteredCars = cars.filter((car: Car) =>
     car.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
     car.model.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -511,9 +489,9 @@ const CarsPage: React.FC = () => {
         </FormControl>
       </Box>
 
-      {error && (
+      {displayError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
+          {displayError}
         </Alert>
       )}
 
@@ -525,7 +503,7 @@ const CarsPage: React.FC = () => {
         <Alert severity="info">Автомобілі не знайдено</Alert>
       ) : (
         <Grid container spacing={3}>
-          {filteredCars.map((car) => (
+          {filteredCars.map((car: Car) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
               <Card
                 sx={{
@@ -1004,8 +982,8 @@ const CarsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Скасувати</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-            {loading ? <CircularProgress size={20} /> : editingCar ? 'Зберегти' : 'Створити'}
+          <Button onClick={handleSubmit} variant="contained" disabled={createCar.isPending || updateCar.isPending}>
+            {(createCar.isPending || updateCar.isPending) ? <CircularProgress size={20} /> : editingCar ? 'Зберегти' : 'Створити'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1013,7 +991,6 @@ const CarsPage: React.FC = () => {
       {/* Booking Dialog */}
       <Dialog open={bookingDialogOpen} onClose={() => {
         setBookingDialogOpen(false);
-        setBookedDates([]);
         setBookingData({ startDate: null, expectedEndDate: null });
       }} maxWidth="md" fullWidth>
         <DialogTitle>Забронювати автомобіль</DialogTitle>
@@ -1090,7 +1067,7 @@ const CarsPage: React.FC = () => {
                           Заброньовані періоди:
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          {bookedDates.map((period, idx) => (
+                          {bookedDates.map((period: { startDate: string; endDate: string }, idx: number) => (
                             <Typography key={idx} variant="caption" display="block">
                               {dayjs(period.startDate).format('DD.MM.YYYY')} - {dayjs(period.endDate).format('DD.MM.YYYY')}
                             </Typography>
@@ -1149,7 +1126,6 @@ const CarsPage: React.FC = () => {
         <DialogActions>
           <Button onClick={() => {
             setBookingDialogOpen(false);
-            setBookedDates([]);
             setBookingData({ startDate: null, expectedEndDate: null });
           }}>
             Скасувати
@@ -1157,15 +1133,15 @@ const CarsPage: React.FC = () => {
           <Button
             onClick={handleBookingSubmit}
             variant="contained"
-            disabled={bookingSubmitting || !bookingData.startDate || !bookingData.expectedEndDate || !isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate)}
+            disabled={createBooking.isPending || !bookingData.startDate || !bookingData.expectedEndDate || !isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate)}
           >
-            {bookingSubmitting ? <CircularProgress size={20} /> : 'Забронювати'}
+            {createBooking.isPending ? <CircularProgress size={20} /> : 'Забронювати'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           Підтвердження видалення
         </DialogTitle>
@@ -1175,11 +1151,11 @@ const CarsPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
+          <Button onClick={closeDeleteDialog}>
             Скасувати
           </Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-            Видалити
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error" disabled={deleteCar.isPending}>
+            {deleteCar.isPending ? <CircularProgress size={20} /> : 'Видалити'}
           </Button>
         </DialogActions>
       </Dialog>

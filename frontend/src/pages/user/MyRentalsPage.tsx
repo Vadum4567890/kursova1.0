@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Container,
   Box,
@@ -24,55 +24,32 @@ import {
   InputLabel,
 } from '@mui/material';
 import { Cancel } from '@mui/icons-material';
-import { rentalService, Rental } from '../../services/rentalService';
+import { useMyRentals } from '../../hooks/queries/useRentals';
+import { useCancelRental } from '../../hooks/queries/useRentals';
+import { useUIStore } from '../../stores/uiStore';
 
 const MyRentalsPage: React.FC = () => {
-  const [rentals, setRentals] = useState<Rental[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rentals = [], isLoading: loading, error: rentalsError } = useMyRentals();
+  const cancelRental = useCancelRental();
+  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
   const [error, setError] = useState('');
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [rentalToCancel, setRentalToCancel] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  useEffect(() => {
-    loadRentals();
-  }, []);
-
-  const loadRentals = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      console.log('Loading rentals for user...');
-      const data = await rentalService.getMyRentals();
-      console.log('Loaded rentals:', data);
-      console.log('Number of rentals:', data?.length || 0);
-      setRentals(data || []);
-    } catch (err: any) {
-      console.error('Error loading rentals:', err);
-      console.error('Error response:', err.response);
-      setError(err.response?.data?.error || err.message || 'Помилка завантаження прокатів');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const displayError = error || rentalsError?.message;
 
   const handleCancelClick = (id: number) => {
-    setRentalToCancel(id);
-    setCancelDialogOpen(true);
+    openDeleteDialog(id, 'rental');
   };
 
   const handleCancelConfirm = async () => {
-    if (!rentalToCancel) return;
+    if (!deleteDialogItemId) return;
     try {
-      await rentalService.cancelRental(rentalToCancel);
+      await cancelRental.mutateAsync(deleteDialogItemId);
       setError('');
-      setCancelDialogOpen(false);
-      setRentalToCancel(null);
-      loadRentals();
+      closeDeleteDialog();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка скасування');
-      setCancelDialogOpen(false);
-      setRentalToCancel(null);
+      setError(err.response?.data?.error || err.message || 'Помилка скасування');
+      closeDeleteDialog();
     }
   };
 
@@ -131,9 +108,9 @@ const MyRentalsPage: React.FC = () => {
         </FormControl>
       </Box>
 
-      {error && (
+      {displayError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
+          {displayError}
         </Alert>
       )}
 
@@ -254,7 +231,7 @@ const MyRentalsPage: React.FC = () => {
         </TableContainer>
       )}
 
-      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           Підтвердження скасування
         </DialogTitle>
@@ -264,10 +241,10 @@ const MyRentalsPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setCancelDialogOpen(false)}>
+          <Button onClick={closeDeleteDialog}>
             Скасувати
           </Button>
-          <Button onClick={handleCancelConfirm} variant="contained" color="error">
+          <Button onClick={handleCancelConfirm} variant="contained" color="error" disabled={cancelRental.isPending}>
             Підтвердити скасування
           </Button>
         </DialogActions>

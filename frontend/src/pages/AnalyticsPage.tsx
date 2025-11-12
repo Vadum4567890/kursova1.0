@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Grid,
@@ -41,61 +41,57 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { analyticsService, PopularCar, TopClient } from '../services/analyticsService';
+import { PopularCar, TopClient } from '../services/analyticsService';
+import { useDashboardStats, usePopularCars, useTopClients, useOccupancyRate, useRevenueStats } from '../hooks/queries/useAnalytics';
 
 const AnalyticsPage: React.FC = () => {
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
-  const [popularCars, setPopularCars] = useState<PopularCar[]>([]);
-  const [topClients, setTopClients] = useState<TopClient[]>([]);
-  const [occupancyRate, setOccupancyRate] = useState<number>(0);
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: '',
   });
-
-  useEffect(() => {
-    loadAnalytics();
-  }, []);
-
-  const loadAnalytics = async () => {
-    try {
-      setLoading(true);
-      const startDate = dateRange.startDate || undefined;
-      const endDate = dateRange.endDate || undefined;
-      
-      const [stats, popular, top, occupancy, revenueStats] = await Promise.all([
-        analyticsService.getDashboardStats(startDate, endDate),
-        analyticsService.getPopularCars(5),
-        analyticsService.getTopClients(5),
-        analyticsService.getOccupancyRate(),
-        analyticsService.getRevenueStats(startDate, endDate),
-      ]);
-      setDashboardStats(stats);
-      setPopularCars(popular);
-      setTopClients(top);
-      setOccupancyRate(occupancy);
-      
-      // Format revenue data for chart
-      const formattedRevenue = revenueStats?.revenueByDay
-            ?.slice(-7)
-            .map((item: any) => ({
-              date: new Date(item.date).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }),
-              Дохід: Math.round(item.amount),
-            })) || [];
-      setRevenueData(formattedRevenue);
-    } catch (err: any) {
-      console.error('Error loading analytics:', err);
-      const errorMessage = err.message || err.response?.data?.error || 'Помилка завантаження аналітики';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+  
+  // React Query hooks
+  const startDate = dateRange.startDate || undefined;
+  const endDate = dateRange.endDate || undefined;
+  
+  const { data: dashboardStats, isLoading: loadingStats, error: statsError } = useDashboardStats();
+  const { data: popularCars = [], isLoading: loadingPopular, error: popularError } = usePopularCars(5);
+  const { data: topClients = [], isLoading: loadingTop, error: topError, refetch: refetchTopClients } = useTopClients(5, startDate, endDate);
+  const { data: occupancyRate = 0, isLoading: loadingOccupancy, error: occupancyError } = useOccupancyRate();
+  const { data: revenueStats, isLoading: loadingRevenue, error: revenueError, refetch: refetchRevenue } = useRevenueStats(startDate, endDate);
+  
+  const loading = loadingStats || loadingPopular || loadingTop || loadingOccupancy || loadingRevenue;
+  const displayError = statsError?.message || popularError?.message || topError?.message || occupancyError?.message || revenueError?.message;
+  
+  // Format revenue data for chart
+  const revenueData = React.useMemo(() => {
+    if (!revenueStats?.revenueByDay) return [];
+    return revenueStats.revenueByDay
+      .slice(-7)
+      .map((item: any) => ({
+        date: new Date(item.date).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }),
+        Дохід: Math.round(item.amount),
+      }));
+  }, [revenueStats]);
+  
+  // Handle filter apply
+  const handleApplyFilter = () => {
+    refetchTopClients();
+    refetchRevenue();
   };
+  
+  // Handle filter reset
+  const handleResetFilter = () => {
+    setDateRange({ startDate: '', endDate: '' });
+  };
+  
+  // Refetch when date range changes
+  React.useEffect(() => {
+    refetchTopClients();
+    refetchRevenue();
+  }, [startDate, endDate, refetchTopClients, refetchRevenue]);
 
-  const popularCarsData = popularCars.map((item) => ({
+  const popularCarsData = popularCars.map((item: PopularCar) => ({
     name: `${item.car.brand} ${item.car.model}`,
     Кількість: item.rentalCount,
     Дохід: Math.round(item.totalRevenue),
@@ -109,10 +105,10 @@ const AnalyticsPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (displayError) {
     return (
       <Container>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error">{displayError}</Alert>
       </Container>
     );
   }
@@ -169,7 +165,7 @@ const AnalyticsPage: React.FC = () => {
           />
           <Button
             variant="contained"
-            onClick={loadAnalytics}
+            onClick={handleApplyFilter}
             disabled={loading}
           >
             Застосувати фільтр
@@ -177,10 +173,8 @@ const AnalyticsPage: React.FC = () => {
           {(dateRange.startDate || dateRange.endDate) && (
             <Button
               variant="outlined"
-              onClick={() => {
-                setDateRange({ startDate: '', endDate: '' });
-                setTimeout(() => loadAnalytics(), 100);
-              }}
+              onClick={handleResetFilter}
+              disabled={loading}
             >
               Скинути
             </Button>
@@ -427,7 +421,7 @@ const AnalyticsPage: React.FC = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    topClients.map((item, index) => (
+                    topClients.map((item: TopClient, index: number) => (
                       <TableRow key={item.client.id} hover sx={{ '&:hover': { backgroundColor: 'action.hover' } }}>
                         <TableCell>
                           <Box>

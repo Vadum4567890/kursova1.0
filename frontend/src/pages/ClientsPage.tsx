@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Box,
@@ -22,13 +22,12 @@ import {
 } from '@mui/material';
 import { Add, Edit, Delete, Search } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { clientService, Client } from '../services/clientService';
+import { Client } from '../services/clientService';
+import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from '../hooks/queries/useClients';
+import { useUIStore } from '../stores';
 
 const ClientsPage: React.FC = () => {
   const { user } = useAuth();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -37,43 +36,33 @@ const ClientsPage: React.FC = () => {
     phone: '',
     address: '',
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [clientToDelete, setClientToDelete] = useState<number | null>(null);
-
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = async () => {
-    try {
-      setLoading(true);
-      const data = await clientService.getAllClients();
-      setClients(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження клієнтів');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState('');
+  
+  // React Query hooks
+  const { data: clients = [], isLoading: loading, error: clientsError } = useClients();
+  const createClient = useCreateClient();
+  const updateClient = useUpdateClient();
+  const deleteClient = useDeleteClient();
+  
+  // Zustand store for delete dialog
+  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
+  
+  // Combine errors
+  const displayError = error || clientsError?.message;
 
   const handleDeleteClick = (id: number) => {
-    setClientToDelete(id);
-    setDeleteDialogOpen(true);
+    openDeleteDialog(id, 'client');
   };
 
   const handleDeleteConfirm = async () => {
-    if (!clientToDelete) return;
+    if (!deleteDialogItemId) return;
     try {
-      await clientService.deleteClient(clientToDelete);
+      await deleteClient.mutateAsync(deleteDialogItemId);
       setError('');
-      setDeleteDialogOpen(false);
-      setClientToDelete(null);
-      loadClients();
+      closeDeleteDialog();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка видалення');
-      setDeleteDialogOpen(false);
-      setClientToDelete(null);
+      closeDeleteDialog();
     }
   };
 
@@ -109,20 +98,16 @@ const ClientsPage: React.FC = () => {
   const handleSubmit = async () => {
     try {
       setError('');
-      setSubmitting(true);
       
       if (editingClient) {
-        await clientService.updateClient(editingClient.id, formData);
+        await updateClient.mutateAsync({ id: editingClient.id, data: formData });
       } else {
-        await clientService.createClient(formData);
+        await createClient.mutateAsync(formData);
       }
       
       handleCloseDialog();
-      loadClients();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка збереження');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -156,9 +141,9 @@ const ClientsPage: React.FC = () => {
         />
       </Box>
 
-      {error && (
+      {displayError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
+          {displayError}
         </Alert>
       )}
 
@@ -253,14 +238,14 @@ const ClientsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Скасувати</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
-            {submitting ? <CircularProgress size={20} /> : editingClient ? 'Зберегти' : 'Створити'}
+          <Button onClick={handleSubmit} variant="contained" disabled={createClient.isPending || updateClient.isPending}>
+            {(createClient.isPending || updateClient.isPending) ? <CircularProgress size={20} /> : editingClient ? 'Зберегти' : 'Створити'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           Підтвердження видалення
         </DialogTitle>
@@ -270,11 +255,11 @@ const ClientsPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
+          <Button onClick={closeDeleteDialog}>
             Скасувати
           </Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-            Видалити
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error" disabled={deleteClient.isPending}>
+            {deleteClient.isPending ? <CircularProgress size={20} /> : 'Видалити'}
           </Button>
         </DialogActions>
       </Dialog>

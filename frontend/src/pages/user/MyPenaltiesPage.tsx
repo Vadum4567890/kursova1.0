@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Container,
   Box,
@@ -13,28 +13,11 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { penaltyService, Penalty } from '../../services/penaltyService';
+import { useMyPenalties } from '../../hooks/queries/usePenalties';
 
 const MyPenaltiesPage: React.FC = () => {
-  const [penalties, setPenalties] = useState<Penalty[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    loadPenalties();
-  }, []);
-
-  const loadPenalties = async () => {
-    try {
-      setLoading(true);
-      const data = await penaltyService.getAllPenalties();
-      setPenalties(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження штрафів');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: penalties = [], isLoading: loading, error: penaltiesError } = useMyPenalties();
+  const displayError = penaltiesError?.message;
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -44,9 +27,9 @@ const MyPenaltiesPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
+      {displayError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {displayError}
         </Alert>
       )}
 

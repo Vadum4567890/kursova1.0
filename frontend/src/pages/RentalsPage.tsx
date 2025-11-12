@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Container,
   Box,
@@ -27,65 +27,45 @@ import {
   InputLabel,
 } from '@mui/material';
 import { Add, CheckCircle, Cancel } from '@mui/icons-material';
-import { rentalService, Rental } from '../services/rentalService';
-import { clientService, Client } from '../services/clientService';
-import { carService, Car } from '../services/carService';
+import { Rental } from '../services/rentalService';
+import { Client } from '../services/clientService';
+import { Car } from '../services/carService';
+import { useRentals, useActiveRentals, useCreateRental, useCancelRental, useCompleteRental } from '../hooks/queries/useRentals';
+import { useClients } from '../hooks/queries/useClients';
+import { useCars } from '../hooks/queries/useCars';
+import { useUIStore } from '../stores';
+import { getStatusLabel, getStatusColor } from '../utils/labels';
 
 const RentalsPage: React.FC = () => {
-  const [rentals, setRentals] = useState<Rental[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [tabValue, setTabValue] = useState(0);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [rentalToCancel, setRentalToCancel] = useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [cars, setCars] = useState<Car[]>([]);
   const [formData, setFormData] = useState({
     clientId: '',
     carId: '',
     startDate: '',
     expectedEndDate: '',
   });
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    loadRentals();
-  }, [tabValue]);
-
-  useEffect(() => {
-    if (createDialogOpen) {
-      loadClientsAndCars();
-    }
-  }, [createDialogOpen]);
-
-  const loadRentals = async () => {
-    try {
-      setLoading(true);
-      const data =
-        tabValue === 0
-          ? await rentalService.getAllRentals()
-          : await rentalService.getActiveRentals();
-      setRentals(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження прокатів');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadClientsAndCars = async () => {
-    try {
-      const [clientsData, carsData] = await Promise.all([
-        clientService.getAllClients(),
-        carService.getAllCars(),
-      ]);
-      setClients(clientsData);
-      setCars(carsData.data.filter(c => c.status === 'available'));
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження даних');
-    }
-  };
+  const [error, setError] = useState('');
+  
+  // React Query hooks
+  const { data: allRentals = [], isLoading: loadingAll, error: rentalsError } = useRentals();
+  const { data: activeRentals = [], isLoading: loadingActive, error: activeError } = useActiveRentals();
+  const createRental = useCreateRental();
+  const cancelRental = useCancelRental();
+  const completeRental = useCompleteRental();
+  
+  // Load clients and cars when dialog opens
+  const { data: clients = [] } = useClients();
+  const { data: carsResponse } = useCars();
+  const cars = useMemo(() => carsResponse?.data?.filter((c: Car) => c.status === 'available') || [], [carsResponse]);
+  
+  // Zustand store for cancel dialog
+  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
+  
+  // Select rentals based on tab
+  const rentals = tabValue === 0 ? allRentals : activeRentals;
+  const loading = tabValue === 0 ? loadingAll : loadingActive;
+  const displayError = error || rentalsError?.message || activeError?.message;
 
   const handleCreateRental = async () => {
     if (!formData.clientId || !formData.carId || !formData.startDate || !formData.expectedEndDate) {
@@ -93,9 +73,8 @@ const RentalsPage: React.FC = () => {
       return;
     }
     try {
-      setSubmitting(true);
       setError('');
-      await rentalService.createRental({
+      await createRental.mutateAsync({
         clientId: parseInt(formData.clientId),
         carId: parseInt(formData.carId),
         startDate: new Date(formData.startDate).toISOString(),
@@ -103,66 +82,32 @@ const RentalsPage: React.FC = () => {
       });
       setCreateDialogOpen(false);
       setFormData({ clientId: '', carId: '', startDate: '', expectedEndDate: '' });
-      loadRentals();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка створення прокату');
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleComplete = async (id: number) => {
     try {
-      await rentalService.completeRental(id);
-      loadRentals();
+      await completeRental.mutateAsync({ id });
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка завершення прокату');
     }
   };
 
   const handleCancelClick = (id: number) => {
-    setRentalToCancel(id);
-    setCancelDialogOpen(true);
+    openDeleteDialog(id, 'rental');
   };
 
   const handleCancelConfirm = async () => {
-    if (!rentalToCancel) return;
+    if (!deleteDialogItemId) return;
     try {
-      await rentalService.cancelRental(rentalToCancel);
+      await cancelRental.mutateAsync(deleteDialogItemId);
       setError('');
-      setCancelDialogOpen(false);
-      setRentalToCancel(null);
-      loadRentals();
+      closeDeleteDialog();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка скасування');
-      setCancelDialogOpen(false);
-      setRentalToCancel(null);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'success';
-      case 'completed':
-        return 'default';
-      case 'cancelled':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Активний';
-      case 'completed':
-        return 'Завершений';
-      case 'cancelled':
-        return 'Скасований';
-      default:
-        return status;
+      closeDeleteDialog();
     }
   };
 
@@ -184,9 +129,9 @@ const RentalsPage: React.FC = () => {
         </Tabs>
       </Box>
 
-      {error && (
+      {displayError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
+          {displayError}
         </Alert>
       )}
 
@@ -212,7 +157,7 @@ const RentalsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {rentals.map((rental) => (
+              {rentals.map((rental: Rental) => (
                 <TableRow key={rental.id} hover>
                   <TableCell>{rental.id}</TableCell>
                   <TableCell>
@@ -328,7 +273,7 @@ const RentalsPage: React.FC = () => {
                 label="Клієнт"
                 onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
               >
-                {clients.map((client) => (
+                {clients.map((client: Client) => (
                   <MenuItem key={client.id} value={client.id}>
                     {client.fullName} ({client.phone})
                   </MenuItem>
@@ -342,7 +287,7 @@ const RentalsPage: React.FC = () => {
                 label="Автомобіль"
                 onChange={(e) => setFormData({ ...formData, carId: e.target.value })}
               >
-                {cars.map((car) => (
+                {cars.map((car: Car) => (
                   <MenuItem key={car.id} value={car.id}>
                     {car.brand} {car.model} ({car.year}) - {car.pricePerDay} ₴/день
                   </MenuItem>
@@ -371,14 +316,14 @@ const RentalsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={handleCreateRental} variant="contained" disabled={submitting}>
-            {submitting ? <CircularProgress size={20} /> : 'Створити'}
+          <Button onClick={handleCreateRental} variant="contained" disabled={createRental.isPending}>
+            {createRental.isPending ? <CircularProgress size={20} /> : 'Створити'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Cancel Confirmation Dialog */}
-      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           Підтвердження скасування
         </DialogTitle>
@@ -388,11 +333,11 @@ const RentalsPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setCancelDialogOpen(false)}>
+          <Button onClick={closeDeleteDialog}>
             Скасувати
           </Button>
-          <Button onClick={handleCancelConfirm} variant="contained" color="error">
-            Підтвердити скасування
+          <Button onClick={handleCancelConfirm} variant="contained" color="error" disabled={cancelRental.isPending}>
+            {cancelRental.isPending ? <CircularProgress size={20} /> : 'Підтвердити скасування'}
           </Button>
         </DialogActions>
       </Dialog>

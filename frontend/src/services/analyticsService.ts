@@ -63,9 +63,9 @@ export const analyticsService = {
     return response.data.data;
   },
 
-  async getTopClients(limit: number = 10): Promise<TopClient[]> {
+  async getTopClients(limit: number = 10, startDate?: string, endDate?: string): Promise<TopClient[]> {
     const response = await api.get<{ data: TopClient[] }>('/analytics/top-clients', {
-      params: { limit },
+      params: { limit, startDate, endDate },
     });
     return response.data.data;
   },

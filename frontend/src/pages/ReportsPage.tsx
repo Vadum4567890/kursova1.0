@@ -22,71 +22,66 @@ import {
   Chip,
 } from '@mui/material';
 import { Description } from '@mui/icons-material';
-import { reportService, FinancialReport, OccupancyReport, AvailabilityReport } from '../services/reportService';
+import dayjs from 'dayjs';
+// Types are inferred from hooks
+import { useFinancialReport, useOccupancyReport, useAvailabilityReport } from '../hooks/queries/useReports';
 
 const ReportsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // Set default dates: start of current year to today
+  const defaultStartDate = dayjs().startOf('year').format('YYYY-MM-DD');
+  const defaultEndDate = dayjs().format('YYYY-MM-DD');
+  
   const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: '',
+    startDate: defaultStartDate,
+    endDate: defaultEndDate,
   });
 
-  const [financialReport, setFinancialReport] = useState<FinancialReport | null>(null);
-  const [occupancyReport, setOccupancyReport] = useState<OccupancyReport | null>(null);
-  const [availabilityReport, setAvailabilityReport] = useState<AvailabilityReport | null>(null);
+  const startDate = dateRange.startDate || undefined;
+  const endDate = dateRange.endDate || undefined;
 
-  const loadFinancialReport = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const report = await reportService.generateFinancialReport(
-        dateRange.startDate || undefined,
-        dateRange.endDate || undefined
-      );
-      setFinancialReport(report);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка генерації звіту');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // React Query hooks - enabled only when dates are provided for financial report
+  const { 
+    data: financialReport, 
+    isLoading: loadingFinancial, 
+    error: financialError,
+    refetch: refetchFinancial 
+  } = useFinancialReport(startDate, endDate);
+  
+  const { 
+    data: occupancyReport, 
+    isLoading: loadingOccupancy, 
+    error: occupancyError,
+    refetch: refetchOccupancy 
+  } = useOccupancyReport();
+  
+  const { 
+    data: availabilityReport, 
+    isLoading: loadingAvailability, 
+    error: availabilityError 
+  } = useAvailabilityReport();
 
-  const loadOccupancyReport = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const report = await reportService.generateOccupancyReport();
-      setOccupancyReport(report);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка генерації звіту');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAvailabilityReport = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const report = await reportService.generateAvailabilityReport();
-      setAvailabilityReport(report);
-    } catch (err: any) {
-      console.error('Error loading availability report:', err);
-      setError(err.response?.data?.error || err.message || 'Помилка генерації звіту');
-      setAvailabilityReport(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = loadingFinancial || loadingOccupancy || loadingAvailability;
+  const error = financialError?.message || occupancyError?.message || availabilityError?.message;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    if (newValue === 0 && !financialReport && !loading) loadFinancialReport();
-    if (newValue === 1 && !occupancyReport && !loading) loadOccupancyReport();
-    if (newValue === 2 && !availabilityReport && !loading) loadAvailabilityReport();
+    // Trigger refetch when switching tabs
+    if (newValue === 0 && startDate && endDate) {
+      refetchFinancial();
+    } else if (newValue === 1) {
+      refetchOccupancy();
+    }
   };
+
+  // Auto-load reports when component mounts or dates change
+  React.useEffect(() => {
+    if (tabValue === 0 && startDate && endDate) {
+      refetchFinancial();
+    } else if (tabValue === 1) {
+      refetchOccupancy();
+    }
+  }, [tabValue, startDate, endDate, refetchFinancial, refetchOccupancy]);
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -100,7 +95,7 @@ const ReportsPage: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -133,9 +128,9 @@ const ReportsPage: React.FC = () => {
               />
               <Button
                 variant="contained"
-                onClick={loadFinancialReport}
-                disabled={loading}
-                startIcon={loading ? <CircularProgress size={20} /> : <Description />}
+                onClick={() => refetchFinancial()}
+                disabled={loadingFinancial || !startDate || !endDate}
+                startIcon={loadingFinancial ? <CircularProgress size={20} /> : <Description />}
               >
                 Згенерувати звіт
               </Button>
@@ -314,9 +309,9 @@ const ReportsPage: React.FC = () => {
           <Paper sx={{ p: 3, mb: 3 }}>
             <Button
               variant="contained"
-              onClick={loadOccupancyReport}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <Description />}
+              onClick={() => refetchOccupancy()}
+              disabled={loadingOccupancy}
+              startIcon={loadingOccupancy ? <CircularProgress size={20} /> : <Description />}
             >
               Згенерувати звіт
             </Button>
@@ -370,7 +365,7 @@ const ReportsPage: React.FC = () => {
           <Paper sx={{ p: 3, mb: 3 }}>
             <Button
               variant="contained"
-              onClick={loadAvailabilityReport}
+              onClick={() => {}}
               disabled={loading}
               startIcon={loading ? <CircularProgress size={20} /> : <Description />}
             >

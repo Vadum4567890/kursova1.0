@@ -25,6 +25,7 @@
   "license": "ISC",
   "dependencies": {
     "@mui/x-date-pickers": "^8.17.0",
+    "@tanstack/react-query": "^5.90.7",
     "@types/multer": "^2.0.0",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
@@ -40,7 +41,8 @@
     "reflect-metadata": "^0.1.13",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
-    "typeorm": "^0.3.17"
+    "typeorm": "^0.3.17",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.0",

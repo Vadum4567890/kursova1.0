@@ -51,7 +51,7 @@ const AdminPage: React.FC = () => {
       if (tabValue === 0) {
         data = await userService.getAllUsers();
       } else {
-        const role = ['admin', 'manager', 'employee'][tabValue - 1];
+        const role = ['admin', 'manager', 'employee', 'user'][tabValue - 1];
         data = await userService.getUsersByRole(role);
       }
       setUsers(data);
@@ -108,6 +108,10 @@ const AdminPage: React.FC = () => {
         return 'error';
       case 'manager':
         return 'warning';
+      case 'employee':
+        return 'default';
+      case 'user':
+        return 'info';
       default:
         return 'default';
     }
@@ -119,8 +123,12 @@ const AdminPage: React.FC = () => {
         return 'Адмін';
       case 'manager':
         return 'Менеджер';
-      default:
+      case 'employee':
         return 'Співробітник';
+      case 'user':
+        return 'Клієнт';
+      default:
+        return role;
     }
   };
 
@@ -141,6 +149,7 @@ const AdminPage: React.FC = () => {
           <Tab label="Адміністратори" />
           <Tab label="Менеджери" />
           <Tab label="Співробітники" />
+          <Tab label="Клієнти" />
         </Tabs>
       </Box>
 
@@ -231,6 +240,7 @@ const AdminPage: React.FC = () => {
               <MenuItem value="admin">Адмін</MenuItem>
               <MenuItem value="manager">Менеджер</MenuItem>
               <MenuItem value="employee">Співробітник</MenuItem>
+              <MenuItem value="user">Клієнт</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>

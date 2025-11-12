@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Typography,
@@ -23,77 +23,58 @@ import {
 } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { penaltyService, Penalty } from '../services/penaltyService';
-import { rentalService } from '../services/rentalService';
+import { usePenalties, useCreatePenalty, useDeletePenalty } from '../hooks/queries/usePenalties';
+import { useRentals } from '../hooks/queries/useRentals';
+import { useUIStore } from '../stores/uiStore';
 
 const PenaltiesPage: React.FC = () => {
   const { user } = useAuth();
-  const [penalties, setPenalties] = useState<Penalty[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: penalties = [], isLoading: loadingPenalties, error: penaltiesError } = usePenalties();
+  const { data: rentals = [], isLoading: loadingRentals } = useRentals();
+  const createPenalty = useCreatePenalty();
+  const deletePenalty = useDeletePenalty();
+  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
+  
   const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [rentals, setRentals] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     rentalId: '',
     amount: '',
     reason: '',
   });
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [penaltyToDelete, setPenaltyToDelete] = useState<number | null>(null);
   const [rentalSearchTerm, setRentalSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [penaltiesData, rentalsData] = await Promise.all([
-        penaltyService.getAllPenalties(),
-        rentalService.getAllRentals(),
-      ]);
-      setPenalties(penaltiesData);
-      setRentals(rentalsData);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження даних');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = loadingPenalties || loadingRentals || createPenalty.isPending || deletePenalty.isPending;
+  const displayError = error || penaltiesError?.message;
 
   const handleSubmit = async () => {
     try {
-      await penaltyService.createPenalty({
+      await createPenalty.mutateAsync({
         rentalId: parseInt(formData.rentalId),
         amount: parseFloat(formData.amount),
         reason: formData.reason,
       });
       setDialogOpen(false);
       setFormData({ rentalId: '', amount: '', reason: '' });
-      loadData();
+      setError('');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка створення штрафу');
+      setError(err.response?.data?.error || err.message || 'Помилка створення штрафу');
     }
   };
 
   const handleDeleteClick = (id: number) => {
-    setPenaltyToDelete(id);
-    setDeleteDialogOpen(true);
+    openDeleteDialog(id, 'penalty');
   };
 
   const handleDeleteConfirm = async () => {
-    if (!penaltyToDelete) return;
+    if (!deleteDialogItemId) return;
     try {
-      await penaltyService.deletePenalty(penaltyToDelete);
+      await deletePenalty.mutateAsync(deleteDialogItemId);
       setError('');
-      setDeleteDialogOpen(false);
-      setPenaltyToDelete(null);
-      loadData();
+      closeDeleteDialog();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка видалення');
-      setDeleteDialogOpen(false);
-      setPenaltyToDelete(null);
+      setError(err.response?.data?.error || err.message || 'Помилка видалення');
+      closeDeleteDialog();
     }
   };
 
@@ -120,9 +101,9 @@ const PenaltiesPage: React.FC = () => {
         </Button>
       </Box>
 
-      {error && (
+      {displayError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
+          {displayError}
         </Alert>
       )}
 
@@ -259,8 +240,9 @@ const PenaltiesPage: React.FC = () => {
                   const startDate = rental.startDate 
                     ? new Date(rental.startDate).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })
                     : '';
-                  const endDate = rental.expectedEndDate || rental.actualEndDate
-                    ? new Date(rental.expectedEndDate || rental.actualEndDate).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  const endDateValue = rental.expectedEndDate || rental.actualEndDate;
+                  const endDate = endDateValue
+                    ? new Date(endDateValue).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })
                     : '';
                   const statusLabels: { [key: string]: string } = {
                     'active': 'Активний',
@@ -309,7 +291,7 @@ const PenaltiesPage: React.FC = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           Підтвердження видалення
         </DialogTitle>
@@ -319,10 +301,10 @@ const PenaltiesPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
+          <Button onClick={closeDeleteDialog}>
             Скасувати
           </Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error" disabled={deletePenalty.isPending}>
             Видалити
           </Button>
         </DialogActions>
