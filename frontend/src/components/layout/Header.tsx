@@ -10,7 +10,7 @@ import {
   Box,
   Avatar,
   Chip,
-  useTheme,
+  useTheme as useMuiTheme,
   useMediaQuery,
   Drawer,
   List,
@@ -31,16 +31,20 @@ import {
   Search as SearchIcon,
   Description,
   Gavel,
+  Brightness4,
+  Brightness7,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useAppTheme } from '../../context/ThemeContext';
 
 const Header: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
+  const { mode, toggleTheme } = useAppTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const muiTheme = useMuiTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -168,6 +172,19 @@ const Header: React.FC = () => {
 
         {isAuthenticated ? (
           <>
+            <IconButton
+              onClick={toggleTheme}
+              sx={{
+                mr: 1,
+                color: 'inherit',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+              aria-label="Перемкнути тему"
+            >
+              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mr: 1 }}>
               <Chip
                 label={getRoleLabel(user?.role || '')}
@@ -238,7 +255,19 @@ const Header: React.FC = () => {
             </Menu>
           </>
         ) : (
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              onClick={toggleTheme}
+              sx={{
+                color: 'inherit',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+              aria-label="Перемкнути тему"
+            >
+              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
             <Button color="inherit" onClick={() => navigate('/login')}>
               Увійти
             </Button>

@@ -25,9 +25,11 @@ import {
   InputLabel,
   CircularProgress,
   Alert,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
-import { Edit, Delete, PersonAdd, Block, CheckCircle } from '@mui/icons-material';
-import { userService, User } from '../../services/userService';
+import { Edit, Delete, PersonAdd, Block, CheckCircle, Visibility, VisibilityOff } from '@mui/icons-material';
+import { userService, User, CreateUserData } from '../../services/userService';
 
 const AdminPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -39,6 +41,18 @@ const AdminPage: React.FC = () => {
   const [role, setRole] = useState<string>('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState<CreateUserData>({
+    username: '',
+    email: '',
+    password: '',
+    fullName: '',
+    address: '',
+    phone: '',
+    role: 'employee',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -102,6 +116,39 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!createUserForm.username || !createUserForm.email || !createUserForm.password) {
+      setError('Логін, email та пароль обов\'язкові');
+      return;
+    }
+
+    if (createUserForm.password.length < 6) {
+      setError('Пароль повинен містити мінімум 6 символів');
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setError('');
+      await userService.createUser(createUserForm);
+      setCreateDialogOpen(false);
+      setCreateUserForm({
+        username: '',
+        email: '',
+        password: '',
+        fullName: '',
+        address: '',
+        phone: '',
+        role: 'employee',
+      });
+      loadUsers();
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Помилка створення користувача');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
@@ -138,7 +185,11 @@ const AdminPage: React.FC = () => {
         <Typography variant="h4" component="h1">
           Управління користувачами
         </Typography>
-        <Button variant="contained" startIcon={<PersonAdd />}>
+        <Button 
+          variant="contained" 
+          startIcon={<PersonAdd />}
+          onClick={() => setCreateDialogOpen(true)}
+        >
           Додати користувача
         </Button>
       </Box>
@@ -171,6 +222,7 @@ const AdminPage: React.FC = () => {
                 <TableCell>ID</TableCell>
                 <TableCell>Логін</TableCell>
                 <TableCell>Email</TableCell>
+                <TableCell>Телефон</TableCell>
                 <TableCell>ПІБ</TableCell>
                 <TableCell>Роль</TableCell>
                 <TableCell>Статус</TableCell>
@@ -182,7 +234,8 @@ const AdminPage: React.FC = () => {
                 <TableRow key={user.id} hover>
                   <TableCell>{user.id}</TableCell>
                   <TableCell>{user.username}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.email || '-'}</TableCell>
+                  <TableCell>{user.phone || '-'}</TableCell>
                   <TableCell>{user.fullName || '-'}</TableCell>
                   <TableCell>
                     <Chip
@@ -268,6 +321,89 @@ const AdminPage: React.FC = () => {
           </Button>
           <Button onClick={handleDeleteConfirm} variant="contained" color="error">
             Видалити
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Додати нового користувача</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+            <TextField
+              label="Логін *"
+              value={createUserForm.username}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, username: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Email *"
+              type="email"
+              value={createUserForm.email}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Пароль *"
+              type={showPassword ? 'text' : 'password'}
+              value={createUserForm.password}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
+              fullWidth
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="ПІБ"
+              value={createUserForm.fullName}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, fullName: e.target.value })}
+              fullWidth
+            />
+            <TextField
+              label="Адреса"
+              value={createUserForm.address}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, address: e.target.value })}
+              fullWidth
+              multiline
+              rows={2}
+            />
+            <TextField
+              label="Телефон"
+              value={createUserForm.phone}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, phone: e.target.value })}
+              fullWidth
+              placeholder="+380501234567"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Роль *</InputLabel>
+              <Select
+                value={createUserForm.role}
+                label="Роль *"
+                onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value as any })}
+              >
+                <MenuItem value="admin">Адмін</MenuItem>
+                <MenuItem value="manager">Менеджер</MenuItem>
+                <MenuItem value="employee">Співробітник</MenuItem>
+                <MenuItem value="user">Клієнт</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialogOpen(false)} disabled={creating}>
+            Скасувати
+          </Button>
+          <Button onClick={handleCreateUser} variant="contained" disabled={creating}>
+            {creating ? <CircularProgress size={20} /> : 'Створити'}
           </Button>
         </DialogActions>
       </Dialog>

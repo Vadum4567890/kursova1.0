@@ -13,6 +13,10 @@ export class RentalMapper {
    * Convert Entity to Response DTO (with full relations)
    */
   static toResponseDto(rental: Rental): RentalResponseDto {
+    if (!rental.client || !rental.car) {
+      throw new Error('Rental must have client and car relations loaded');
+    }
+    
     return {
       id: rental.id,
       client: ClientMapper.toResponseDto(rental.client),
@@ -34,6 +38,10 @@ export class RentalMapper {
    * Convert Entity to Light Response DTO (without full relations)
    */
   static toLightResponseDto(rental: Rental): RentalLightResponseDto {
+    if (!rental.client || !rental.car) {
+      throw new Error('Rental must have client and car relations loaded');
+    }
+    
     return {
       id: rental.id,
       clientId: rental.client.id,

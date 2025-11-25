@@ -67,6 +67,7 @@ const ProfilePage: React.FC = () => {
     email: user?.email || '',
     fullName: user?.fullName || '',
     address: user?.address || '',
+    phone: user?.phone || '',
   });
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
@@ -89,6 +90,7 @@ const ProfilePage: React.FC = () => {
         email: user.email || '',
         fullName: user.fullName || '',
         address: user.address || '',
+        phone: user.phone || '',
       });
     }
   }, [user]);
@@ -226,6 +228,7 @@ const ProfilePage: React.FC = () => {
                       email: user?.email || '',
                       fullName: user?.fullName || '',
                       address: user?.address || '',
+                      phone: user?.phone || '',
                     });
                     setProfileDialogOpen(true);
                   }}
@@ -390,6 +393,13 @@ const ProfilePage: React.FC = () => {
               placeholder="Місце проживання"
               multiline
               rows={2}
+            />
+            <TextField
+              label="Телефон"
+              value={profileForm.phone}
+              onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+              fullWidth
+              placeholder="+380501234567"
             />
           </Box>
         </DialogContent>

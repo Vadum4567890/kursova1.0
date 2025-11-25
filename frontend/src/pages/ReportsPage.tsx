@@ -24,9 +24,11 @@ import {
 import { Description } from '@mui/icons-material';
 import dayjs from 'dayjs';
 // Types are inferred from hooks
-import { useFinancialReport, useOccupancyReport, useAvailabilityReport } from '../hooks/queries/useReports';
+import { useFinancialReport, useOccupancyReport, useAvailabilityReport, useCarReport } from '../hooks/queries/useReports';
+import { useAppTheme } from '../context/ThemeContext';
 
 const ReportsPage: React.FC = () => {
+  const { theme } = useAppTheme();
   const [tabValue, setTabValue] = useState(0);
   // Set default dates: start of current year to today
   const defaultStartDate = dayjs().startOf('year').format('YYYY-MM-DD');
@@ -40,48 +42,77 @@ const ReportsPage: React.FC = () => {
   const startDate = dateRange.startDate || undefined;
   const endDate = dateRange.endDate || undefined;
 
-  // React Query hooks - enabled only when dates are provided for financial report
+  // State to track if reports should be loaded
+  const [shouldLoadFinancial, setShouldLoadFinancial] = useState(false);
+  const [shouldLoadOccupancy, setShouldLoadOccupancy] = useState(false);
+  const [shouldLoadAvailability, setShouldLoadAvailability] = useState(false);
+  const [shouldLoadCarReport, setShouldLoadCarReport] = useState(false);
+
+  // React Query hooks - enabled only when explicitly requested, but data persists in cache
   const { 
     data: financialReport, 
     isLoading: loadingFinancial, 
     error: financialError,
     refetch: refetchFinancial 
-  } = useFinancialReport(startDate, endDate);
+  } = useFinancialReport(
+    startDate, 
+    endDate,
+    shouldLoadFinancial
+  );
   
   const { 
     data: occupancyReport, 
     isLoading: loadingOccupancy, 
     error: occupancyError,
     refetch: refetchOccupancy 
-  } = useOccupancyReport();
+  } = useOccupancyReport(shouldLoadOccupancy);
   
   const { 
     data: availabilityReport, 
     isLoading: loadingAvailability, 
-    error: availabilityError 
-  } = useAvailabilityReport();
+    error: availabilityError,
+    refetch: refetchAvailability
+  } = useAvailabilityReport(shouldLoadAvailability);
 
-  const loading = loadingFinancial || loadingOccupancy || loadingAvailability;
-  const error = financialError?.message || occupancyError?.message || availabilityError?.message;
+  const {
+    data: carReport,
+    isLoading: loadingCarReport,
+    error: carReportError,
+    refetch: refetchCarReport
+  } = useCarReport(
+    startDate,
+    endDate,
+    shouldLoadCarReport
+  );
+
+  const error = financialError?.message || occupancyError?.message || availabilityError?.message || carReportError?.message;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    // Trigger refetch when switching tabs
-    if (newValue === 0 && startDate && endDate) {
+    // Don't reset load flags - keep them so data persists when switching tabs
+  };
+
+  const handleGenerateFinancial = () => {
+    if (startDate && endDate) {
+      setShouldLoadFinancial(true);
       refetchFinancial();
-    } else if (newValue === 1) {
-      refetchOccupancy();
     }
   };
 
-  // Auto-load reports when component mounts or dates change
-  React.useEffect(() => {
-    if (tabValue === 0 && startDate && endDate) {
-      refetchFinancial();
-    } else if (tabValue === 1) {
-      refetchOccupancy();
-    }
-  }, [tabValue, startDate, endDate, refetchFinancial, refetchOccupancy]);
+  const handleGenerateOccupancy = () => {
+    setShouldLoadOccupancy(true);
+    refetchOccupancy();
+  };
+
+  const handleGenerateAvailability = () => {
+    setShouldLoadAvailability(true);
+    refetchAvailability();
+  };
+
+  const handleGenerateCarReport = () => {
+    setShouldLoadCarReport(true);
+    refetchCarReport();
+  };
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -105,6 +136,7 @@ const ReportsPage: React.FC = () => {
           <Tab label="Фінансовий звіт" />
           <Tab label="Зайнятість" />
           <Tab label="Доступність" />
+          <Tab label="Автомобілі" />
         </Tabs>
       </Paper>
 
@@ -128,7 +160,7 @@ const ReportsPage: React.FC = () => {
               />
               <Button
                 variant="contained"
-                onClick={() => refetchFinancial()}
+                onClick={handleGenerateFinancial}
                 disabled={loadingFinancial || !startDate || !endDate}
                 startIcon={loadingFinancial ? <CircularProgress size={20} /> : <Description />}
               >
@@ -309,7 +341,7 @@ const ReportsPage: React.FC = () => {
           <Paper sx={{ p: 3, mb: 3 }}>
             <Button
               variant="contained"
-              onClick={() => refetchOccupancy()}
+              onClick={handleGenerateOccupancy}
               disabled={loadingOccupancy}
               startIcon={loadingOccupancy ? <CircularProgress size={20} /> : <Description />}
             >
@@ -365,9 +397,9 @@ const ReportsPage: React.FC = () => {
           <Paper sx={{ p: 3, mb: 3 }}>
             <Button
               variant="contained"
-              onClick={() => {}}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <Description />}
+              onClick={handleGenerateAvailability}
+              disabled={loadingAvailability}
+              startIcon={loadingAvailability ? <CircularProgress size={20} /> : <Description />}
             >
               Згенерувати звіт
             </Button>
@@ -404,6 +436,182 @@ const ReportsPage: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+        </Box>
+      )}
+
+      {tabValue === 3 && (
+        <Box>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <TextField
+                label="Дата початку"
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="Дата кінця"
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleGenerateCarReport}
+                disabled={loadingCarReport}
+                startIcon={loadingCarReport ? <CircularProgress size={20} /> : <Description />}
+              >
+                Згенерувати звіт
+              </Button>
+            </Box>
+          </Paper>
+
+          {carReport && (
+            <>
+              {/* Summary Cards */}
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Всього автомобілів
+                      </Typography>
+                      <Typography variant="h5">
+                        {carReport.summary.totalCars}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Загальний дохід
+                      </Typography>
+                      <Typography variant="h5" color="primary">
+                        {carReport.summary.totalRevenue.toLocaleString()} ₴
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Чистий дохід
+                      </Typography>
+                      <Typography variant="h5" color="success.main">
+                        {carReport.summary.totalNetRevenue.toLocaleString()} ₴
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Середня зайнятість
+                      </Typography>
+                      <Typography variant="h5">
+                        {carReport.summary.averageOccupancyRate.toFixed(1)}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Cars Table */}
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: theme.palette.action.hover }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Автомобіль</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Статус</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Зайнятість</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Прокатів</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Дохід</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Чистий дохід</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Штрафи</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Середній дохід/прокат</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {carReport.cars.map((item) => (
+                      <TableRow key={item.car.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {item.car.brand} {item.car.model}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.car.year} • {item.car.type}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Chip
+                            label={
+                              item.car.status === 'available' ? 'Доступний' :
+                              item.car.status === 'rented' ? 'В прокаті' :
+                              item.car.status === 'maintenance' ? 'На обслуговуванні' :
+                              item.car.status
+                            }
+                            color={
+                              item.car.status === 'available' ? 'success' :
+                              item.car.status === 'rented' ? 'warning' :
+                              'default'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">
+                            {parseFloat(item.occupancy.occupancyRate).toFixed(1)}%
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.occupancy.totalRentalDays} дн. / {item.occupancy.periodDays} дн.
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">
+                            {item.occupancy.rentalCount}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Завершено: {item.occupancy.completedCount}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {item.financial.totalRevenue.toLocaleString()} ₴
+                          </Typography>
+                          {item.financial.expectedRevenue > 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              Очікується: {item.financial.expectedRevenue.toLocaleString()} ₴
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
+                            {item.financial.netRevenue.toLocaleString()} ₴
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" color="error.main">
+                            {item.financial.totalPenalties.toLocaleString()} ₴
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">
+                            {item.financial.averageRevenuePerRental.toLocaleString()} ₴
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
           )}
         </Box>
       )}

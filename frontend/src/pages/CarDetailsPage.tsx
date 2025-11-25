@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -72,6 +72,13 @@ const CarDetailsPage: React.FC = () => {
   // React Query hooks
   const { data: car, isLoading: loading, error: carError } = useCar(carId);
   const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carId);
+  
+  // Redirect if no ID provided
+  useEffect(() => {
+    if (!id || isNaN(Number(id))) {
+      navigate('/cars');
+    }
+  }, [id, navigate]);
   const createBooking = useCreateBooking();
   
   // Local UI state
@@ -266,7 +273,7 @@ const CarDetailsPage: React.FC = () => {
             </Box>
 
             {/* Specifications */}
-            <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+            <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.paper' }}>
               <Grid container spacing={2}>
                 {car.year && (
                   <Grid item xs={6}>
@@ -376,7 +383,7 @@ const CarDetailsPage: React.FC = () => {
                     </Button>
                   ))}
                 </Box>
-                <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1 }}>
+                <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     Орієнтовна вартість: <strong>{formatCurrency(totalPrice)}</strong> ({days} дн.)
                   </Typography>
@@ -664,13 +671,13 @@ const CarDetailsPage: React.FC = () => {
                     </Box>
 
                     {bookedDates.length > 0 && (
-                      <Paper sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
+                      <Paper sx={{ p: 2, bgcolor: 'warning.main', borderRadius: 1 }}>
+                        <Typography variant="subtitle2" gutterBottom sx={{ color: 'warning.contrastText' }}>
                           Заброньовані періоди:
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           {bookedDates.map((period: { startDate: string; endDate: string }, idx: number) => (
-                            <Typography key={idx} variant="caption" display="block">
+                            <Typography key={idx} variant="caption" display="block" sx={{ color: 'warning.contrastText' }}>
                               {dayjs(period.startDate).format('DD.MM.YYYY')} - {dayjs(period.endDate).format('DD.MM.YYYY')}
                             </Typography>
                           ))}
@@ -685,7 +692,7 @@ const CarDetailsPage: React.FC = () => {
                       const additionalDeposit = deposit - baseDeposit;
                       
                       return (
-                        <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                        <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                           <Typography variant="body2" color="text.secondary">
                             Орієнтовна вартість: {formatCurrency(price)} ({days} дн. × {formatCurrency(Number(car.pricePerDay))})
                           </Typography>

@@ -6,9 +6,21 @@ export interface User {
   email: string;
   role: 'admin' | 'manager' | 'employee';
   fullName?: string;
+  address?: string;
+  phone?: string;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CreateUserData {
+  username: string;
+  email: string;
+  password: string;
+  fullName?: string;
+  address?: string;
+  phone?: string;
+  role?: 'admin' | 'manager' | 'employee' | 'user';
 }
 
 export const userService = {
@@ -19,6 +31,11 @@ export const userService = {
 
   async getUserById(id: number): Promise<User> {
     const response = await api.get<{ data: User }>(`/users/${id}`);
+    return response.data.data;
+  },
+
+  async createUser(data: CreateUserData): Promise<User> {
+    const response = await api.post<{ message: string; data: User }>('/users', data);
     return response.data.data;
   },
 

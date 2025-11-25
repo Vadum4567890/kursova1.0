@@ -132,7 +132,11 @@ export const useCancelRental = () => {
   return useMutation({
     mutationFn: (id: number) => rentalService.cancelRental(id),
     onSuccess: () => {
+      // Invalidate all rental queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      // Specifically invalidate my rentals
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.my() });
+      // Invalidate analytics and reports
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },

@@ -34,6 +34,7 @@ const ClientsPage: React.FC = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
+    email: '',
     address: '',
   });
   const [error, setError] = useState('');
@@ -72,6 +73,7 @@ const ClientsPage: React.FC = () => {
       setFormData({
         fullName: client.fullName,
         phone: client.phone,
+        email: client.email || '',
         address: client.address,
       });
     } else {
@@ -79,6 +81,7 @@ const ClientsPage: React.FC = () => {
       setFormData({
         fullName: '',
         phone: '',
+        email: '',
         address: '',
       });
     }
@@ -91,6 +94,7 @@ const ClientsPage: React.FC = () => {
     setFormData({
       fullName: '',
       phone: '',
+      email: '',
       address: '',
     });
   };
@@ -159,6 +163,7 @@ const ClientsPage: React.FC = () => {
                 <TableCell>ID</TableCell>
                 <TableCell>ПІБ</TableCell>
                 <TableCell>Телефон</TableCell>
+                <TableCell>Email</TableCell>
                 <TableCell>Адреса</TableCell>
                 <TableCell>Дата реєстрації</TableCell>
                 {(user?.role === 'admin' || user?.role === 'manager') && (
@@ -167,12 +172,19 @@ const ClientsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id} hover>
-                  <TableCell>{client.id}</TableCell>
-                  <TableCell>{client.fullName}</TableCell>
-                  <TableCell>{client.phone}</TableCell>
-                  <TableCell>{client.address}</TableCell>
+              {filteredClients.map((client) => {
+                // Check if phone contains email pattern (for backward compatibility)
+                const isEmailInPhone = client.phone && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.phone);
+                const phone = isEmailInPhone ? '-' : client.phone;
+                const email = client.email || (isEmailInPhone ? client.phone : '-');
+                
+                return (
+                  <TableRow key={client.id} hover>
+                    <TableCell>{client.id}</TableCell>
+                    <TableCell>{client.fullName}</TableCell>
+                    <TableCell>{phone}</TableCell>
+                    <TableCell>{email}</TableCell>
+                    <TableCell>{client.address || 'Не вказано'}</TableCell>
                   <TableCell>
                     {new Date(client.registrationDate).toLocaleDateString('uk-UA')}
                   </TableCell>
@@ -195,8 +207,9 @@ const ClientsPage: React.FC = () => {
                       )}
                     </TableCell>
                   )}
-                </TableRow>
-              ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -223,6 +236,14 @@ const ClientsPage: React.FC = () => {
               fullWidth
               required
               placeholder="+380501234567"
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              fullWidth
+              placeholder="example@email.com"
             />
             <TextField
               label="Адреса *"

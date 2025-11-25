@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { IUserService } from '../core/interfaces/IUserService';
 import { AppError } from '../middleware/errorHandler';
 import { UserRole } from '../models/User.entity';
-import { UpdateUserRoleDto, UpdateUserStatusDto } from '../dto/requests/UserRequest.dto';
+import { UpdateUserRoleDto, UpdateUserStatusDto, RegisterUserDto } from '../dto/requests/UserRequest.dto';
 import { UserMapper } from '../dto/mappers/UserMapper';
 
 export class UserController {
@@ -21,6 +21,42 @@ export class UserController {
       });
     } catch (error: any) {
       throw new AppError(error.message || 'Failed to get users', 500);
+    }
+  };
+
+  /**
+   * POST /api/users - Create a new user (admin only)
+   */
+  createUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const registerDto: RegisterUserDto = req.body;
+
+      // Validation
+      if (!registerDto.username || !registerDto.email || !registerDto.password) {
+        throw new AppError('Username, email, and password are required', 400);
+      }
+
+      if (registerDto.password.length < 6) {
+        throw new AppError('Password must be at least 6 characters long', 400);
+      }
+
+      // Validate role if provided
+      if (registerDto.role && !Object.values(UserRole).includes(registerDto.role)) {
+        throw new AppError('Invalid role', 400);
+      }
+
+      const user = await this.userService.createUser(registerDto);
+      const userDto = UserMapper.toResponseDto(user);
+
+      res.status(201).json({
+        message: 'User created successfully',
+        data: userDto
+      });
+    } catch (error: any) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(error.message || 'Failed to create user', 400);
     }
   };
 

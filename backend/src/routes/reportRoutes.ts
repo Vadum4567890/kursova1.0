@@ -59,4 +59,31 @@ router.get('/occupancy', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGE
  */
 router.get('/availability', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), reportController.generateAvailabilityReport);
 
+/**
+ * @swagger
+ * /api/reports/cars:
+ *   get:
+ *     summary: Generate car report with occupancy and financial indicators
+ *     tags: [Reports]
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-01-01"
+ *         description: Start date in ISO format (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-12-31"
+ *         description: End date in ISO format (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Car report generated
+ */
+router.get('/cars', authenticate, reportController.generateCarReport);
+
 export default router;

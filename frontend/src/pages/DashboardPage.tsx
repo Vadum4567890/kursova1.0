@@ -29,7 +29,6 @@ import {
   Speed,
 } from '@mui/icons-material';
 import {
-  BarChart,
   Bar,
   PieChart,
   Pie,
@@ -42,8 +41,11 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  ComposedChart,
+  Line,
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import { useAppTheme } from '../context/ThemeContext';
 import { DashboardStats, PopularCar } from '../services/analyticsService';
 import { useDashboardStats, usePopularCars, useRevenueStats } from '../hooks/queries/useAnalytics';
 import { useCars } from '../hooks/queries/useCars';
@@ -52,6 +54,7 @@ import { useRentals } from '../hooks/queries/useRentals';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const { theme } = useAppTheme();
   const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
   
   // React Query hooks for admin/manager
@@ -281,14 +284,31 @@ const DashboardPage: React.FC = () => {
                         <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="date" stroke="#666" />
-                    <YAxis stroke="#666" />
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      stroke={theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'} 
+                    />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'}
+                      tick={{ fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }}
+                    />
+                    <YAxis 
+                      stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'}
+                      tick={{ fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }}
+                    />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e0e0e0',
+                        backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : 'rgba(255, 255, 255, 0.95)',
+                        border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #e0e0e0',
                         borderRadius: '8px',
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                      }}
+                      itemStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                      }}
+                      labelStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
                       }}
                     />
                     <Area
@@ -319,8 +339,20 @@ const DashboardPage: React.FC = () => {
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <DirectionsCar sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    mr: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <DirectionsCar sx={{ color: 'white', fontSize: 24 }} />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
                   Статуси автомобілів
                 </Typography>
               </Box>
@@ -332,16 +364,49 @@ const DashboardPage: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                       outerRadius={100}
-                      fill="#8884d8"
                       dataKey="value"
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, name, percent }) => {
+                        const RADIAN = Math.PI / 180;
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        return (
+                          <text
+                            x={x}
+                            y={y}
+                            fill={theme.palette.mode === 'dark' ? '#ffffff' : '#000000'}
+                            textAnchor={x > cx ? 'start' : 'end'}
+                            dominantBaseline="central"
+                            style={{ fontSize: '14px', fontWeight: 500 }}
+                          >
+                            {`${name}: ${(percent * 100).toFixed(0)}%`}
+                          </text>
+                        );
+                      }}
                     >
                       {carStatusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : 'rgba(255, 255, 255, 0.95)',
+                        border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #e0e0e0',
+                        borderRadius: '8px',
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                      }}
+                      itemStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                      }}
+                      labelStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                      }}
+                      formatter={(value: any, name: any) => {
+                        const entry = carStatusData.find(d => d.name === name);
+                        return [value, entry?.name || name];
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -358,39 +423,154 @@ const DashboardPage: React.FC = () => {
               <Paper
                 sx={{
                   p: 3,
-                  borderRadius: 2,
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: 3,
+                  background: (theme) => theme.palette.mode === 'dark'
+                    ? 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%)'
+                    : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                  boxShadow: (theme) => theme.palette.mode === 'dark'
+                    ? '0 8px 32px rgba(0,0,0,0.4)'
+                    : '0 8px 32px rgba(0,0,0,0.08)',
+                  border: (theme) => theme.palette.mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid rgba(0,0,0,0.05)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: (theme) => theme.palette.mode === 'dark'
+                      ? '0 12px 40px rgba(0,0,0,0.5)'
+                      : '0 12px 40px rgba(0,0,0,0.12)',
+                  },
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <DirectionsCar sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      mr: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <DirectionsCar sx={{ color: 'white', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
                     Популярні автомобілі
                   </Typography>
                 </Box>
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={popularCarsData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <ResponsiveContainer width="100%" height={400}>
+                  <ComposedChart 
+                    data={popularCarsData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                  >
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      stroke={theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'} 
+                      vertical={false}
+                    />
                     <XAxis
                       dataKey="name"
                       angle={-45}
                       textAnchor="end"
                       height={100}
-                      stroke="#666"
+                      stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'}
                       interval={0}
-                    />
-                    <YAxis stroke="#666" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '8px',
+                      tick={{ fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666', fontSize: 12 }}
+                      label={{ 
+                        value: 'Автомобіль', 
+                        position: 'insideBottom', 
+                        offset: -5,
+                        style: { fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }
                       }}
                     />
-                    <Legend />
-                    <Bar dataKey="Прокатів" fill="#1976d2" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="Дохід" fill="#2e7d32" radius={[8, 8, 0, 0]} />
-                  </BarChart>
+                    <YAxis 
+                      yAxisId="left"
+                      stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'}
+                      tick={{ fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }}
+                      label={{ 
+                        value: 'Кількість прокатів', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }
+                      }}
+                    />
+                    <YAxis 
+                      yAxisId="right"
+                      orientation="right"
+                      stroke={theme.palette.mode === 'dark' ? '#10b981' : '#059669'}
+                      tick={{ fill: theme.palette.mode === 'dark' ? '#10b981' : '#059669' }}
+                      label={{ 
+                        value: 'Дохід (₴)', 
+                        angle: 90, 
+                        position: 'insideRight',
+                        style: { fill: theme.palette.mode === 'dark' ? '#10b981' : '#059669' }
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#ffffff',
+                        border: theme.palette.mode === 'dark' 
+                          ? '1px solid rgba(255, 255, 255, 0.2)' 
+                          : '1px solid #e0e0e0',
+                        borderRadius: '12px',
+                        boxShadow: theme.palette.mode === 'dark'
+                          ? '0 8px 24px rgba(0,0,0,0.5)'
+                          : '0 8px 24px rgba(0,0,0,0.15)',
+                        padding: '12px 16px',
+                      }}
+                      itemStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                        fontSize: '0.875rem',
+                      }}
+                      labelStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                        fontWeight: 600,
+                        marginBottom: '8px',
+                      }}
+                      formatter={(value: any, name: string) => {
+                        if (name === 'Дохід') {
+                          return [`${value.toLocaleString('uk-UA')} ₴`, name];
+                        }
+                        return [value, name];
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{
+                        color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                        paddingTop: '20px',
+                      }}
+                      iconType="circle"
+                    />
+                    <Bar 
+                      yAxisId="left"
+                      dataKey="Прокатів" 
+                      fill="url(#barGradient)"
+                      radius={[8, 8, 0, 0]}
+                      name="Прокатів"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="Дохід"
+                      stroke="url(#lineGradient)"
+                      strokeWidth={3}
+                      dot={{ fill: '#10b981', r: 5, strokeWidth: 2, stroke: '#ffffff' }}
+                      activeDot={{ r: 7, strokeWidth: 2 }}
+                      name="Дохід"
+                    />
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#667eea" stopOpacity={0.9} />
+                        <stop offset="100%" stopColor="#764ba2" stopOpacity={0.9} />
+                      </linearGradient>
+                      <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#059669" stopOpacity={1} />
+                      </linearGradient>
+                    </defs>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </Paper>
             </Grid>
@@ -426,7 +606,7 @@ const DashboardPage: React.FC = () => {
                   sx={{
                     height: 12,
                     borderRadius: 6,
-                    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                     '& .MuiLinearProgress-bar': {
                       borderRadius: 6,
                       background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
@@ -458,7 +638,7 @@ const DashboardPage: React.FC = () => {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow>
+                    <TableRow sx={{ backgroundColor: theme.palette.action.hover }}>
                       <TableCell sx={{ fontWeight: 600 }}>Показник</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>Значення</TableCell>
                     </TableRow>

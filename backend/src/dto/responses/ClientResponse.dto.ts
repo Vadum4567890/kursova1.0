@@ -6,6 +6,7 @@ export interface ClientResponseDto {
   fullName: string;
   address: string;
   phone: string;
+  email?: string;
   registrationDate: Date;
   createdAt: Date;
   updatedAt: Date;

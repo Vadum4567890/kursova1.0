@@ -70,8 +70,8 @@ export const rentalService = {
   },
 
   async cancelRental(id: number): Promise<Rental> {
-    const response = await api.post<{ data: Rental }>(`/rentals/${id}/cancel`);
-    return response.data.data;
+    const response = await api.post<Rental>(`/rentals/${id}/cancel`);
+    return response.data;
   },
 
   async addPenalty(id: number, amount: number, reason: string): Promise<void> {

@@ -22,6 +22,7 @@ export interface AuthResponse {
     role: string;
     fullName?: string;
     address?: string;
+    phone?: string;
   };
   token: string;
 }
@@ -61,7 +62,7 @@ export const authService = {
     localStorage.setItem('user', JSON.stringify(data.user));
   },
 
-  async updateProfile(data: { email?: string; fullName?: string; address?: string }): Promise<AuthResponse['user']> {
+  async updateProfile(data: { email?: string; fullName?: string; address?: string; phone?: string }): Promise<AuthResponse['user']> {
     const response = await api.put<{ message: string; data: AuthResponse['user'] }>('/auth/profile', data);
     return response.data.data;
   },

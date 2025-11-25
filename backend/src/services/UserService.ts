@@ -1,7 +1,7 @@
 import { User, UserRole } from '../models/User.entity';
 import { IUserRepository } from '../core/interfaces/IUserRepository';
 import { Logger } from '../utils/Logger';
-import { IUserService, UpdateUserStatusData } from '../core/interfaces/IUserService';
+import { IUserService, UpdateUserStatusData, CreateUserData } from '../core/interfaces/IUserService';
 
 export interface UpdateUserRoleData {
   role: UserRole;
@@ -33,6 +33,45 @@ export class UserService implements IUserService {
    */
   async getUserById(id: number): Promise<User | null> {
     return await this.userRepository.findById(id);
+  }
+
+  /**
+   * Create a new user (admin only)
+   */
+  async createUser(data: CreateUserData): Promise<User> {
+    // Check if username already exists
+    const existingUserByUsername = await this.userRepository.findByUsername(data.username);
+    if (existingUserByUsername) {
+      throw new Error('Username already exists');
+    }
+
+    // Check if email already exists
+    const existingUserByEmail = await this.userRepository.findByEmail(data.email);
+    if (existingUserByEmail) {
+      throw new Error('Email already exists');
+    }
+
+    // Hash password
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(data.password, saltRounds);
+
+    // Create user
+    const userData: Partial<User> = {
+      username: data.username,
+      email: data.email,
+      password: hashedPassword,
+      fullName: data.fullName,
+      address: data.address,
+      phone: data.phone,
+      role: data.role || UserRole.EMPLOYEE,
+      isActive: true
+    };
+
+    const user = await this.userRepository.create(userData as User);
+    this.logger.log(`User created by admin: ${user.username}`, 'info');
+    
+    return user;
   }
 
   /**

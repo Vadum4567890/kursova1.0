@@ -19,6 +19,7 @@ import {
   LinearProgress,
   TextField,
   Button,
+  useTheme,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -45,6 +46,7 @@ import { PopularCar, TopClient } from '../services/analyticsService';
 import { useDashboardStats, usePopularCars, useTopClients, useOccupancyRate, useRevenueStats } from '../hooks/queries/useAnalytics';
 
 const AnalyticsPage: React.FC = () => {
+  const theme = useTheme();
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: '',
@@ -263,14 +265,29 @@ const AnalyticsPage: React.FC = () => {
                       <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                  <XAxis dataKey="date" stroke="#666" />
-                  <YAxis stroke="#666" />
+                  <CartesianGrid 
+                    strokeDasharray="3 3" 
+                    stroke={theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'} 
+                  />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'} 
+                  />
+                  <YAxis 
+                    stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'} 
+                  />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #e0e0e0',
+                      backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : 'rgba(255, 255, 255, 0.95)',
+                      border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #e0e0e0',
                       borderRadius: '8px',
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                    }}
+                    itemStyle={{
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                    }}
+                    labelStyle={{
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
                     }}
                   />
                   <Area
@@ -353,24 +370,42 @@ const AnalyticsPage: React.FC = () => {
             {popularCarsData.length > 0 ? (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={popularCarsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                  <CartesianGrid 
+                    strokeDasharray="3 3" 
+                    stroke={theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'} 
+                  />
                   <XAxis
                     dataKey="name"
                     angle={-45}
                     textAnchor="end"
                     height={100}
-                    stroke="#666"
+                    stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'}
                     interval={0}
+                    tick={{ fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }}
                   />
-                  <YAxis stroke="#666" />
+                  <YAxis 
+                    stroke={theme.palette.mode === 'dark' ? '#b0b0b0' : '#666'}
+                    tick={{ fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' }}
+                  />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #e0e0e0',
+                      backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : 'rgba(255, 255, 255, 0.95)',
+                      border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #e0e0e0',
                       borderRadius: '8px',
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                    }}
+                    itemStyle={{
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                    }}
+                    labelStyle={{
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
                     }}
                   />
-                  <Legend />
+                  <Legend 
+                    wrapperStyle={{
+                      color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+                    }}
+                  />
                   <Bar dataKey="Кількість" fill="#1976d2" radius={[8, 8, 0, 0]} />
                   <Bar dataKey="Дохід" fill="#2e7d32" radius={[8, 8, 0, 0]} />
                 </BarChart>
@@ -401,14 +436,16 @@ const AnalyticsPage: React.FC = () => {
             <TableContainer>
               <Table>
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: 'grey.100' }}>
-                    <TableCell sx={{ fontWeight: 700 }}>Клієнт</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Всього отримано</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Вартість</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Штрафи</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Залог</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Повернути</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Чистий дохід</TableCell>
+                  <TableRow sx={{ 
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+                  }}>
+                    <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Клієнт</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>Всього отримано</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>Вартість</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>Штрафи</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>Залог</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>Повернути</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>Чистий дохід</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -459,7 +496,13 @@ const AnalyticsPage: React.FC = () => {
                         <TableCell align="right">
                           <Chip
                             label={`${item.totalDeposits.toLocaleString()} ₴`}
-                            sx={{ backgroundColor: '#ff9800', color: 'white' }}
+                            sx={{ 
+                              backgroundColor: '#ff9800', 
+                              color: 'white',
+                              '& .MuiChip-label': {
+                                color: 'white',
+                              }
+                            }}
                             size="small"
                           />
                         </TableCell>
@@ -467,7 +510,13 @@ const AnalyticsPage: React.FC = () => {
                           {item.totalToReturn > 0 ? (
                             <Chip
                               label={`${item.totalToReturn.toLocaleString()} ₴`}
-                              color="info"
+                              sx={{
+                                backgroundColor: '#0288d1',
+                                color: 'white',
+                                '& .MuiChip-label': {
+                                  color: 'white',
+                                }
+                              }}
                               size="small"
                             />
                           ) : (
