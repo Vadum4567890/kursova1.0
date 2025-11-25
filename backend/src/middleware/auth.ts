@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/AuthService';
+import { IAuthService } from '../core/interfaces/IAuthService';
 import { AppError } from './errorHandler';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 // Extend Express Request to include user
 declare global {
@@ -35,7 +36,7 @@ export const authenticate = async (
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     // Verify token
-    const authService = new AuthService();
+    const authService = container.resolve<IAuthService>('IAuthService');
     const decoded = authService.verifyToken(token);
 
     // Attach user info to request

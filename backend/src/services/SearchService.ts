@@ -1,20 +1,16 @@
-import { CarRepository } from '../repositories/CarRepository';
-import { ClientRepository } from '../repositories/ClientRepository';
-import { RentalRepository } from '../repositories/RentalRepository';
+import { ICarRepository } from '../core/interfaces/ICarRepository';
+import { IClientRepository } from '../core/interfaces/IClientRepository';
+import { IRentalRepository } from '../core/interfaces/IRentalRepository';
 
 /**
  * Service for advanced search functionality
  */
 export class SearchService {
-  private carRepository: CarRepository;
-  private clientRepository: ClientRepository;
-  private rentalRepository: RentalRepository;
-
-  constructor() {
-    this.carRepository = new CarRepository();
-    this.clientRepository = new ClientRepository();
-    this.rentalRepository = new RentalRepository();
-  }
+  constructor(
+    private carRepository: ICarRepository,
+    private clientRepository: IClientRepository,
+    private rentalRepository: IRentalRepository
+  ) {}
 
   /**
    * Search cars by multiple criteria

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/AuthController';
 import { authenticate } from '../middleware/auth';
+import { container } from '../core/Container';
 
 const router = Router();
-const authController = new AuthController();
+const authService = container.resolve<any>('IAuthService');
+const authController = new AuthController(authService);
 
 /**
  * @swagger

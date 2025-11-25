@@ -1,15 +1,14 @@
 import { Request, Response } from 'express';
-import { ClientService } from '../services/ClientService';
+import { IClientService } from '../core/interfaces/IClientService';
+import { CreateClientDto, UpdateClientDto, RegisterClientDto } from '../dto/requests/ClientRequest.dto';
+import { ClientMapper } from '../dto/mappers/ClientMapper';
 
 /**
  * Controller for client-related endpoints
+ * Uses Dependency Injection for services
  */
 export class ClientController {
-  private clientService: ClientService;
-
-  constructor() {
-    this.clientService = new ClientService();
-  }
+  constructor(private clientService: IClientService) {}
 
   /**
    * GET /api/clients - Get all clients
@@ -17,7 +16,8 @@ export class ClientController {
   getAllClients = async (req: Request, res: Response): Promise<void> => {
     try {
       const clients = await this.clientService.getAllClients();
-      res.json(clients);
+      const clientsDto = ClientMapper.toResponseDtoList(clients);
+      res.json(clientsDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -36,7 +36,8 @@ export class ClientController {
         return;
       }
       
-      res.json(client);
+      const clientDto = ClientMapper.toResponseDto(client);
+      res.json(clientDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -55,7 +56,8 @@ export class ClientController {
         return;
       }
       
-      res.json(client);
+      const clientDto = ClientMapper.toResponseDto(client);
+      res.json(clientDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -66,8 +68,11 @@ export class ClientController {
    */
   createClient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const client = await this.clientService.createClient(req.body);
-      res.status(201).json({ data: client });
+      const createClientDto: CreateClientDto = req.body;
+      const clientEntity = ClientMapper.fromCreateDto(createClientDto);
+      const client = await this.clientService.createClient(clientEntity);
+      const clientDto = ClientMapper.toResponseDto(client);
+      res.status(201).json({ data: clientDto });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -79,8 +84,11 @@ export class ClientController {
   updateClient = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
-      const client = await this.clientService.updateClient(id, req.body);
-      res.json({ data: client });
+      const updateClientDto: UpdateClientDto = req.body;
+      const clientEntity = ClientMapper.fromUpdateDto(updateClientDto);
+      const client = await this.clientService.updateClient(id, clientEntity);
+      const clientDto = ClientMapper.toResponseDto(client);
+      res.json({ data: clientDto });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -110,8 +118,10 @@ export class ClientController {
    */
   registerOrGetClient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const client = await this.clientService.registerOrGetClient(req.body);
-      res.status(200).json(client);
+      const registerClientDto: RegisterClientDto = req.body;
+      const client = await this.clientService.registerOrGetClient(registerClientDto);
+      const clientDto = ClientMapper.toResponseDto(client);
+      res.status(200).json(clientDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

@@ -1,25 +1,31 @@
-import { PenaltyRepository } from '../repositories/PenaltyRepository';
-import { RentalRepository } from '../repositories/RentalRepository';
+import { IPenaltyRepository } from '../core/interfaces/IPenaltyRepository';
+import { IRentalRepository } from '../core/interfaces/IRentalRepository';
 import { Penalty } from '../models/Penalty.entity';
+import { IPenaltyService } from '../core/interfaces/IPenaltyService';
 
 /**
  * Service for penalty management
  * Contains business logic for penalty operations
+ * Implements IPenaltyService interface
  */
-export class PenaltyService {
-  private penaltyRepository: PenaltyRepository;
-  private rentalRepository: RentalRepository;
-
-  constructor() {
-    this.penaltyRepository = new PenaltyRepository();
-    this.rentalRepository = new RentalRepository();
-  }
+export class PenaltyService implements IPenaltyService {
+  constructor(
+    private penaltyRepository: IPenaltyRepository,
+    private rentalRepository: IRentalRepository
+  ) {}
 
   /**
    * Get all penalties with relations (rental, client, car)
    */
   async getAllPenalties(): Promise<Penalty[]> {
     return await this.penaltyRepository.findAllWithRelations();
+  }
+
+  /**
+   * Update penalty
+   */
+  async updatePenalty(id: number, data: Partial<Penalty>): Promise<Penalty> {
+    return await this.penaltyRepository.update(id, data);
   }
 
   /**

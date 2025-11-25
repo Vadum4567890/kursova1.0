@@ -1,11 +1,13 @@
 import { BaseRepository } from './BaseRepository';
 import { Penalty } from '../models/Penalty.entity';
 import { Repository } from 'typeorm';
+import { IPenaltyRepository } from '../core/interfaces/IPenaltyRepository';
 
 /**
  * Repository for working with penalties
+ * Implements IPenaltyRepository interface
  */
-export class PenaltyRepository extends BaseRepository<Penalty> {
+export class PenaltyRepository extends BaseRepository<Penalty> implements IPenaltyRepository {
   private get penaltyRepository(): Repository<Penalty> {
     return this.repository;
   }

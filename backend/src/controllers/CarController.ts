@@ -1,16 +1,19 @@
 import { Request, Response } from 'express';
-import { CarService } from '../services/CarService';
+import { ICarService } from '../core/interfaces/ICarService';
+import { CreateCarDto, UpdateCarDto, CarFilterDto } from '../dto/requests/CarRequest.dto';
+import { CarMapper } from '../dto/mappers/CarMapper';
+import { IRentalService } from '../core/interfaces/IRentalService';
 import { CarType, CarStatus } from '../models/Car.entity';
 
 /**
  * Controller for car-related endpoints
+ * Uses Dependency Injection for services
  */
 export class CarController {
-  private carService: CarService;
-
-  constructor() {
-    this.carService = new CarService();
-  }
+  constructor(
+    private carService: ICarService,
+    private rentalService: IRentalService
+  ) {}
 
   /**
    * GET /api/cars - Get all cars with pagination and filtering
@@ -22,6 +25,10 @@ export class CarController {
       const sort = req.sort || { field: 'id', order: 'ASC' };
       
       const result = await this.carService.getAllCars(pagination, filters, sort);
+      // Convert cars in result to DTOs
+      if (result.data && Array.isArray(result.data)) {
+        result.data = CarMapper.toResponseDtoList(result.data);
+      }
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -38,6 +45,10 @@ export class CarController {
       const sort = req.sort || { field: 'id', order: 'ASC' };
       
       const result = await this.carService.getAvailableCars(pagination, filters, sort);
+      // Convert cars in result to DTOs
+      if (result.data && Array.isArray(result.data)) {
+        result.data = CarMapper.toResponseDtoList(result.data);
+      }
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -62,7 +73,8 @@ export class CarController {
         return;
       }
       
-      res.json(car);
+      const carDto = CarMapper.toResponseDto(car);
+      res.json(carDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -81,6 +93,10 @@ export class CarController {
       
       const pagination = req.pagination;
       const result = await this.carService.getCarsByType(type, pagination);
+      // Convert cars in result to DTOs
+      if (result.data && Array.isArray(result.data)) {
+        result.data = CarMapper.toResponseDtoList(result.data);
+      }
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -92,10 +108,11 @@ export class CarController {
    */
   createCar = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { type, ...carData } = req.body;
-      const carType = type || CarType.ECONOMY;
-      const car = await this.carService.createCar(carData, carType);
-      res.status(201).json({ data: car });
+      const createCarDto: CreateCarDto = req.body;
+      const carEntity = CarMapper.fromCreateDto(createCarDto);
+      const car = await this.carService.createCar(carEntity, createCarDto.type || CarType.ECONOMY);
+      const carDto = CarMapper.toResponseDto(car);
+      res.status(201).json({ data: carDto });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -107,8 +124,11 @@ export class CarController {
   updateCar = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
-      const car = await this.carService.updateCar(id, req.body);
-      res.json({ data: car });
+      const updateCarDto: UpdateCarDto = req.body;
+      const carEntity = CarMapper.fromUpdateDto(updateCarDto);
+      const car = await this.carService.updateCar(id, carEntity);
+      const carDto = CarMapper.toResponseDto(car);
+      res.json({ data: carDto });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -154,7 +174,8 @@ export class CarController {
       }
       
       const car = await this.carService.updateCarStatus(id, status);
-      res.json(car);
+      const carDto = CarMapper.toResponseDto(car);
+      res.json(carDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -166,9 +187,7 @@ export class CarController {
   getBookedDates = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
-      const { RentalService } = await import('../services/RentalService');
-      const rentalService = new RentalService();
-      const bookedDates = await rentalService.getBookedDates(id);
+      const bookedDates = await this.rentalService.getBookedDates(id);
       res.json(bookedDates);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

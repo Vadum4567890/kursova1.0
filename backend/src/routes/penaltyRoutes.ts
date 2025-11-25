@@ -3,9 +3,13 @@ import { PenaltyController } from '../controllers/PenaltyController';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
 import { validateId } from '../middleware/validation';
+import { container } from '../core/Container';
 
 const router = Router();
-const penaltyController = new PenaltyController();
+const penaltyService = container.resolve<any>('IPenaltyService');
+const rentalService = container.resolve<any>('IRentalService');
+const userRepository = container.resolve<any>('IUserRepository');
+const penaltyController = new PenaltyController(penaltyService, rentalService, userRepository);
 
 /**
  * @swagger

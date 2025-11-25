@@ -1,9 +1,10 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User, UserRole } from '../models/User.entity';
-import { UserRepository } from '../repositories/UserRepository';
+import { IUserRepository } from '../core/interfaces/IUserRepository';
 import { ConfigManager } from '../config/ConfigManager';
 import { Logger } from '../utils/Logger';
+import { IAuthService, AuthResponse } from '../core/interfaces/IAuthService';
 
 export interface RegisterData {
   username: string;
@@ -19,25 +20,11 @@ export interface LoginData {
   password: string;
 }
 
-export interface AuthResponse {
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    role: UserRole;
-    fullName?: string;
-    address?: string;
-  };
-  token: string;
-}
-
-export class AuthService {
-  private userRepository: UserRepository;
+export class AuthService implements IAuthService {
   private config: ConfigManager;
   private logger: Logger;
 
-  constructor() {
-    this.userRepository = new UserRepository();
+  constructor(private userRepository: IUserRepository) {
     this.config = ConfigManager.getInstance();
     this.logger = Logger.getInstance();
   }

@@ -1,11 +1,13 @@
 import { BaseRepository } from './BaseRepository';
-import { Car, CarStatus } from '../models/Car.entity';
+import { Car, CarStatus, CarType } from '../models/Car.entity';
+import { ICarRepository } from '../core/interfaces/ICarRepository';
 
 /**
  * Repository for working with cars
  * Extends BaseRepository with specific methods for Car
+ * Implements ICarRepository interface
  */
-export class CarRepository extends BaseRepository<Car> {
+export class CarRepository extends BaseRepository<Car> implements ICarRepository {
   constructor() {
     super(Car);
   }
@@ -22,7 +24,7 @@ export class CarRepository extends BaseRepository<Car> {
   /**
    * Find cars by type
    */
-  async findByType(type: string): Promise<Car[]> {
+  async findByType(type: CarType): Promise<Car[]> {
     return await this.repository.find({
       where: { type } as any,
     });

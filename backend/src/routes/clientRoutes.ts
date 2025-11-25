@@ -4,9 +4,11 @@ import { validateId, validateClientData } from '../middleware/validation';
 import { paginationMiddleware } from '../middleware/pagination';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 const router = Router();
-const clientController = new ClientController();
+const clientService = container.resolve<any>('IClientService');
+const clientController = new ClientController(clientService);
 
 /**
  * @swagger

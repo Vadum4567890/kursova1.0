@@ -3,9 +3,11 @@ import { UserController } from '../controllers/UserController';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
 import { validateId } from '../middleware/validation';
+import { container } from '../core/Container';
 
 const router = Router();
-const userController = new UserController();
+const userService = container.resolve<any>('IUserService');
+const userController = new UserController(userService);
 
 /**
  * @swagger

@@ -1,27 +1,27 @@
-import { RentalRepository } from '../repositories/RentalRepository';
-import { PenaltyRepository } from '../repositories/PenaltyRepository';
-import { CarRepository } from '../repositories/CarRepository';
+import { IRentalRepository } from '../core/interfaces/IRentalRepository';
+import { IPenaltyRepository } from '../core/interfaces/IPenaltyRepository';
+import { ICarRepository } from '../core/interfaces/ICarRepository';
+import { IClientRepository } from '../core/interfaces/IClientRepository';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { Penalty } from '../models/Penalty.entity';
 import { RentalBuilder } from '../patterns/builder/RentalBuilder';
 import { PricingStrategy, CombinedPricingStrategy, BasePricingStrategy, YearBasedPricingStrategy, DurationBasedPricingStrategy } from '../patterns/strategy/PricingStrategy';
 import { RentalSubject, CarStatusObserver, NotificationObserver, LoggingObserver } from '../patterns/observer/Observer';
 import { CarStatus } from '../models/Car.entity';
+import { IRentalService } from '../core/interfaces/IRentalService';
 
 /**
  * Service for rental management
  * Contains business logic for rental operations
+ * Implements IRentalService interface
  */
-export class RentalService {
-  private rentalRepository: RentalRepository;
-  private penaltyRepository: PenaltyRepository;
-  private carRepository: CarRepository;
-
-  constructor() {
-    this.rentalRepository = new RentalRepository();
-    this.penaltyRepository = new PenaltyRepository();
-    this.carRepository = new CarRepository();
-  }
+export class RentalService implements IRentalService {
+  constructor(
+    private rentalRepository: IRentalRepository,
+    private penaltyRepository: IPenaltyRepository,
+    private carRepository: ICarRepository,
+    private clientRepository: IClientRepository
+  ) {}
 
   /**
    * Create a new rental using Builder Pattern
@@ -58,7 +58,7 @@ export class RentalService {
     const requestedEnd = new Date(expectedEndDate);
     const now = new Date();
     
-    const hasOverlap = existingRentals.some(rental => {
+    const hasOverlap = existingRentals.some((rental: any) => {
       // Only check active rentals or future rentals (not completed/cancelled in the past)
       if (rental.status === RentalStatus.COMPLETED || rental.status === RentalStatus.CANCELLED) {
         const rentalEnd = new Date(rental.actualEndDate || rental.expectedEndDate);
@@ -80,9 +80,7 @@ export class RentalService {
     }
 
     // Get client
-    const { ClientRepository } = await import('../repositories/ClientRepository');
-    const clientRepository = new ClientRepository();
-    const client = await clientRepository.findById(clientId);
+    const client = await this.clientRepository.findById(clientId);
     if (!client) {
       throw new Error('Client not found');
     }
@@ -172,7 +170,7 @@ export class RentalService {
     // Update car status - check if there are other active rentals
     const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
     const hasOtherActiveRentals = otherActiveRentals.some(
-      r => r.id !== rentalId && r.status === RentalStatus.ACTIVE
+      (r: any) => r.id !== rentalId && r.status === RentalStatus.ACTIVE
     );
     
     // Only set to AVAILABLE if no other active rentals exist
@@ -222,7 +220,7 @@ export class RentalService {
       // Update car status - check if there are other active rentals
       const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
       const hasOtherActiveRentals = otherActiveRentals.some(
-        r => r.id !== rentalId && r.status === RentalStatus.ACTIVE
+        (r: any) => r.id !== rentalId && r.status === RentalStatus.ACTIVE
       );
       
       // Only set to AVAILABLE if no other active rentals exist
@@ -274,7 +272,7 @@ export class RentalService {
     // Update car status - check if there are other active rentals
     const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
     const hasOtherActiveRentals = otherActiveRentals.some(
-      r => r.id !== rentalId && r.status === RentalStatus.ACTIVE
+      (r: any) => r.id !== rentalId && r.status === RentalStatus.ACTIVE
     );
     
     // Only set to AVAILABLE if no other active rentals exist
@@ -341,7 +339,7 @@ export class RentalService {
     
     // Get only active rentals or future rentals (not completed/cancelled in the past)
     const bookedPeriods = rentals
-      .filter(rental => {
+      .filter((rental: any) => {
         if (rental.status === RentalStatus.ACTIVE) {
           return true; // Always include active rentals
         }
@@ -354,7 +352,7 @@ export class RentalService {
         
         return false;
       })
-      .map(rental => ({
+      .map((rental: any) => ({
         startDate: rental.startDate,
         endDate: rental.actualEndDate || rental.expectedEndDate,
       }));
@@ -367,15 +365,12 @@ export class RentalService {
    * For USER role, creates a client record based on user info
    */
   async getOrCreateClientForUser(userId: number, userEmail: string, userFullName?: string): Promise<any> {
-    const { ClientRepository } = await import('../repositories/ClientRepository');
-    const clientRepository = new ClientRepository();
-    
     // Try to find existing client by phone (using email as phone identifier)
-    let existingClient = await clientRepository.findByPhone(userEmail);
+    let existingClient = await this.clientRepository.findByPhone(userEmail);
     
     // If not found by phone, try to find by full name if provided
     if (!existingClient && userFullName) {
-      const clientsByName = await clientRepository.findByFullName(userFullName);
+      const clientsByName = await this.clientRepository.findByFullName(userFullName);
       if (clientsByName && clientsByName.length > 0) {
         // Find client with matching email in phone field or take first one
         existingClient = clientsByName.find(c => c.phone === userEmail) || clientsByName[0];
@@ -387,7 +382,7 @@ export class RentalService {
     }
     
     // Create new client for user
-    const newClient = await clientRepository.create({
+    const newClient = await this.clientRepository.create({
       fullName: userFullName || `User ${userId}`,
       address: 'Не вказано',
       phone: userEmail,
@@ -402,19 +397,17 @@ export class RentalService {
    * This helps when admin created rentals with different client records
    */
   async findAllClientsForUser(userId: number, userEmail: string, userFullName?: string): Promise<any[]> {
-    const { ClientRepository } = await import('../repositories/ClientRepository');
-    const clientRepository = new ClientRepository();
     const possibleClients: any[] = [];
     
     // Find by phone (email)
-    const clientByPhone = await clientRepository.findByPhone(userEmail);
+    const clientByPhone = await this.clientRepository.findByPhone(userEmail);
     if (clientByPhone) {
       possibleClients.push(clientByPhone);
     }
     
     // Find by full name if provided
     if (userFullName) {
-      const clientsByName = await clientRepository.findByFullName(userFullName);
+      const clientsByName = await this.clientRepository.findByFullName(userFullName);
       if (clientsByName && clientsByName.length > 0) {
         // Add clients that are not already in the list
         clientsByName.forEach(client => {

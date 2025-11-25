@@ -3,13 +3,10 @@ import { ReportService } from '../services/ReportService';
 
 /**
  * Controller for report-related endpoints
+ * Uses Dependency Injection for services
  */
 export class ReportController {
-  private reportService: ReportService;
-
-  constructor() {
-    this.reportService = new ReportService();
-  }
+  constructor(private reportService: ReportService) {}
 
   /**
    * GET /api/reports/financial - Generate financial report

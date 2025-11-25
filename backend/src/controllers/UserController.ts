@@ -1,14 +1,12 @@
 import { Request, Response } from 'express';
-import { UserService } from '../services/UserService';
+import { IUserService } from '../core/interfaces/IUserService';
 import { AppError } from '../middleware/errorHandler';
 import { UserRole } from '../models/User.entity';
+import { UpdateUserRoleDto, UpdateUserStatusDto } from '../dto/requests/UserRequest.dto';
+import { UserMapper } from '../dto/mappers/UserMapper';
 
 export class UserController {
-  private userService: UserService;
-
-  constructor() {
-    this.userService = new UserService();
-  }
+  constructor(private userService: IUserService) {}
 
   /**
    * GET /api/users - Get all users (admin only)
@@ -16,21 +14,10 @@ export class UserController {
   getAllUsers = async (req: Request, res: Response): Promise<void> => {
     try {
       const users = await this.userService.getAllUsers();
-      
-      // Remove passwords from response
-      const usersWithoutPasswords = users.map(user => ({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        fullName: user.fullName,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      }));
+      const usersDto = UserMapper.toResponseDtoList(users);
 
       res.status(200).json({
-        data: usersWithoutPasswords
+        data: usersDto
       });
     } catch (error: any) {
       throw new AppError(error.message || 'Failed to get users', 500);
@@ -52,18 +39,9 @@ export class UserController {
         throw new AppError('User not found', 404);
       }
 
-      // Remove password from response
+      const userDto = UserMapper.toResponseDto(user);
       res.status(200).json({
-        data: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          fullName: user.fullName,
-          isActive: user.isActive,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt
-        }
+        data: userDto
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -83,8 +61,8 @@ export class UserController {
         throw new AppError('Invalid user ID', 400);
       }
 
-      const { role } = req.body;
-      if (!role || !Object.values(UserRole).includes(role)) {
+      const updateRoleDto: UpdateUserRoleDto = req.body;
+      if (!updateRoleDto.role || !Object.values(UserRole).includes(updateRoleDto.role)) {
         throw new AppError('Invalid role. Must be one of: admin, manager, employee', 400);
       }
 
@@ -94,18 +72,12 @@ export class UserController {
         throw new AppError('Cannot change your own role', 403);
       }
 
-      const updated = await this.userService.updateUserRole(id, { role });
+      const updated = await this.userService.updateUserRole(id, updateRoleDto);
+      const userDto = UserMapper.toResponseDto(updated);
       
       res.status(200).json({
         message: 'User role updated successfully',
-        data: {
-          id: updated.id,
-          username: updated.username,
-          email: updated.email,
-          role: updated.role,
-          fullName: updated.fullName,
-          isActive: updated.isActive
-        }
+        data: userDto
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -125,29 +97,23 @@ export class UserController {
         throw new AppError('Invalid user ID', 400);
       }
 
-      const { isActive } = req.body;
-      if (typeof isActive !== 'boolean') {
+      const updateStatusDto: UpdateUserStatusDto = req.body;
+      if (typeof updateStatusDto.isActive !== 'boolean') {
         throw new AppError('isActive must be a boolean', 400);
       }
 
       // Prevent deactivating own account
       const currentUserId = (req as any).user?.id;
-      if (currentUserId === id && !isActive) {
+      if (currentUserId === id && !updateStatusDto.isActive) {
         throw new AppError('Cannot deactivate your own account', 403);
       }
 
-      const updated = await this.userService.updateUserStatus(id, { isActive });
+      const updated = await this.userService.updateUserStatus(id, updateStatusDto);
+      const userDto = UserMapper.toResponseDto(updated);
       
       res.status(200).json({
-        message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
-        data: {
-          id: updated.id,
-          username: updated.username,
-          email: updated.email,
-          role: updated.role,
-          fullName: updated.fullName,
-          isActive: updated.isActive
-        }
+        message: `User ${updateStatusDto.isActive ? 'activated' : 'deactivated'} successfully`,
+        data: userDto
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -198,21 +164,10 @@ export class UserController {
       }
 
       const users = await this.userService.getUsersByRole(role as UserRole);
-      
-      // Remove passwords from response
-      const usersWithoutPasswords = users.map(user => ({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        fullName: user.fullName,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      }));
+      const usersDto = UserMapper.toResponseDtoList(users);
 
       res.status(200).json({
-        data: usersWithoutPasswords
+        data: usersDto
       });
     } catch (error: any) {
       if (error instanceof AppError) {
