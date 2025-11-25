@@ -13,6 +13,7 @@
     "migration:revert": "ts-node node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
     "migration:generate": "ts-node node_modules/typeorm/cli.js migration:generate -d src/database/data-source.ts",
     "seed": "ts-node src/database/seed.ts",
+    "clean": "ts-node src/database/clean.ts",
     "download-images": "ts-node scripts/download-car-images.ts",
     "test": "jest"
   },
