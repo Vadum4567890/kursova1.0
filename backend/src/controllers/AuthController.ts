@@ -1,42 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/AuthService';
+import { IAuthService } from '../core/interfaces/IAuthService';
 import { AppError } from '../middleware/errorHandler';
+import { RegisterUserDto, LoginUserDto, UpdateProfileDto, ChangePasswordDto } from '../dto/requests/UserRequest.dto';
+import { UserMapper } from '../dto/mappers/UserMapper';
 
 export class AuthController {
-  private authService: AuthService;
-
-  constructor() {
-    this.authService = new AuthService();
-  }
+  constructor(private authService: IAuthService) {}
 
   /**
    * POST /api/auth/register - Register a new user
    */
   register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { username, email, password, fullName, address, role } = req.body;
+      const registerDto: RegisterUserDto = req.body;
 
       // Validation
-      if (!username || !email || !password) {
+      if (!registerDto.username || !registerDto.email || !registerDto.password) {
         return next(new AppError('Username, email, and password are required', 400));
       }
 
-      if (password.length < 6) {
+      if (registerDto.password.length < 6) {
         return next(new AppError('Password must be at least 6 characters long', 400));
       }
 
-      const result = await this.authService.register({
-        username,
-        email,
-        password,
-        fullName,
-        address,
-        role
-      });
+      const result = await this.authService.register(registerDto);
+      // result.user is already a User entity from the service
+      const userDto = UserMapper.toResponseDto(result.user as any);
 
       res.status(201).json({
         message: 'User registered successfully',
-        data: result
+        data: {
+          user: userDto,
+          token: result.token
+        }
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -51,21 +47,23 @@ export class AuthController {
    */
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { usernameOrEmail, password } = req.body;
+      const loginDto: LoginUserDto = req.body;
 
       // Validation
-      if (!usernameOrEmail || !password) {
+      if (!loginDto.usernameOrEmail || !loginDto.password) {
         return next(new AppError('Username/email and password are required', 400));
       }
 
-      const result = await this.authService.login({
-        usernameOrEmail,
-        password
-      });
+      const result = await this.authService.login(loginDto);
+      // result.user is already a User entity from the service
+      const userDto = UserMapper.toResponseDto(result.user as any);
 
       res.status(200).json({
         message: 'Login successful',
-        data: result
+        data: {
+          user: userDto,
+          token: result.token
+        }
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -90,16 +88,9 @@ export class AuthController {
         return next(new AppError('User not found', 404));
       }
 
+      const userDto = UserMapper.toResponseDto(user);
       res.status(200).json({
-        data: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          fullName: user.fullName,
-          address: user.address,
-          isActive: user.isActive
-        }
+        data: userDto
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -119,21 +110,14 @@ export class AuthController {
         return next(new AppError('User not authenticated', 401));
       }
 
-      const { email, fullName, address } = req.body;
+      const updateProfileDto: UpdateProfileDto = req.body;
 
-      const updated = await this.authService.updateProfile(userId, { email, fullName: fullName, address });
+      const updated = await this.authService.updateProfile(userId, updateProfileDto);
+      const userDto = UserMapper.toResponseDto(updated);
 
       res.status(200).json({
         message: 'Profile updated successfully',
-        data: {
-          id: updated.id,
-          username: updated.username,
-          email: updated.email,
-          role: updated.role,
-          fullName: updated.fullName,
-          address: updated.address,
-          isActive: updated.isActive
-        }
+        data: userDto
       });
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -153,13 +137,13 @@ export class AuthController {
         return next(new AppError('User not authenticated', 401));
       }
 
-      const { currentPassword, newPassword } = req.body;
+      const changePasswordDto: ChangePasswordDto = req.body;
 
-      if (!currentPassword || !newPassword) {
+      if (!changePasswordDto.currentPassword || !changePasswordDto.newPassword) {
         return next(new AppError('Current password and new password are required', 400));
       }
 
-      await this.authService.changePassword(userId, currentPassword, newPassword);
+      await this.authService.changePassword(userId, changePasswordDto.currentPassword, changePasswordDto.newPassword);
 
       res.status(200).json({
         message: 'Password changed successfully'

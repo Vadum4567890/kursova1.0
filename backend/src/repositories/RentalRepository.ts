@@ -1,11 +1,13 @@
 import { BaseRepository } from './BaseRepository';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { Repository } from 'typeorm';
+import { IRentalRepository } from '../core/interfaces/IRentalRepository';
 
 /**
  * Repository for working with rentals
+ * Implements IRentalRepository interface
  */
-export class RentalRepository extends BaseRepository<Rental> {
+export class RentalRepository extends BaseRepository<Rental> implements IRentalRepository {
   private get rentalRepository(): Repository<Rental> {
     return this.repository;
   }

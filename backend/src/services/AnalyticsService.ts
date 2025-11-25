@@ -1,7 +1,7 @@
-import { CarRepository } from '../repositories/CarRepository';
-import { ClientRepository } from '../repositories/ClientRepository';
-import { RentalRepository } from '../repositories/RentalRepository';
-import { PenaltyRepository } from '../repositories/PenaltyRepository';
+import { ICarRepository } from '../core/interfaces/ICarRepository';
+import { IClientRepository } from '../core/interfaces/IClientRepository';
+import { IRentalRepository } from '../core/interfaces/IRentalRepository';
+import { IPenaltyRepository } from '../core/interfaces/IPenaltyRepository';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { CarStatus } from '../models/Car.entity';
 
@@ -10,17 +10,12 @@ import { CarStatus } from '../models/Car.entity';
  * Provides data for admin dashboard
  */
 export class AnalyticsService {
-  private carRepository: CarRepository;
-  private clientRepository: ClientRepository;
-  private rentalRepository: RentalRepository;
-  private penaltyRepository: PenaltyRepository;
-
-  constructor() {
-    this.carRepository = new CarRepository();
-    this.clientRepository = new ClientRepository();
-    this.rentalRepository = new RentalRepository();
-    this.penaltyRepository = new PenaltyRepository();
-  }
+  constructor(
+    private carRepository: ICarRepository,
+    private clientRepository: IClientRepository,
+    private rentalRepository: IRentalRepository,
+    private penaltyRepository: IPenaltyRepository
+  ) {}
 
   /**
    * Get dashboard statistics

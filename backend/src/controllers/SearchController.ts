@@ -3,13 +3,10 @@ import { SearchService } from '../services/SearchService';
 
 /**
  * Controller for search endpoints
+ * Uses Dependency Injection for services
  */
 export class SearchController {
-  private searchService: SearchService;
-
-  constructor() {
-    this.searchService = new SearchService();
-  }
+  constructor(private searchService: SearchService) {}
 
   /**
    * POST /api/search/cars - Search cars

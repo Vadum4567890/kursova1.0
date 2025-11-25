@@ -3,13 +3,10 @@ import { AnalyticsService } from '../services/AnalyticsService';
 
 /**
  * Controller for analytics endpoints
+ * Uses Dependency Injection for services
  */
 export class AnalyticsController {
-  private analyticsService: AnalyticsService;
-
-  constructor() {
-    this.analyticsService = new AnalyticsService();
-  }
+  constructor(private analyticsService: AnalyticsService) {}
 
   /**
    * GET /api/analytics/dashboard - Get dashboard statistics

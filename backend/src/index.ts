@@ -8,20 +8,14 @@ import { DatabaseConnection } from './database/DatabaseConnection';
 import { Logger } from './utils/Logger';
 import { swaggerSpec } from './config/swagger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import carRoutes from './routes/carRoutes';
-import clientRoutes from './routes/clientRoutes';
-import rentalRoutes from './routes/rentalRoutes';
-import penaltyRoutes from './routes/penaltyRoutes';
-import reportRoutes from './routes/reportRoutes';
-import analyticsRoutes from './routes/analyticsRoutes';
-import searchRoutes from './routes/searchRoutes';
-import authRoutes from './routes/authRoutes';
-import userRoutes from './routes/userRoutes';
-import uploadRoutes from './routes/uploadRoutes';
+import { registerServices } from './core/serviceRegistry';
 import path from 'path';
 
 // Load environment variables
 dotenv.config();
+
+// Register all services BEFORE importing routes (routes need services from container)
+registerServices();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -78,6 +72,18 @@ app.get('/health', (req, res) => {
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Import routes AFTER services are registered
+import carRoutes from './routes/carRoutes';
+import clientRoutes from './routes/clientRoutes';
+import rentalRoutes from './routes/rentalRoutes';
+import penaltyRoutes from './routes/penaltyRoutes';
+import reportRoutes from './routes/reportRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import searchRoutes from './routes/searchRoutes';
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import uploadRoutes from './routes/uploadRoutes';
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -97,12 +103,15 @@ app.use(errorHandler);
 // Server initialization
 async function startServer() {
   try {
+    // Services are already registered above (before route imports)
+    
     // Connect to database
     const dbConnection = DatabaseConnection.getInstance();
     await dbConnection.connect();
     
     const logger = Logger.getInstance();
     logger.log('Database connected successfully', 'info');
+    logger.log('Services registered in DI container', 'info');
 
     // Start server with error handling for port conflicts
     const server = app.listen(PORT, () => {

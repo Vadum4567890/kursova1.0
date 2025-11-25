@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { SearchController } from '../controllers/SearchController';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 const router = Router();
-const searchController = new SearchController();
+const searchService = container.resolve<any>('SearchService');
+const searchController = new SearchController(searchService);
 
 /**
  * @swagger

@@ -1,7 +1,8 @@
 import { BaseRepository } from './BaseRepository';
 import { User } from '../models/User.entity';
+import { IUserRepository } from '../core/interfaces/IUserRepository';
 
-export class UserRepository extends BaseRepository<User> {
+export class UserRepository extends BaseRepository<User> implements IUserRepository {
   constructor() {
     super(User);
   }
@@ -22,4 +23,6 @@ export class UserRepository extends BaseRepository<User> {
       .getOne();
   }
 }
+
+// Ensure UserRepository implements IUserRepository interface
 

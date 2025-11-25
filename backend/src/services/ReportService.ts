@@ -1,5 +1,5 @@
-import { RentalRepository } from '../repositories/RentalRepository';
-import { CarRepository } from '../repositories/CarRepository';
+import { IRentalRepository } from '../core/interfaces/IRentalRepository';
+import { ICarRepository } from '../core/interfaces/ICarRepository';
 import { ReportTemplate, FinancialReport, OccupancyReport, AvailabilityReport } from '../patterns/template/ReportTemplate';
 import { ReportFactory, FinancialReportFactory, OccupancyReportFactory, AvailabilityReportFactory } from '../patterns/factory/ReportFactory';
 import { CarStatus } from '../models/Car.entity';
@@ -10,13 +10,10 @@ import { RentalStatus } from '../models/Rental.entity';
  * Uses Template Method and Factory patterns
  */
 export class ReportService {
-  private rentalRepository: RentalRepository;
-  private carRepository: CarRepository;
-
-  constructor() {
-    this.rentalRepository = new RentalRepository();
-    this.carRepository = new CarRepository();
-  }
+  constructor(
+    private rentalRepository: IRentalRepository,
+    private carRepository: ICarRepository
+  ) {}
 
   /**
    * Generate financial report

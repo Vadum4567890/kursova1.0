@@ -1,15 +1,18 @@
 import { Request, Response } from 'express';
-import { RentalService } from '../services/RentalService';
+import { IRentalService } from '../core/interfaces/IRentalService';
+import { IUserRepository } from '../core/interfaces/IUserRepository';
+import { CreateRentalDto, CompleteRentalDto, CancelRentalDto, CreateBookingDto } from '../dto/requests/RentalRequest.dto';
+import { RentalMapper } from '../dto/mappers/RentalMapper';
 
 /**
  * Controller for rental-related endpoints
+ * Uses Dependency Injection for services
  */
 export class RentalController {
-  private rentalService: RentalService;
-
-  constructor() {
-    this.rentalService = new RentalService();
-  }
+  constructor(
+    private rentalService: IRentalService,
+    private userRepository: IUserRepository
+  ) {}
 
   /**
    * GET /api/rentals - Get all rentals
@@ -17,7 +20,8 @@ export class RentalController {
   getAllRentals = async (req: Request, res: Response): Promise<void> => {
     try {
       const rentals = await this.rentalService.getAllRentals();
-      res.json(rentals);
+      const rentalsDto = RentalMapper.toResponseDtoList(rentals);
+      res.json(rentalsDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -29,7 +33,8 @@ export class RentalController {
   getActiveRentals = async (req: Request, res: Response): Promise<void> => {
     try {
       const rentals = await this.rentalService.getActiveRentals();
-      res.json(rentals);
+      const rentalsDto = RentalMapper.toResponseDtoList(rentals);
+      res.json(rentalsDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -48,7 +53,8 @@ export class RentalController {
         return;
       }
       
-      res.json(rental);
+      const rentalDto = RentalMapper.toResponseDto(rental);
+      res.json(rentalDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -61,7 +67,8 @@ export class RentalController {
     try {
       const clientId = parseInt(req.params.clientId);
       const rentals = await this.rentalService.getRentalsByClientId(clientId);
-      res.json(rentals);
+      const rentalsDto = RentalMapper.toResponseDtoList(rentals);
+      res.json(rentalsDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -74,7 +81,8 @@ export class RentalController {
     try {
       const carId = parseInt(req.params.carId);
       const rentals = await this.rentalService.getRentalsByCarId(carId);
-      res.json(rentals);
+      const rentalsDto = RentalMapper.toResponseDtoList(rentals);
+      res.json(rentalsDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -85,21 +93,22 @@ export class RentalController {
    */
   createRental = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { clientId, carId, startDate, expectedEndDate } = req.body;
+      const createRentalDto: CreateRentalDto = req.body;
       
-      if (!clientId || !carId || !startDate || !expectedEndDate) {
+      if (!createRentalDto.clientId || !createRentalDto.carId || !createRentalDto.startDate || !createRentalDto.expectedEndDate) {
         res.status(400).json({ error: 'Missing required fields: clientId, carId, startDate, expectedEndDate' });
         return;
       }
       
       const rental = await this.rentalService.createRental(
-        clientId,
-        carId,
-        new Date(startDate),
-        new Date(expectedEndDate)
+        createRentalDto.clientId,
+        createRentalDto.carId,
+        createRentalDto.startDate instanceof Date ? createRentalDto.startDate : new Date(createRentalDto.startDate),
+        createRentalDto.expectedEndDate instanceof Date ? createRentalDto.expectedEndDate : new Date(createRentalDto.expectedEndDate)
       );
       
-      res.status(201).json(rental);
+      const rentalDto = RentalMapper.toResponseDto(rental);
+      res.status(201).json(rentalDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -111,14 +120,15 @@ export class RentalController {
   completeRental = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
-      const { actualEndDate } = req.body;
+      const completeRentalDto: CompleteRentalDto = req.body;
       
       const rental = await this.rentalService.completeRental(
         id,
-        actualEndDate ? new Date(actualEndDate) : undefined
+        completeRentalDto.actualEndDate
       );
       
-      res.json(rental);
+      const rentalDto = RentalMapper.toResponseDto(rental);
+      res.json(rentalDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -136,16 +146,15 @@ export class RentalController {
       }
       
       // Get user full name from database if needed
-      const { UserRepository } = await import('../repositories/UserRepository');
-      const userRepository = new UserRepository();
-      const userData = await userRepository.findById(user.id);
+      const userData = await this.userRepository.findById(user.id);
       
       const rentals = await this.rentalService.getRentalsForUser(
         user.id,
         user.email,
         userData?.fullName
       );
-      res.json(rentals);
+      const rentalsDto = RentalMapper.toResponseDtoList(rentals);
+      res.json(rentalsDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -162,28 +171,27 @@ export class RentalController {
         return;
       }
       
-      const { carId, startDate, expectedEndDate } = req.body;
+      const createBookingDto: CreateBookingDto = req.body;
       
-      if (!carId || !startDate || !expectedEndDate) {
+      if (!createBookingDto.carId || !createBookingDto.startDate || !createBookingDto.expectedEndDate) {
         res.status(400).json({ error: 'Missing required fields: carId, startDate, expectedEndDate' });
         return;
       }
       
       // Get user full name from database
-      const { UserRepository } = await import('../repositories/UserRepository');
-      const userRepository = new UserRepository();
-      const userData = await userRepository.findById(user.id);
+      const userData = await this.userRepository.findById(user.id);
       
       const rental = await this.rentalService.createBookingForUser(
         user.id,
         user.email,
         userData?.fullName,
-        carId,
-        new Date(startDate),
-        new Date(expectedEndDate)
+        createBookingDto.carId,
+        createBookingDto.startDate instanceof Date ? createBookingDto.startDate : new Date(createBookingDto.startDate),
+        createBookingDto.expectedEndDate instanceof Date ? createBookingDto.expectedEndDate : new Date(createBookingDto.expectedEndDate)
       );
       
-      res.status(201).json(rental);
+      const rentalDto = RentalMapper.toResponseDto(rental);
+      res.status(201).json(rentalDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -206,9 +214,7 @@ export class RentalController {
         }
         
         // Get user's client
-        const { UserRepository } = await import('../repositories/UserRepository');
-        const userRepository = new UserRepository();
-        const userData = await userRepository.findById(user.id);
+        const userData = await this.userRepository.findById(user.id);
         const client = await this.rentalService.getOrCreateClientForUser(
           user.id,
           user.email,
@@ -221,12 +227,13 @@ export class RentalController {
         }
       }
       
-      const { cancellationDate } = req.body;
+      const cancelRentalDto: CancelRentalDto = req.body;
       const cancelledRental = await this.rentalService.cancelRental(
         id,
-        cancellationDate ? new Date(cancellationDate) : undefined
+        cancelRentalDto.cancellationDate
       );
-      res.json(cancelledRental);
+      const rentalDto = RentalMapper.toResponseDto(cancelledRental);
+      res.json(rentalDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

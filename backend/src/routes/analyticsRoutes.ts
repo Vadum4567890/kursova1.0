@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { AnalyticsController } from '../controllers/AnalyticsController';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 const router = Router();
-const analyticsController = new AnalyticsController();
+const analyticsService = container.resolve<any>('AnalyticsService');
+const analyticsController = new AnalyticsController(analyticsService);
 
 /**
  * @swagger

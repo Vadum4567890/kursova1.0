@@ -1,15 +1,20 @@
 import { Request, Response } from 'express';
-import { PenaltyService } from '../services/PenaltyService';
+import { IPenaltyService } from '../core/interfaces/IPenaltyService';
+import { IRentalService } from '../core/interfaces/IRentalService';
+import { IUserRepository } from '../core/interfaces/IUserRepository';
+import { CreatePenaltyDto } from '../dto/requests/PenaltyRequest.dto';
+import { PenaltyMapper } from '../dto/mappers/PenaltyMapper';
 
 /**
  * Controller for penalty-related endpoints
+ * Uses Dependency Injection for services
  */
 export class PenaltyController {
-  private penaltyService: PenaltyService;
-
-  constructor() {
-    this.penaltyService = new PenaltyService();
-  }
+  constructor(
+    private penaltyService: IPenaltyService,
+    private rentalService: IRentalService,
+    private userRepository: IUserRepository
+  ) {}
 
   /**
    * GET /api/penalties - Get all penalties (or user's penalties for USER role)
@@ -20,20 +25,16 @@ export class PenaltyController {
       
       // For USER role, return only penalties for their rentals
       if (user?.role === 'user') {
-        const { RentalService } = await import('../services/RentalService');
-        const rentalService = new RentalService();
-        const { UserRepository } = await import('../repositories/UserRepository');
-        const userRepository = new UserRepository();
-        const userData = await userRepository.findById(user.id);
+        const userData = await this.userRepository.findById(user.id);
         
         // Get all rentals for user (this now finds all possible clients)
-        const rentals = await rentalService.getRentalsForUser(
+        const rentals = await this.rentalService.getRentalsForUser(
           user.id,
           user.email,
           userData?.fullName
         );
         
-        const rentalIds = rentals.map(r => r.id);
+        const rentalIds = rentals.map((r: any) => r.id);
         if (rentalIds.length === 0) {
           res.json([]);
           return;
@@ -62,12 +63,14 @@ export class PenaltyController {
           })
         );
         
-        res.json(penaltiesWithRelations);
+        const penaltiesDto = PenaltyMapper.toResponseDtoList(penaltiesWithRelations);
+        res.json(penaltiesDto);
         return;
       }
       
       const penalties = await this.penaltyService.getAllPenalties();
-      res.json(penalties);
+      const penaltiesDto = PenaltyMapper.toResponseDtoList(penalties);
+      res.json(penaltiesDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -86,7 +89,8 @@ export class PenaltyController {
         return;
       }
       
-      res.json(penalty);
+      const penaltyDto = PenaltyMapper.toResponseDto(penalty);
+      res.json(penaltyDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -99,7 +103,8 @@ export class PenaltyController {
     try {
       const rentalId = parseInt(req.params.rentalId);
       const penalties = await this.penaltyService.getPenaltiesByRentalId(rentalId);
-      res.json(penalties);
+      const penaltiesDto = PenaltyMapper.toResponseDtoList(penalties);
+      res.json(penaltiesDto);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -123,15 +128,20 @@ export class PenaltyController {
    */
   createPenalty = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { rentalId, amount, reason } = req.body;
+      const createPenaltyDto: CreatePenaltyDto = req.body;
       
-      if (!rentalId || !amount || !reason) {
+      if (!createPenaltyDto.rentalId || !createPenaltyDto.amount || !createPenaltyDto.reason) {
         res.status(400).json({ error: 'Missing required fields: rentalId, amount, reason' });
         return;
       }
       
-      const penalty = await this.penaltyService.createPenalty(rentalId, amount, reason);
-      res.status(201).json(penalty);
+      const penalty = await this.penaltyService.createPenalty(
+        createPenaltyDto.rentalId,
+        createPenaltyDto.amount,
+        createPenaltyDto.reason
+      );
+      const penaltyDto = PenaltyMapper.toResponseDto(penalty);
+      res.status(201).json(penaltyDto);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

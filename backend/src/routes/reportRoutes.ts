@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { ReportController } from '../controllers/ReportController';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 const router = Router();
-const reportController = new ReportController();
+const reportService = container.resolve<any>('ReportService');
+const reportController = new ReportController(reportService);
 
 /**
  * @swagger

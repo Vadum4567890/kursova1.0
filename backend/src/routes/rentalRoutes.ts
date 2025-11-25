@@ -4,9 +4,12 @@ import { validateId, validateRentalData, validatePenaltyData } from '../middlewa
 import { paginationMiddleware } from '../middleware/pagination';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 const router = Router();
-const rentalController = new RentalController();
+const rentalService = container.resolve<any>('IRentalService');
+const userRepository = container.resolve<any>('IUserRepository');
+const rentalController = new RentalController(rentalService, userRepository);
 
 /**
  * @swagger

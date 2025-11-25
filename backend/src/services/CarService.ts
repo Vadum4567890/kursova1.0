@@ -1,17 +1,15 @@
-import { CarRepository } from '../repositories/CarRepository';
+import { ICarRepository } from '../core/interfaces/ICarRepository';
 import { Car, CarType, CarStatus } from '../models/Car.entity';
 import { CarFactory, CarFactoryProvider, CarData } from '../patterns/factory/CarFactory';
+import { ICarService } from '../core/interfaces/ICarService';
 
 /**
  * Service for car management
  * Contains business logic for car operations
+ * Implements ICarService interface
  */
-export class CarService {
-  private carRepository: CarRepository;
-
-  constructor() {
-    this.carRepository = new CarRepository();
-  }
+export class CarService implements ICarService {
+  constructor(private carRepository: ICarRepository) {}
 
   /**
    * Get all cars with pagination and filtering
@@ -25,7 +23,7 @@ export class CarService {
       // Return all without pagination (backward compatibility)
       const cars = await this.carRepository.findAll();
       // Parse imageUrls for each car
-      cars.forEach(car => {
+      cars.forEach((car: any) => {
         if (car.imageUrls && typeof car.imageUrls === 'string') {
           try {
             (car as any).imageUrls = JSON.parse(car.imageUrls);
@@ -67,7 +65,7 @@ export class CarService {
     const cars = await query.getMany();
 
     // Parse imageUrls for each car
-    cars.forEach(car => {
+    cars.forEach((car: any) => {
       if (car.imageUrls && typeof car.imageUrls === 'string') {
         try {
           (car as any).imageUrls = JSON.parse(car.imageUrls);
@@ -118,7 +116,7 @@ export class CarService {
     if (!pagination) {
       const cars = await this.carRepository.findAvailableCars();
       // Parse imageUrls for each car
-      cars.forEach(car => {
+      cars.forEach((car: any) => {
         if (car.imageUrls && typeof car.imageUrls === 'string') {
           try {
             (car as any).imageUrls = JSON.parse(car.imageUrls);
@@ -151,7 +149,7 @@ export class CarService {
     const cars = await query.getMany();
 
     // Parse imageUrls for each car
-    cars.forEach(car => {
+    cars.forEach((car: any) => {
       if (car.imageUrls && typeof car.imageUrls === 'string') {
         try {
           (car as any).imageUrls = JSON.parse(car.imageUrls);
@@ -184,7 +182,7 @@ export class CarService {
     if (!pagination) {
       const cars = await this.carRepository.findByType(type);
       // Parse imageUrls for each car
-      cars.forEach(car => {
+      cars.forEach((car: any) => {
         if (car.imageUrls && typeof car.imageUrls === 'string') {
           try {
             (car as any).imageUrls = JSON.parse(car.imageUrls);
@@ -206,7 +204,7 @@ export class CarService {
     const cars = await query.getMany();
 
     // Parse imageUrls for each car
-    cars.forEach(car => {
+    cars.forEach((car: any) => {
       if (car.imageUrls && typeof car.imageUrls === 'string') {
         try {
           (car as any).imageUrls = JSON.parse(car.imageUrls);

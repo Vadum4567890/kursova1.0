@@ -1,21 +1,23 @@
 import { User, UserRole } from '../models/User.entity';
-import { UserRepository } from '../repositories/UserRepository';
+import { IUserRepository } from '../core/interfaces/IUserRepository';
 import { Logger } from '../utils/Logger';
+import { IUserService, UpdateUserStatusData } from '../core/interfaces/IUserService';
 
 export interface UpdateUserRoleData {
   role: UserRole;
 }
 
-export interface UpdateUserStatusData {
-  isActive: boolean;
+export interface UpdateUserData {
+  email?: string;
+  fullName?: string;
+  address?: string;
+  password?: string;
 }
 
-export class UserService {
-  private userRepository: UserRepository;
+export class UserService implements IUserService {
   private logger: Logger;
 
-  constructor() {
-    this.userRepository = new UserRepository();
+  constructor(private userRepository: IUserRepository) {
     this.logger = Logger.getInstance();
   }
 
@@ -31,6 +33,26 @@ export class UserService {
    */
   async getUserById(id: number): Promise<User | null> {
     return await this.userRepository.findById(id);
+  }
+
+  /**
+   * Update user
+   */
+  async updateUser(id: number, data: UpdateUserData): Promise<User> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // If password is being updated, hash it
+    const updateData: Partial<User> = { ...data };
+    if (data.password) {
+      const bcrypt = require('bcrypt');
+      const saltRounds = 10;
+      updateData.password = await bcrypt.hash(data.password, saltRounds);
+    }
+
+    return await this.userRepository.update(id, updateData);
   }
 
   /**

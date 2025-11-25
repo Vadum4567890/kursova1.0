@@ -1,16 +1,14 @@
-import { ClientRepository } from '../repositories/ClientRepository';
+import { IClientRepository } from '../core/interfaces/IClientRepository';
 import { Client } from '../models/Client.entity';
+import { IClientService } from '../core/interfaces/IClientService';
 
 /**
  * Service for client management
  * Contains business logic for client operations
+ * Implements IClientService interface
  */
-export class ClientService {
-  private clientRepository: ClientRepository;
-
-  constructor() {
-    this.clientRepository = new ClientRepository();
-  }
+export class ClientService implements IClientService {
+  constructor(private clientRepository: IClientRepository) {}
 
   /**
    * Get all clients
@@ -31,6 +29,13 @@ export class ClientService {
    */
   async getClientByPhone(phone: string): Promise<Client | null> {
     return await this.clientRepository.findByPhone(phone);
+  }
+
+  /**
+   * Find client by phone (alias for getClientByPhone)
+   */
+  async findByPhone(phone: string): Promise<Client | null> {
+    return await this.getClientByPhone(phone);
   }
 
   /**

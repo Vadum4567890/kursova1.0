@@ -5,9 +5,13 @@ import { paginationMiddleware } from '../middleware/pagination';
 import { filteringMiddleware } from '../middleware/filtering';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
+import { container } from '../core/Container';
 
 const router = Router();
-const carController = new CarController();
+// Get services from DI container
+const carService = container.resolve<any>('ICarService');
+const rentalService = container.resolve<any>('IRentalService');
+const carController = new CarController(carService, rentalService);
 
 /**
  * @swagger
