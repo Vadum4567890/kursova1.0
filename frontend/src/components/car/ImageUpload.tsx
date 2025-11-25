@@ -19,8 +19,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [error, setError] = useState('');
 
   const handleMainImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,7 +36,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       return;
     }
 
-    setSelectedFile(file);
     setError('');
 
     const reader = new FileReader();
@@ -53,7 +50,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       onMainImageChange(response.url);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка завантаження зображення');
-      setSelectedFile(null);
       setImagePreview(null);
     } finally {
       setUploading(false);
@@ -82,7 +78,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       return;
     }
 
-    setSelectedFiles(files);
     setError('');
 
     try {
@@ -92,7 +87,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       onAdditionalImagesChange([...additionalImageUrls, ...urls]);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка завантаження зображень');
-      setSelectedFiles([]);
     } finally {
       setUploading(false);
     }
@@ -186,7 +180,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                 onClick={() => {
                   onMainImageChange('');
                   setImagePreview(null);
-                  setSelectedFile(null);
                 }}
                 disabled={disabled}
                 sx={{

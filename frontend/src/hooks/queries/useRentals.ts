@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { rentalService, Rental, CreateRentalData } from '../../services/rentalService';
+import { rentalService, CreateRentalData } from '../../services/rentalService';
 
 const QUERY_KEYS = {
   all: ['rentals'] as const,

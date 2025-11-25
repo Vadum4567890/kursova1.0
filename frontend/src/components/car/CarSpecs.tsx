@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Grid, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Typography, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import {
   DirectionsCar,
   Settings,

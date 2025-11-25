@@ -28,7 +28,6 @@ import {
   AdminPanelSettings,
   Logout,
   Person,
-  Settings,
   Search as SearchIcon,
   Description,
   Gavel,
