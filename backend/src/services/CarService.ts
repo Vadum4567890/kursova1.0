@@ -27,7 +27,7 @@ export class CarService {
     }
 
     // Apply filters and get total count
-    const query = this.carRepository['repository'].createQueryBuilder('car');
+    const query = this.carRepository.getRepository().createQueryBuilder('car');
     
     if (filters?.type) {
       query.andWhere('car.type = :type', { type: filters.type });
@@ -88,7 +88,7 @@ export class CarService {
       return await this.carRepository.findAvailableCars();
     }
 
-    const query = this.carRepository['repository'].createQueryBuilder('car')
+    const query = this.carRepository.getRepository().createQueryBuilder('car')
       .where('car.status = :status', { status: 'available' });
 
     if (filters?.type) {
@@ -132,7 +132,7 @@ export class CarService {
       return await this.carRepository.findByType(type);
     }
 
-    const query = this.carRepository['repository'].createQueryBuilder('car')
+    const query = this.carRepository.getRepository().createQueryBuilder('car')
       .where('car.type = :type', { type });
 
     const total = await query.getCount();

@@ -106,10 +106,15 @@ export class NotificationObserver implements Observer {
     if (event === 'rental_completed') {
       const { rental } = data;
       // In real implementation, this would send email/SMS
-      console.log(`Sending notification to client ${rental.client?.fullName || 'Unknown'}`);
+      // Notification would be sent here (email, SMS, etc.)
+      // For now, just log it
+      const logger = Logger.getInstance();
+      logger.log(`Sending notification to client ${rental.client?.fullName || 'Unknown'}`, 'info');
     } else if (event === 'rental_cancelled') {
       const { rental } = data;
-      console.log(`Sending cancellation notification to client ${rental.client?.fullName || 'Unknown'}`);
+      // Cancellation notification would be sent here
+      const logger = Logger.getInstance();
+      logger.log(`Sending cancellation notification to client ${rental.client?.fullName || 'Unknown'}`, 'info');
     }
   }
 }

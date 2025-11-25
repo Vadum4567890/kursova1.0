@@ -29,7 +29,7 @@ export class SearchService {
     minYear?: number;
     maxYear?: number;
   }): Promise<any[]> {
-    const query = this.carRepository['repository'].createQueryBuilder('car');
+    const query = this.carRepository.getRepository().createQueryBuilder('car');
 
     if (criteria.brand) {
       query.andWhere('car.brand ILIKE :brand', { brand: `%${criteria.brand}%` });
@@ -83,7 +83,7 @@ export class SearchService {
     startDate?: Date;
     endDate?: Date;
   }): Promise<any[]> {
-    const query = this.rentalRepository['repository']
+    const query = this.rentalRepository.getRepository()
       .createQueryBuilder('rental')
       .leftJoinAndSelect('rental.client', 'client')
       .leftJoinAndSelect('rental.car', 'car');

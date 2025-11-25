@@ -3,6 +3,7 @@ import { ClientRepository } from '../repositories/ClientRepository';
 import { RentalRepository } from '../repositories/RentalRepository';
 import { PenaltyRepository } from '../repositories/PenaltyRepository';
 import { RentalStatus } from '../models/Rental.entity';
+import { Rental, RentalStatus } from '../models/Rental.entity';
 import { CarStatus } from '../models/Car.entity';
 
 /**
@@ -34,7 +35,6 @@ export class AnalyticsService {
       totalCars,
       availableCars,
       activeRentals,
-      allRentals,
       totalRevenue,
       totalPenalties,
       totalDeposits,
@@ -50,6 +50,8 @@ export class AnalyticsService {
 
     const completedRentals = allRentals.filter(r => r.status === RentalStatus.COMPLETED);
 
+    // Get completed rentals separately to avoid loading all rentals unnecessarily
+    const completedRentals = await this.rentalRepository.findByStatus(RentalStatus.COMPLETED);
     const totalClients = await this.clientRepository.findAll();
 
     // Calculate average rental duration
@@ -139,6 +141,16 @@ export class AnalyticsService {
     const carRentalCount: { [key: number]: { car: any; count: number; revenue: number } } = {};
 
     rentals.forEach(rental => {
+    // Get all rentals with relations loaded
+    const rentals = await this.rentalRepository.findAllWithRelations();
+    const carRentalCount: { [key: number]: { car: any; count: number; revenue: number } } = {};
+
+    rentals.forEach((rental: Rental) => {
+      // Check if car relation is loaded
+      if (!rental.car || !rental.car.id) {
+        return; // Skip rentals without car relation
+      }
+      
       const carId = rental.car.id;
       if (!carRentalCount[carId]) {
         carRentalCount[carId] = {
@@ -149,7 +161,7 @@ export class AnalyticsService {
       }
       carRentalCount[carId].count++;
       if (rental.status === RentalStatus.COMPLETED) {
-        carRentalCount[carId].revenue += Number(rental.totalCost);
+        carRentalCount[carId].revenue += Number(rental.totalCost || 0);
       }
     });
 
@@ -172,10 +184,17 @@ export class AnalyticsService {
    * Get top clients (most active)
    */
   async getTopClients(limit: number = 10): Promise<any[]> {
-    const rentals = await this.rentalRepository.findAll();
+    // Get all rentals with relations loaded
+    const rentals = await this.rentalRepository.findAllWithRelations();
+    
     const clientRentalCount: { [key: number]: { client: any; count: number; totalSpent: number } } = {};
 
-    rentals.forEach(rental => {
+    rentals.forEach((rental: Rental) => {
+      // Check if client relation is loaded
+      if (!rental.client || !rental.client.id) {
+        return; // Skip rentals without client relation
+      }
+      
       const clientId = rental.client.id;
       if (!clientRentalCount[clientId]) {
         clientRentalCount[clientId] = {
@@ -186,7 +205,7 @@ export class AnalyticsService {
       }
       clientRentalCount[clientId].count++;
       if (rental.status === RentalStatus.COMPLETED) {
-        clientRentalCount[clientId].totalSpent += Number(rental.totalCost) + Number(rental.penaltyAmount);
+        clientRentalCount[clientId].totalSpent += Number(rental.totalCost || 0) + Number(rental.penaltyAmount || 0);
       }
     });
 
@@ -248,8 +267,7 @@ export class AnalyticsService {
    * Get average rental duration in days
    */
   private async getAverageRentalDuration(): Promise<number> {
-    const allRentals = await this.rentalRepository.findAll();
-    const completedRentals = allRentals.filter(r => r.status === RentalStatus.COMPLETED);
+    const completedRentals = await this.rentalRepository.findByStatus(RentalStatus.COMPLETED);
     
     if (completedRentals.length === 0) return 0;
 
@@ -275,7 +293,6 @@ export class AnalyticsService {
     const lastMonthRevenue = await this.getTotalRevenue(lastMonthStart, lastMonthEnd);
     
     // Simple forecast: assume same revenue as last month
-    // In production, you could use more sophisticated forecasting
     return lastMonthRevenue;
   }
 }

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { AnalyticsController } from '../controllers/AnalyticsController';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
 
 const router = Router();
 const analyticsController = new AnalyticsController();
@@ -27,7 +29,7 @@ const analyticsController = new AnalyticsController();
  *       200:
  *         description: Dashboard statistics
  */
-router.get('/dashboard', analyticsController.getDashboardStats);
+router.get('/dashboard', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), analyticsController.getDashboardStats);
 
 /**
  * @swagger
@@ -50,7 +52,7 @@ router.get('/dashboard', analyticsController.getDashboardStats);
  *       200:
  *         description: Revenue statistics
  */
-router.get('/revenue', analyticsController.getRevenueStats);
+router.get('/revenue', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), analyticsController.getRevenueStats);
 
 /**
  * @swagger
@@ -68,7 +70,7 @@ router.get('/revenue', analyticsController.getRevenueStats);
  *       200:
  *         description: List of popular cars
  */
-router.get('/popular-cars', analyticsController.getPopularCars);
+router.get('/popular-cars', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), analyticsController.getPopularCars);
 
 /**
  * @swagger
@@ -86,7 +88,7 @@ router.get('/popular-cars', analyticsController.getPopularCars);
  *       200:
  *         description: List of top clients
  */
-router.get('/top-clients', analyticsController.getTopClients);
+router.get('/top-clients', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), analyticsController.getTopClients);
 
 /**
  * @swagger
@@ -98,7 +100,7 @@ router.get('/top-clients', analyticsController.getTopClients);
  *       200:
  *         description: Occupancy rate percentage
  */
-router.get('/occupancy-rate', analyticsController.getOccupancyRate);
+router.get('/occupancy-rate', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), analyticsController.getOccupancyRate);
 
 /**
  * @swagger
@@ -110,7 +112,7 @@ router.get('/occupancy-rate', analyticsController.getOccupancyRate);
  *       200:
  *         description: Revenue forecast
  */
-router.get('/revenue-forecast', analyticsController.getRevenueForecast);
+router.get('/revenue-forecast', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), analyticsController.getRevenueForecast);
 
 export default router;
 

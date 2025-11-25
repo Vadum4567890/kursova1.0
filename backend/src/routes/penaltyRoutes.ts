@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { PenaltyController } from '../controllers/PenaltyController';
+import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../models/User.entity';
+import { validateId } from '../middleware/validation';
 
 const router = Router();
 const penaltyController = new PenaltyController();
@@ -14,7 +17,7 @@ const penaltyController = new PenaltyController();
  *       200:
  *         description: List of all penalties
  */
-router.get('/', penaltyController.getAllPenalties);
+router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), penaltyController.getAllPenalties);
 
 /**
  * @swagger
@@ -32,7 +35,7 @@ router.get('/', penaltyController.getAllPenalties);
  *       200:
  *         description: List of penalties for rental
  */
-router.get('/rental/:rentalId', penaltyController.getPenaltiesByRentalId);
+router.get('/rental/:rentalId', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, penaltyController.getPenaltiesByRentalId);
 
 /**
  * @swagger
@@ -50,7 +53,7 @@ router.get('/rental/:rentalId', penaltyController.getPenaltiesByRentalId);
  *       200:
  *         description: Total penalty amount
  */
-router.get('/rental/:rentalId/total', penaltyController.getTotalPenaltyByRentalId);
+router.get('/rental/:rentalId/total', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, penaltyController.getTotalPenaltyByRentalId);
 
 /**
  * @swagger
@@ -68,7 +71,7 @@ router.get('/rental/:rentalId/total', penaltyController.getTotalPenaltyByRentalI
  *       200:
  *         description: Penalty details
  */
-router.get('/:id', penaltyController.getPenaltyById);
+router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, penaltyController.getPenaltyById);
 
 /**
  * @swagger
@@ -97,7 +100,7 @@ router.get('/:id', penaltyController.getPenaltyById);
  *       201:
  *         description: Penalty created successfully
  */
-router.post('/', penaltyController.createPenalty);
+router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), penaltyController.createPenalty);
 
 /**
  * @swagger
@@ -115,6 +118,6 @@ router.post('/', penaltyController.createPenalty);
  *       204:
  *         description: Penalty deleted successfully
  */
-router.delete('/:id', penaltyController.deletePenalty);
+router.delete('/:id', authenticate, authorize(UserRole.ADMIN), validateId, penaltyController.deletePenalty);
 
 export default router;
