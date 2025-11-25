@@ -1,6 +1,8 @@
 import { CarRepository } from '../repositories/CarRepository';
 import { ClientRepository } from '../repositories/ClientRepository';
 import { RentalRepository } from '../repositories/RentalRepository';
+import { PenaltyRepository } from '../repositories/PenaltyRepository';
+import { RentalStatus } from '../models/Rental.entity';
 import { Rental, RentalStatus } from '../models/Rental.entity';
 import { CarStatus } from '../models/Car.entity';
 
@@ -12,11 +14,13 @@ export class AnalyticsService {
   private carRepository: CarRepository;
   private clientRepository: ClientRepository;
   private rentalRepository: RentalRepository;
+  private penaltyRepository: PenaltyRepository;
 
   constructor() {
     this.carRepository = new CarRepository();
     this.clientRepository = new ClientRepository();
     this.rentalRepository = new RentalRepository();
+    this.penaltyRepository = new PenaltyRepository();
   }
 
   /**
@@ -38,10 +42,13 @@ export class AnalyticsService {
       this.carRepository.findAll(),
       this.carRepository.findAvailableCars(),
       this.rentalRepository.findActiveRentals(),
+      this.rentalRepository.findAll(),
       this.getTotalRevenue(start, end),
       this.getTotalPenalties(start, end),
       this.getTotalDeposits(),
     ]);
+
+    const completedRentals = allRentals.filter(r => r.status === RentalStatus.COMPLETED);
 
     // Get completed rentals separately to avoid loading all rentals unnecessarily
     const completedRentals = await this.rentalRepository.findByStatus(RentalStatus.COMPLETED);
@@ -130,6 +137,10 @@ export class AnalyticsService {
    * Get popular cars (most rented)
    */
   async getPopularCars(limit: number = 10): Promise<any[]> {
+    const rentals = await this.rentalRepository.findAll();
+    const carRentalCount: { [key: number]: { car: any; count: number; revenue: number } } = {};
+
+    rentals.forEach(rental => {
     // Get all rentals with relations loaded
     const rentals = await this.rentalRepository.findAllWithRelations();
     const carRentalCount: { [key: number]: { car: any; count: number; revenue: number } } = {};
