@@ -131,21 +131,45 @@ export class RentalService implements IRentalService {
       throw new Error('Rental is not active');
     }
 
-    const endDate = actualEndDate || new Date();
+    let endDate = actualEndDate || new Date();
     
-    // Ensure end date is not before start date
-    if (endDate < rental.startDate) {
+    // Normalize dates to start of day for comparison (compare only dates, not time)
+    const startDateOnly = new Date(rental.startDate);
+    startDateOnly.setHours(0, 0, 0, 0);
+    const endDateOnly = new Date(endDate);
+    endDateOnly.setHours(0, 0, 0, 0);
+    
+    // Ensure end date is not before start date (compare dates only)
+    if (endDateOnly < startDateOnly) {
       throw new Error('Actual end date cannot be before start date');
     }
     
+    // If end date is the same day as start date, set it to end of day to ensure minimum 1 day rental
+    if (endDateOnly.getTime() === startDateOnly.getTime()) {
+      endDate = new Date(startDateOnly);
+      endDate.setHours(23, 59, 59, 999);
+    }
+    
     // Calculate actual rental days (minimum 1 day)
+    // Use normalized dates to ensure accurate day calculation
     const actualDays = Math.max(1, Math.ceil(
-      (endDate.getTime() - rental.startDate.getTime()) / (1000 * 60 * 60 * 24)
+      (endDateOnly.getTime() - startDateOnly.getTime()) / (1000 * 60 * 60 * 24)
     ));
     
     // Recalculate total cost based on actual days
     const pricingStrategy = this.createPricingStrategy();
     const actualTotalCost = pricingStrategy.calculatePrice(rental.car, actualDays);
+    
+    // Recalculate deposit based on actual days if returned early
+    // Deposit formula: base deposit + 15% of daily price per additional day (starting from day 2)
+    let actualDepositAmount = rental.depositAmount;
+    if (endDate < rental.expectedEndDate) {
+      // Early return: recalculate deposit based on actual days
+      const baseDeposit = parseFloat(rental.car.deposit.toString());
+      const additionalPerDay = parseFloat(rental.car.pricePerDay.toString()) * 0.15;
+      const additionalDeposit = additionalPerDay * Math.max(0, actualDays - 1);
+      actualDepositAmount = baseDeposit + additionalDeposit;
+    }
     
     // Calculate penalty if returned late
     let penaltyAmount = 0;
@@ -157,15 +181,22 @@ export class RentalService implements IRentalService {
       penaltyAmount = rental.car.pricePerDay * daysLate * 0.5;
     }
     
-    // Update rental with recalculated cost
+    // Update rental with recalculated cost and deposit
     const updateData: Partial<Rental> = {
       status: RentalStatus.COMPLETED,
       actualEndDate: endDate,
       totalCost: actualTotalCost,
+      depositAmount: actualDepositAmount,
       penaltyAmount: penaltyAmount,
     };
 
-    const updatedRental = await this.rentalRepository.update(rentalId, updateData);
+    await this.rentalRepository.update(rentalId, updateData);
+
+    // Reload rental with relations for response
+    const updatedRental = await this.getRentalById(rentalId);
+    if (!updatedRental) {
+      throw new Error('Failed to reload rental after completion');
+    }
 
     // Update car status - check if there are other active rentals
     const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);

@@ -246,6 +246,12 @@ export class CarService implements ICarService {
    * Update car
    */
   async updateCar(id: number, data: Partial<Car>): Promise<Car> {
+    // Check if car exists
+    const car = await this.carRepository.findById(id);
+    if (!car) {
+      throw new Error('Car not found');
+    }
+
     // Convert imageUrls array to JSON string if present
     const updateData = { ...data };
     if (updateData.imageUrls !== undefined) {
