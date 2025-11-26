@@ -195,7 +195,7 @@ export class RentalService implements IRentalService {
    * 2. Cancellation after start but before expected end - charge for actual days, refund remaining deposit
    * 3. Cancellation after expected end - charge for expected days + late penalty, deposit minus penalty
    */
-  async cancelRental(rentalId: number, cancellationDate?: Date): Promise<Rental> {
+  async cancelRental(rentalId: number, cancellationDate?: Date | string): Promise<Rental> {
     const rental = await this.getRentalById(rentalId);
     if (!rental) {
       throw new Error('Rental not found');
@@ -205,17 +205,26 @@ export class RentalService implements IRentalService {
       throw new Error('Only active rentals can be cancelled');
     }
 
-    const cancelDate = cancellationDate || new Date();
+    // Convert cancellationDate to Date if it's a string
+    const cancelDate = cancellationDate 
+      ? (cancellationDate instanceof Date ? cancellationDate : new Date(cancellationDate))
+      : new Date();
     
     // Scenario 1: Cancellation before start date
     if (cancelDate < rental.startDate) {
       // Full deposit refund, no charge for rental
-      const updatedRental = await this.rentalRepository.update(rentalId, {
+      await this.rentalRepository.update(rentalId, {
         status: RentalStatus.CANCELLED,
         actualEndDate: cancelDate,
         totalCost: 0, // No charge
         penaltyAmount: 0, // No penalty, full deposit refund
       });
+
+      // Reload rental with relations
+      const updatedRental = await this.getRentalById(rentalId);
+      if (!updatedRental) {
+        throw new Error('Failed to reload rental after cancellation');
+      }
 
       // Update car status - check if there are other active rentals
       const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
@@ -262,12 +271,18 @@ export class RentalService implements IRentalService {
     }
     
     // Update rental with calculated values
-    const updatedRental = await this.rentalRepository.update(rentalId, {
+    await this.rentalRepository.update(rentalId, {
       status: RentalStatus.CANCELLED,
       actualEndDate: cancelDate,
       totalCost: actualTotalCost,
       penaltyAmount: penaltyAmount,
     });
+
+    // Reload rental with relations
+    const updatedRental = await this.getRentalById(rentalId);
+    if (!updatedRental) {
+      throw new Error('Failed to reload rental after cancellation');
+    }
 
     // Update car status - check if there are other active rentals
     const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);

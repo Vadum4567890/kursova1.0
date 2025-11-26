@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { searchService, CarSearchParams, RentalSearchParams } from '../../services/searchService';
+import { searchService } from '../../services/searchService';
+import { CarSearchParams, RentalSearchParams } from '../../interfaces';
 
 const QUERY_KEYS = {
   all: ['search'] as const,

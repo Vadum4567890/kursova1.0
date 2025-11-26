@@ -1,26 +1,5 @@
 import api from './api';
-import { Car } from './carService';
-import { Client } from './clientService';
-import { Rental } from './rentalService';
-
-export interface CarSearchParams {
-  brand?: string;
-  model?: string;
-  type?: 'economy' | 'business' | 'premium';
-  status?: 'available' | 'rented' | 'maintenance';
-  minPrice?: number;
-  maxPrice?: number;
-  minYear?: number;
-  maxYear?: number;
-}
-
-export interface RentalSearchParams {
-  clientId?: number;
-  carId?: number;
-  status?: 'active' | 'completed' | 'cancelled';
-  startDate?: string;
-  endDate?: string;
-}
+import { Car, Client, Rental, CarSearchParams, RentalSearchParams } from '../interfaces';
 
 export const searchService = {
   async searchCars(params: CarSearchParams): Promise<Car[]> {

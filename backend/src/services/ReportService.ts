@@ -95,9 +95,10 @@ export class ReportService {
       const depositToReturn = Math.max(0, deposit - penalty);
       // For cancelled rentals:
       // - If cancelled before start: cost=0, penalty=0, full deposit returned → net = 0
-      // - If cancelled after start: cost=actual days, penalty (if late), deposit returned minus penalty → net = cost + penalty
-      // Simplified: net = cost + penalty (same as completed)
-      return sum + cost + penalty;
+      // - If cancelled after start: cost=actual days, penalty (if late), deposit returned minus penalty → net = cost + penalty - depositToReturn
+      // Revenue cannot be negative - if cancellation results in loss, revenue is 0
+      const calculatedRevenue = cost + penalty - depositToReturn;
+      return sum + Math.max(0, calculatedRevenue);
     }, 0);
     
     // Active rentals: we have deposits but haven't received full payment yet
@@ -241,6 +242,137 @@ export class ReportService {
       unavailableCars: rentedCars.length + maintenanceCars.length,
       maintenanceCars: maintenanceCars.length,
       cars,
+    };
+  }
+
+  /**
+   * Generate car report with occupancy and financial indicators
+   * Shows detailed information for each car
+   */
+  async generateCarReport(startDate?: Date, endDate?: Date): Promise<any> {
+    const allCars = await this.carRepository.findAll();
+    const allRentals = await this.rentalRepository.findAllWithRelations();
+    
+    // Filter rentals by date range if provided
+    let rentals = allRentals;
+    if (startDate && endDate) {
+      rentals = allRentals.filter(r => {
+        const rentalStart = new Date(r.startDate);
+        return rentalStart >= startDate && rentalStart <= endDate;
+      });
+    }
+
+    const carReports = allCars.map(car => {
+      // Get all rentals for this car
+      const carRentals = rentals.filter(r => r.car?.id === car.id);
+      const completedRentals = carRentals.filter(r => r.status === RentalStatus.COMPLETED);
+      const activeRentals = carRentals.filter(r => r.status === RentalStatus.ACTIVE);
+      const cancelledRentals = carRentals.filter(r => r.status === RentalStatus.CANCELLED);
+
+      // Calculate occupancy metrics
+      const totalRentalDays = carRentals.reduce((sum, r) => {
+        if (r.status === RentalStatus.COMPLETED && r.actualEndDate) {
+          const start = new Date(r.startDate);
+          const end = new Date(r.actualEndDate);
+          return sum + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        } else if (r.status === RentalStatus.ACTIVE) {
+          const start = new Date(r.startDate);
+          const now = new Date();
+          return sum + Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        } else if (r.status === RentalStatus.CANCELLED && r.actualEndDate) {
+          const start = new Date(r.startDate);
+          const end = new Date(r.actualEndDate);
+          return sum + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        }
+        return sum;
+      }, 0);
+
+      // Calculate period days (default to last 365 days if no date range)
+      const periodStart = startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+      const periodEnd = endDate || new Date();
+      const periodDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+      const occupancyRate = periodDays > 0 ? (totalRentalDays / periodDays) * 100 : 0;
+      const occupancyRatePercent = Math.min(100, occupancyRate);
+
+      // Calculate financial metrics
+      const totalRevenue = completedRentals.reduce((sum, r) => 
+        sum + parseFloat(r.totalCost.toString()) + parseFloat(r.penaltyAmount.toString()), 0
+      );
+      const expectedRevenue = activeRentals.reduce((sum, r) => 
+        sum + parseFloat(r.totalCost.toString()), 0
+      );
+      const totalPenalties = completedRentals.reduce((sum, r) => 
+        sum + parseFloat(r.penaltyAmount.toString()), 0
+      );
+      const totalDeposits = carRentals.reduce((sum, r) => 
+        sum + parseFloat(r.depositAmount.toString()), 0
+      );
+      const netRevenue = completedRentals.reduce((sum, r) => {
+        const cost = parseFloat(r.totalCost.toString());
+        const penalty = parseFloat(r.penaltyAmount.toString());
+        return sum + cost + penalty;
+      }, 0);
+
+      // Get current status
+      const currentStatus = car.status;
+      const isCurrentlyRented = currentStatus === CarStatus.RENTED;
+      const activeRental = activeRentals[0];
+      const nextAvailableDate = activeRental?.expectedEndDate 
+        ? new Date(activeRental.expectedEndDate).toISOString()
+        : (currentStatus === CarStatus.AVAILABLE ? new Date().toISOString() : undefined);
+
+      return {
+        car: {
+          id: car.id,
+          brand: car.brand,
+          model: car.model,
+          year: car.year,
+          type: car.type,
+          pricePerDay: parseFloat(car.pricePerDay.toString()),
+          status: currentStatus,
+        },
+        occupancy: {
+          totalRentalDays,
+          periodDays,
+          occupancyRate: occupancyRatePercent.toFixed(2),
+          rentalCount: carRentals.length,
+          completedCount: completedRentals.length,
+          activeCount: activeRentals.length,
+          cancelledCount: cancelledRentals.length,
+          isCurrentlyRented,
+          nextAvailableDate,
+        },
+        financial: {
+          totalRevenue,
+          expectedRevenue,
+          totalPenalties,
+          totalDeposits,
+          netRevenue,
+          averageRevenuePerRental: completedRentals.length > 0 
+            ? netRevenue / completedRentals.length 
+            : 0,
+        },
+      };
+    });
+
+    // Sort by net revenue (descending)
+    carReports.sort((a, b) => b.financial.netRevenue - a.financial.netRevenue);
+
+    return {
+      period: {
+        startDate: (startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)).toISOString(),
+        endDate: (endDate || new Date()).toISOString(),
+      },
+      summary: {
+        totalCars: allCars.length,
+        totalRevenue: carReports.reduce((sum, r) => sum + r.financial.totalRevenue, 0),
+        totalNetRevenue: carReports.reduce((sum, r) => sum + r.financial.netRevenue, 0),
+        totalPenalties: carReports.reduce((sum, r) => sum + r.financial.totalPenalties, 0),
+        averageOccupancyRate: carReports.length > 0
+          ? carReports.reduce((sum, r) => sum + parseFloat(r.occupancy.occupancyRate.toString()), 0) / carReports.length
+          : 0,
+      },
+      cars: carReports,
     };
   }
 }

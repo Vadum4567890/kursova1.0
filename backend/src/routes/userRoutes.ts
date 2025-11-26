@@ -55,6 +55,47 @@ const userController = new UserController(userService);
 /**
  * @swagger
  * /api/users:
+ *   post:
+ *     summary: Create a new user (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *               fullName:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, manager, employee, user]
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *       400:
+ *         description: Bad request (validation error)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires admin role)
  *   get:
  *     summary: Get all users (admin only)
  *     tags: [Users]
@@ -77,6 +118,7 @@ const userController = new UserController(userService);
  *       403:
  *         description: Forbidden (requires admin role)
  */
+router.post('/', authenticate, authorize(UserRole.ADMIN), userController.createUser);
 router.get('/', authenticate, authorize(UserRole.ADMIN), userController.getAllUsers);
 
 /**

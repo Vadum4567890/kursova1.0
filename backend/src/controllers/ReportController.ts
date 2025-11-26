@@ -49,5 +49,23 @@ export class ReportController {
       res.status(500).json({ error: error.message });
     }
   };
+
+  /**
+   * GET /api/reports/cars - Generate car report with occupancy and financial indicators
+   */
+  generateCarReport = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const report = await this.reportService.generateCarReport(
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      
+      res.json({ data: report });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
 }
 

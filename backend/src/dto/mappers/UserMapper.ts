@@ -17,6 +17,7 @@ export class UserMapper {
       role: user.role,
       fullName: user.fullName,
       address: user.address,
+      phone: user.phone,
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -33,6 +34,7 @@ export class UserMapper {
       password: dto.password,
       fullName: dto.fullName,
       address: dto.address,
+      phone: dto.phone,
       role: dto.role || UserRole.EMPLOYEE,
     };
   }
@@ -46,6 +48,7 @@ export class UserMapper {
     if (dto.email !== undefined) entity.email = dto.email;
     if (dto.fullName !== undefined) entity.fullName = dto.fullName;
     if (dto.address !== undefined) entity.address = dto.address;
+    if (dto.phone !== undefined) entity.phone = dto.phone;
 
     return entity;
   }
@@ -59,6 +62,7 @@ export class UserMapper {
     if (dto.email !== undefined) entity.email = dto.email;
     if (dto.fullName !== undefined) entity.fullName = dto.fullName;
     if (dto.address !== undefined) entity.address = dto.address;
+    if (dto.phone !== undefined) entity.phone = dto.phone;
     if (dto.password !== undefined) entity.password = dto.password; 
 
     return entity;

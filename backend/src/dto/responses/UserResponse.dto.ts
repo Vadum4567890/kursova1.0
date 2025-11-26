@@ -10,6 +10,7 @@ export interface UserResponseDto {
   role: UserRole;
   fullName?: string;
   address?: string;
+  phone?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -16,7 +16,7 @@
     "emitDecoratorMetadata": true,
     "sourceMap": true,
     "baseUrl": "./src",
-    "types": ["node"],
+    "types": ["node", "jest"],
     "paths": {
       "@/*": ["*"],
       "@/config/*": ["config/*"],

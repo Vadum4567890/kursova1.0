@@ -159,8 +159,12 @@ export class AnalyticsService {
         revenue = cost;
       } else if (rental.status === RentalStatus.CANCELLED) {
         // Cancelled: charge for actual days used + penalties - deposit return
+        // If cancelled before start (cost = 0, penalty = 0), revenue = 0
+        // Otherwise, revenue = cost + penalty - depositToReturn, but never negative
         const depositToReturn = Math.max(0, deposit - penalty);
-        revenue = cost + penalty - depositToReturn;
+        const calculatedRevenue = cost + penalty - depositToReturn;
+        // Revenue cannot be negative - if cancellation results in loss, revenue is 0
+        revenue = Math.max(0, calculatedRevenue);
       }
       
       carRentalCount[carId].revenue += revenue;
@@ -270,8 +274,10 @@ export class AnalyticsService {
         const depositToReturn = Math.max(0, deposit - penalty);
         stats.totalToReturn += depositToReturn;
         
-        // Net revenue: cost + penalties - deposit return
-        stats.netRevenue += cost + penalty - depositToReturn;
+        // Net revenue: cost + penalties - deposit return, but never negative
+        // If cancelled before start (cost = 0, penalty = 0), revenue = 0
+        const calculatedRevenue = cost + penalty - depositToReturn;
+        stats.netRevenue += Math.max(0, calculatedRevenue);
         
         // Total received: deposit + cost + penalty (if any)
         stats.totalReceived += deposit + cost + penalty;
@@ -364,7 +370,9 @@ export class AnalyticsService {
             clientNetRevenue[rental.client.id] += cost;
           } else if (rental.status === RentalStatus.CANCELLED) {
             const depositToReturn = Math.max(0, deposit - penalty);
-            clientNetRevenue[rental.client.id] += cost + penalty - depositToReturn;
+            const calculatedRevenue = cost + penalty - depositToReturn;
+            // Revenue cannot be negative - if cancellation results in loss, revenue is 0
+            clientNetRevenue[rental.client.id] += Math.max(0, calculatedRevenue);
           }
         }
       });

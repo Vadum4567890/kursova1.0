@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Container,
   Box,
   Typography,
   Button,
@@ -11,15 +10,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
-  CircularProgress,
-  Alert,
   Tabs,
   Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   MenuItem,
   Select,
@@ -27,25 +19,27 @@ import {
   InputLabel,
 } from '@mui/material';
 import { Add, CheckCircle, Cancel } from '@mui/icons-material';
-import { Rental } from '../services/rentalService';
-import { Client } from '../services/clientService';
-import { Car } from '../services/carService';
+import { Rental, Client, Car } from '../interfaces';
 import { useRentals, useActiveRentals, useCreateRental, useCancelRental, useCompleteRental } from '../hooks/queries/useRentals';
 import { useClients } from '../hooks/queries/useClients';
 import { useCars } from '../hooks/queries/useCars';
-import { useUIStore } from '../stores';
-import { getStatusLabel, getStatusColor } from '../utils/labels';
+import { 
+  ErrorAlert, 
+  LoadingSpinner, 
+  PageHeader, 
+  FormDialog,
+  ConfirmDialog,
+  PageContainer
+} from '../components/common';
+import { useFormDialog } from '../hooks/useFormDialog';
+import { useDeleteConfirm } from '../hooks/useDeleteConfirm';
+import { useErrorHandler } from '../hooks/useErrorHandler';
+import { StatusChip } from '../components/common';
+import { RentalFormData } from '../interfaces';
+import { formatDate } from '../utils/dateHelpers';
 
 const RentalsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    clientId: '',
-    carId: '',
-    startDate: '',
-    expectedEndDate: '',
-  });
-  const [error, setError] = useState('');
   
   // React Query hooks
   const { data: allRentals = [], isLoading: loadingAll, error: rentalsError } = useRentals();
@@ -59,68 +53,68 @@ const RentalsPage: React.FC = () => {
   const { data: carsResponse } = useCars();
   const cars = useMemo(() => carsResponse?.data?.filter((c: Car) => c.status === 'available') || [], [carsResponse]);
   
-  // Zustand store for cancel dialog
-  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
+  const { error, handleError, clearError } = useErrorHandler();
+  const displayError = error || rentalsError?.message || activeError?.message;
+
+  const formDialog = useFormDialog<RentalFormData>({
+    initialData: {
+      clientId: '',
+      carId: '',
+      startDate: '',
+      expectedEndDate: '',
+    },
+  });
+
+  const deleteConfirm = useDeleteConfirm({
+    onConfirm: async (id) => {
+      await cancelRental.mutateAsync(id);
+      clearError();
+    },
+    onError: handleError,
+  });
   
   // Select rentals based on tab
   const rentals = tabValue === 0 ? allRentals : activeRentals;
   const loading = tabValue === 0 ? loadingAll : loadingActive;
-  const displayError = error || rentalsError?.message || activeError?.message;
 
   const handleCreateRental = async () => {
-    if (!formData.clientId || !formData.carId || !formData.startDate || !formData.expectedEndDate) {
-      setError('Будь ласка, заповніть всі поля');
+    if (!formDialog.formData.clientId || !formDialog.formData.carId || !formDialog.formData.startDate || !formDialog.formData.expectedEndDate) {
+      handleError(new Error('Будь ласка, заповніть всі поля'), 'Будь ласка, заповніть всі поля');
       return;
     }
     try {
-      setError('');
+      clearError();
       await createRental.mutateAsync({
-        clientId: parseInt(formData.clientId),
-        carId: parseInt(formData.carId),
-        startDate: new Date(formData.startDate).toISOString(),
-        expectedEndDate: new Date(formData.expectedEndDate).toISOString(),
+        clientId: parseInt(formDialog.formData.clientId),
+        carId: parseInt(formDialog.formData.carId),
+        startDate: new Date(formDialog.formData.startDate).toISOString(),
+        expectedEndDate: new Date(formDialog.formData.expectedEndDate).toISOString(),
       });
-      setCreateDialogOpen(false);
-      setFormData({ clientId: '', carId: '', startDate: '', expectedEndDate: '' });
+      formDialog.handleSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка створення прокату');
+      handleError(err, 'Помилка створення прокату');
     }
   };
 
   const handleComplete = async (id: number) => {
     try {
+      clearError();
       await completeRental.mutateAsync({ id });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завершення прокату');
-    }
-  };
-
-  const handleCancelClick = (id: number) => {
-    openDeleteDialog(id, 'rental');
-  };
-
-  const handleCancelConfirm = async () => {
-    if (!deleteDialogItemId) return;
-    try {
-      await cancelRental.mutateAsync(deleteDialogItemId);
-      setError('');
-      closeDeleteDialog();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка скасування');
-      closeDeleteDialog();
+      handleError(err, 'Помилка завершення прокату');
     }
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Прокати
-        </Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setCreateDialogOpen(true)}>
-          Створити прокат
-        </Button>
-      </Box>
+    <PageContainer>
+      <PageHeader
+        title="Прокати"
+        action={{
+          label: 'Створити прокат',
+          icon: <Add />,
+          onClick: () => formDialog.openDialog(),
+        }}
+      />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
@@ -129,16 +123,10 @@ const RentalsPage: React.FC = () => {
         </Tabs>
       </Box>
 
-      {displayError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {displayError}
-        </Alert>
-      )}
+      <ErrorAlert message={displayError || ''} onClose={clearError} />
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingSpinner />
       ) : (
         <TableContainer component={Paper}>
           <Table>
@@ -169,13 +157,13 @@ const RentalsPage: React.FC = () => {
                       : (rental.carId ? `Автомобіль #${rental.carId}` : 'Невідомо')}
                   </TableCell>
                   <TableCell>
-                    {new Date(rental.startDate).toLocaleDateString('uk-UA')}
+                    {formatDate(rental.startDate)}
                   </TableCell>
                   <TableCell>
-                    {new Date(rental.expectedEndDate).toLocaleDateString('uk-UA')}
+                    {formatDate(rental.expectedEndDate)}
                     {rental.actualEndDate && (
                       <Typography variant="caption" display="block" color="text.secondary">
-                        Фактично: {new Date(rental.actualEndDate).toLocaleDateString('uk-UA')}
+                        Фактично: {formatDate(rental.actualEndDate)}
                       </Typography>
                     )}
                   </TableCell>
@@ -226,20 +214,15 @@ const RentalsPage: React.FC = () => {
                     })()}
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getStatusLabel(rental.status)}
-                      color={getStatusColor(rental.status)}
-                      size="small"
-                    />
+                    <StatusChip status={rental.status} />
                   </TableCell>
                   <TableCell align="right">
                     {rental.status === 'active' && (
-                      <>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                         <Button
                           size="small"
                           startIcon={<CheckCircle />}
                           onClick={() => handleComplete(rental.id)}
-                          sx={{ mr: 1 }}
                         >
                           Завершити
                         </Button>
@@ -247,11 +230,11 @@ const RentalsPage: React.FC = () => {
                           size="small"
                           color="error"
                           startIcon={<Cancel />}
-                          onClick={() => handleCancelClick(rental.id)}
+                          onClick={() => deleteConfirm.handleDeleteClick(rental.id, 'rental')}
                         >
                           Скасувати
                         </Button>
-                      </>
+                      </Box>
                     )}
                   </TableCell>
                 </TableRow>
@@ -261,87 +244,73 @@ const RentalsPage: React.FC = () => {
         </TableContainer>
       )}
 
-      {/* Create Rental Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Створити прокат</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <FormControl fullWidth required>
-              <InputLabel>Клієнт</InputLabel>
-              <Select
-                value={formData.clientId}
-                label="Клієнт"
-                onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-              >
-                {clients.map((client: Client) => (
-                  <MenuItem key={client.id} value={client.id}>
-                    {client.fullName} ({client.phone})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth required>
-              <InputLabel>Автомобіль</InputLabel>
-              <Select
-                value={formData.carId}
-                label="Автомобіль"
-                onChange={(e) => setFormData({ ...formData, carId: e.target.value })}
-              >
-                {cars.map((car: Car) => (
-                  <MenuItem key={car.id} value={car.id}>
-                    {car.brand} {car.model} ({car.year}) - {car.pricePerDay} ₴/день
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Дата початку"
-              type="datetime-local"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Очікувана дата завершення"
-              type="datetime-local"
-              value={formData.expectedEndDate}
-              onChange={(e) => setFormData({ ...formData, expectedEndDate: e.target.value })}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={handleCreateRental} variant="contained" disabled={createRental.isPending}>
-            {createRental.isPending ? <CircularProgress size={20} /> : 'Створити'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <FormDialog
+        open={formDialog.open}
+        title="Створити прокат"
+        onClose={formDialog.closeDialog}
+        onSubmit={handleCreateRental}
+        loading={createRental.isPending}
+        submitLabel="Створити"
+        maxWidth="sm"
+      >
+        <FormControl fullWidth required>
+          <InputLabel>Клієнт</InputLabel>
+          <Select
+            value={formDialog.formData.clientId}
+            label="Клієнт"
+            onChange={(e) => formDialog.updateFormData({ clientId: e.target.value })}
+          >
+            {clients.map((client: Client) => (
+              <MenuItem key={client.id} value={client.id.toString()}>
+                {client.fullName} ({client.phone})
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth required>
+          <InputLabel>Автомобіль</InputLabel>
+          <Select
+            value={formDialog.formData.carId}
+            label="Автомобіль"
+            onChange={(e) => formDialog.updateFormData({ carId: e.target.value })}
+          >
+            {cars.map((car: Car) => (
+              <MenuItem key={car.id} value={car.id.toString()}>
+                {car.brand} {car.model} ({car.year}) - {car.pricePerDay} ₴/день
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          label="Дата початку"
+          type="datetime-local"
+          value={formDialog.formData.startDate}
+          onChange={(e) => formDialog.updateFormData({ startDate: e.target.value })}
+          fullWidth
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label="Очікувана дата завершення"
+          type="datetime-local"
+          value={formDialog.formData.expectedEndDate}
+          onChange={(e) => formDialog.updateFormData({ expectedEndDate: e.target.value })}
+          fullWidth
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      </FormDialog>
 
-      {/* Cancel Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ pb: 1 }}>
-          Підтвердження скасування
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Ви впевнені, що хочете скасувати цей прокат? Цю дію неможливо скасувати.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDeleteDialog}>
-            Скасувати
-          </Button>
-          <Button onClick={handleCancelConfirm} variant="contained" color="error" disabled={cancelRental.isPending}>
-            {cancelRental.isPending ? <CircularProgress size={20} /> : 'Підтвердити скасування'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+      <ConfirmDialog
+        open={deleteConfirm.deleteDialogOpen}
+        title="Підтвердження скасування"
+        message="Ви впевнені, що хочете скасувати цей прокат? Цю дію неможливо скасувати."
+        onConfirm={deleteConfirm.handleDeleteConfirm}
+        onCancel={deleteConfirm.closeDeleteDialog}
+        confirmText="Підтвердити скасування"
+        confirmColor="error"
+      />
+    </PageContainer>
   );
 };
 

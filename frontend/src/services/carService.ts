@@ -1,50 +1,6 @@
 import api from './api';
-
-export interface Car {
-  id: number;
-  brand: string;
-  model: string;
-  year: number;
-  type: 'economy' | 'business' | 'premium';
-  pricePerDay: number;
-  deposit: number;
-  status: 'available' | 'rented' | 'maintenance';
-  description?: string;
-  imageUrl?: string;
-  imageUrls?: string[]; // Multiple images
-  // Additional specifications
-  bodyType?: string;
-  driveType?: string;
-  transmission?: string;
-  engine?: string;
-  fuelType?: string;
-  seats?: number;
-  mileage?: number;
-  color?: string;
-  features?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface CarFilters {
-  type?: string;
-  status?: string;
-  brand?: string;
-  model?: string;
-  page?: number;
-  limit?: number;
-  sort?: string;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+import { Car, CarFilters } from '../interfaces';
+import { PaginatedResponse } from '../types/common';
 
 export const carService = {
   async getAllCars(filters?: CarFilters): Promise<PaginatedResponse<Car>> {
@@ -67,12 +23,12 @@ export const carService = {
     return response.data;
   },
 
-  async createCar(data: Partial<Car>): Promise<Car> {
+  async createCar(data: any): Promise<Car> {
     const response = await api.post<{ data: Car }>('/cars', data);
     return response.data.data;
   },
 
-  async updateCar(id: number, data: Partial<Car>): Promise<Car> {
+  async updateCar(id: number, data: any): Promise<Car> {
     const response = await api.put<{ data: Car }>(`/cars/${id}`, data);
     return response.data.data;
   },

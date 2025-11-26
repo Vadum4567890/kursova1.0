@@ -1,9 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  Container,
-  Box,
-  Typography,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -12,31 +8,29 @@ import {
   TableRow,
   Paper,
   IconButton,
-  CircularProgress,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
 } from '@mui/material';
-import { Add, Edit, Delete, Search } from '@mui/icons-material';
+import { Add, Edit, Delete } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { Client } from '../services/clientService';
+import { Client } from '../interfaces';
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from '../hooks/queries/useClients';
-import { useUIStore } from '../stores';
+import { 
+  ErrorAlert, 
+  LoadingSpinner, 
+  SearchBar, 
+  PageHeader, 
+  FormDialog,
+  ConfirmDialog,
+  PageContainer
+} from '../components/common';
+import { useFormDialog } from '../hooks/useFormDialog';
+import { useDeleteConfirm } from '../hooks/useDeleteConfirm';
+import { useErrorHandler } from '../hooks/useErrorHandler';
+import { formatDate } from '../utils/dateHelpers';
 
 const ClientsPage: React.FC = () => {
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    address: '',
-  });
-  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = React.useState('');
   
   // React Query hooks
   const { data: clients = [], isLoading: loading, error: clientsError } = useClients();
@@ -44,113 +38,79 @@ const ClientsPage: React.FC = () => {
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
   
-  // Zustand store for delete dialog
-  const { deleteDialogOpen, deleteDialogItemId, openDeleteDialog, closeDeleteDialog } = useUIStore();
-  
-  // Combine errors
+  // Custom hooks
+  const { error, handleError, clearError } = useErrorHandler();
   const displayError = error || clientsError?.message;
 
-  const handleDeleteClick = (id: number) => {
-    openDeleteDialog(id, 'client');
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteDialogItemId) return;
-    try {
-      await deleteClient.mutateAsync(deleteDialogItemId);
-      setError('');
-      closeDeleteDialog();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка видалення');
-      closeDeleteDialog();
-    }
-  };
-
-  const handleOpenDialog = (client?: Client) => {
-    if (client) {
-      setEditingClient(client);
-      setFormData({
-        fullName: client.fullName,
-        phone: client.phone,
-        address: client.address,
-      });
-    } else {
-      setEditingClient(null);
-      setFormData({
-        fullName: '',
-        phone: '',
-        address: '',
-      });
-    }
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingClient(null);
-    setFormData({
+  const formDialog = useFormDialog<Client>({
+    initialData: {
       fullName: '',
       phone: '',
+      email: '',
       address: '',
-    });
-  };
+    } as Client,
+  });
+
+  const deleteConfirm = useDeleteConfirm({
+    onConfirm: async (id) => {
+      await deleteClient.mutateAsync(id);
+      clearError();
+    },
+    onError: handleError,
+  });
 
   const handleSubmit = async () => {
     try {
-      setError('');
+      clearError();
       
-      if (editingClient) {
-        await updateClient.mutateAsync({ id: editingClient.id, data: formData });
+      if (formDialog.isEditing && formDialog.editingItem) {
+        await updateClient.mutateAsync({ 
+          id: formDialog.editingItem.id, 
+          data: formDialog.formData 
+        });
       } else {
-        await createClient.mutateAsync(formData);
+        await createClient.mutateAsync(formDialog.formData);
       }
       
-      handleCloseDialog();
+      formDialog.handleSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка збереження');
+      handleError(err, 'Помилка збереження');
     }
   };
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm) ||
-      client.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredClients = useMemo(() => {
+    if (!searchTerm.trim()) return clients;
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return clients.filter(
+      (client) =>
+        client.fullName.toLowerCase().includes(lowerSearchTerm) ||
+        client.phone.includes(searchTerm) ||
+        (client.address && client.address.toLowerCase().includes(lowerSearchTerm))
+    );
+  }, [clients, searchTerm]);
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Клієнти
-        </Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()}>
-          Додати клієнта
-        </Button>
-      </Box>
+    <PageContainer>
+      <PageHeader
+        title="Клієнти"
+        action={{
+          label: 'Додати клієнта',
+          icon: <Add />,
+          onClick: () => formDialog.openDialog(),
+        }}
+      />
 
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          placeholder="Пошук за ім'ям, телефоном або адресою..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
-          }}
-        />
-      </Box>
+      <SearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="Пошук за ім'ям, телефоном або адресою..."
+        sx={{ mb: 3 }}
+      />
 
-      {displayError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {displayError}
-        </Alert>
-      )}
+      <ErrorAlert message={displayError || ''} onClose={clearError} />
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingSpinner />
       ) : (
         <TableContainer component={Paper}>
           <Table>
@@ -159,6 +119,7 @@ const ClientsPage: React.FC = () => {
                 <TableCell>ID</TableCell>
                 <TableCell>ПІБ</TableCell>
                 <TableCell>Телефон</TableCell>
+                <TableCell>Email</TableCell>
                 <TableCell>Адреса</TableCell>
                 <TableCell>Дата реєстрації</TableCell>
                 {(user?.role === 'admin' || user?.role === 'manager') && (
@@ -167,20 +128,27 @@ const ClientsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id} hover>
-                  <TableCell>{client.id}</TableCell>
-                  <TableCell>{client.fullName}</TableCell>
-                  <TableCell>{client.phone}</TableCell>
-                  <TableCell>{client.address}</TableCell>
+              {filteredClients.map((client) => {
+                // Check if phone contains email pattern (for backward compatibility)
+                const isEmailInPhone = client.phone && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.phone);
+                const phone = isEmailInPhone ? '-' : client.phone;
+                const email = client.email || (isEmailInPhone ? client.phone : '-');
+                
+                return (
+                  <TableRow key={client.id} hover>
+                    <TableCell>{client.id}</TableCell>
+                    <TableCell>{client.fullName}</TableCell>
+                    <TableCell>{phone}</TableCell>
+                    <TableCell>{email}</TableCell>
+                    <TableCell>{client.address || 'Не вказано'}</TableCell>
                   <TableCell>
-                    {new Date(client.registrationDate).toLocaleDateString('uk-UA')}
+                    {formatDate(client.registrationDate)}
                   </TableCell>
                   {(user?.role === 'admin' || user?.role === 'manager') && (
                     <TableCell align="right">
                       <IconButton
                         size="small"
-                        onClick={() => handleOpenDialog(client)}
+                        onClick={() => formDialog.openDialog(client)}
                       >
                         <Edit />
                       </IconButton>
@@ -188,82 +156,76 @@ const ClientsPage: React.FC = () => {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => handleDeleteClick(client.id)}
+                          onClick={() => deleteConfirm.handleDeleteClick(client.id, 'client')}
                         >
                           <Delete />
                         </IconButton>
                       )}
                     </TableCell>
                   )}
-                </TableRow>
-              ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
       )}
 
       {/* Add/Edit Client Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingClient ? 'Редагувати клієнта' : 'Додати клієнта'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField
-              label="ПІБ *"
-              value={formData.fullName}
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Телефон *"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              fullWidth
-              required
-              placeholder="+380501234567"
-            />
-            <TextField
-              label="Адреса *"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              fullWidth
-              required
-              multiline
-              rows={2}
-              placeholder="вул. Хрещатик, 1, кв. 10, м. Київ"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Скасувати</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={createClient.isPending || updateClient.isPending}>
-            {(createClient.isPending || updateClient.isPending) ? <CircularProgress size={20} /> : editingClient ? 'Зберегти' : 'Створити'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <FormDialog
+        open={formDialog.open}
+        title={formDialog.isEditing ? 'Редагувати клієнта' : 'Додати клієнта'}
+        onClose={formDialog.closeDialog}
+        onSubmit={handleSubmit}
+        loading={createClient.isPending || updateClient.isPending}
+        submitLabel={formDialog.isEditing ? 'Зберегти' : 'Створити'}
+      >
+        <TextField
+          label="ПІБ *"
+          value={formDialog.formData.fullName || ''}
+          onChange={(e) => formDialog.updateFormData({ fullName: e.target.value } as Partial<Client>)}
+          fullWidth
+          required
+        />
+        <TextField
+          label="Телефон *"
+          value={formDialog.formData.phone || ''}
+          onChange={(e) => formDialog.updateFormData({ phone: e.target.value } as Partial<Client>)}
+          fullWidth
+          required
+          placeholder="+380501234567"
+        />
+        <TextField
+          label="Email"
+          type="email"
+          value={formDialog.formData.email || ''}
+          onChange={(e) => formDialog.updateFormData({ email: e.target.value } as Partial<Client>)}
+          fullWidth
+          placeholder="example@email.com"
+        />
+        <TextField
+          label="Адреса *"
+          value={formDialog.formData.address || ''}
+          onChange={(e) => formDialog.updateFormData({ address: e.target.value } as Partial<Client>)}
+          fullWidth
+          required
+          multiline
+          rows={2}
+          placeholder="вул. Хрещатик, 1, кв. 10, м. Київ"
+        />
+      </FormDialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ pb: 1 }}>
-          Підтвердження видалення
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Ви впевнені, що хочете видалити цього клієнта? Цю дію неможливо скасувати.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDeleteDialog}>
-            Скасувати
-          </Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error" disabled={deleteClient.isPending}>
-            {deleteClient.isPending ? <CircularProgress size={20} /> : 'Видалити'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+      <ConfirmDialog
+        open={deleteConfirm.deleteDialogOpen}
+        title="Підтвердження видалення"
+        message="Ви впевнені, що хочете видалити цього клієнта? Цю дію неможливо скасувати."
+        onConfirm={deleteConfirm.handleDeleteConfirm}
+        onCancel={deleteConfirm.closeDeleteDialog}
+        confirmText="Видалити"
+        confirmColor="error"
+      />
+    </PageContainer>
   );
 };
 

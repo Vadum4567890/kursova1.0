@@ -1,14 +1,5 @@
 import api from './api';
-
-export interface Client {
-  id: number;
-  fullName: string;
-  address: string;
-  phone: string;
-  registrationDate: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { Client } from '../interfaces';
 
 export const clientService = {
   async getAllClients(): Promise<Client[]> {
@@ -26,17 +17,17 @@ export const clientService = {
     return response.data;
   },
 
-  async createClient(data: Partial<Client>): Promise<Client> {
+  async createClient(data: any): Promise<Client> {
     const response = await api.post<{ data: Client }>('/clients', data);
     return response.data.data;
   },
 
-  async registerOrGetClient(data: Partial<Client>): Promise<Client> {
+  async registerOrGetClient(data: any): Promise<Client> {
     const response = await api.post<{ data: Client }>('/clients/register', data);
     return response.data.data;
   },
 
-  async updateClient(id: number, data: Partial<Client>): Promise<Client> {
+  async updateClient(id: number, data: any): Promise<Client> {
     const response = await api.put<{ data: Client }>(`/clients/${id}`, data);
     return response.data.data;
   },

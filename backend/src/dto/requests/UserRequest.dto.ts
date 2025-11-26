@@ -9,6 +9,7 @@ export interface RegisterUserDto {
   password: string;
   fullName?: string;
   address?: string;
+  phone?: string;
   role?: UserRole;
 }
 
@@ -27,6 +28,7 @@ export interface UpdateProfileDto {
   email?: string;
   fullName?: string;
   address?: string;
+  phone?: string;
 }
 
 /**
@@ -58,6 +60,7 @@ export interface UpdateUserDto {
   email?: string;
   fullName?: string;
   address?: string;
+  phone?: string;
   password?: string;
 }
 

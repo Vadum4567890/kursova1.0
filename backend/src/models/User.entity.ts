@@ -34,6 +34,9 @@ export class User {
   @Column({ nullable: true })
   address?: string;
 
+  @Column({ nullable: true })
+  phone?: string;
+
   @Column({ default: true })
   isActive!: boolean;
 

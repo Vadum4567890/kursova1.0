@@ -5,6 +5,7 @@ export interface CreateClientDto {
   fullName: string;
   address: string;
   phone: string;
+  email?: string;
 }
 
 /**
@@ -14,6 +15,7 @@ export interface UpdateClientDto {
   fullName?: string;
   address?: string;
   phone?: string;
+  email?: string;
 }
 
 /**

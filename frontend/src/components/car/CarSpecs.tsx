@@ -8,7 +8,7 @@ import {
   Speed,
   Palette,
 } from '@mui/icons-material';
-import { Car } from '../../services/carService';
+import { Car } from '../../interfaces';
 
 interface CarSpecsProps {
   car: Car;

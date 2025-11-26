@@ -213,6 +213,12 @@ export class RentalController {
           return;
         }
         
+        // Check if rental.client is loaded
+        if (!rental.client || !rental.client.id) {
+          res.status(500).json({ error: 'Rental client information is missing' });
+          return;
+        }
+        
         // Get user's client
         const userData = await this.userRepository.findById(user.id);
         const client = await this.rentalService.getOrCreateClientForUser(
@@ -221,16 +227,28 @@ export class RentalController {
           userData?.fullName
         );
         
+        if (!client || !client.id) {
+          res.status(500).json({ error: 'User client information is missing' });
+          return;
+        }
+        
         if (rental.client.id !== client.id) {
           res.status(403).json({ error: 'You can only cancel your own rentals' });
           return;
         }
       }
       
-      const cancelRentalDto: CancelRentalDto = req.body;
+      const cancelRentalDto: CancelRentalDto = req.body || {};
+      // cancellationDate is optional, if not provided, use current date
+      const cancellationDate = cancelRentalDto.cancellationDate 
+        ? (cancelRentalDto.cancellationDate instanceof Date 
+            ? cancelRentalDto.cancellationDate 
+            : new Date(cancelRentalDto.cancellationDate))
+        : undefined;
+      
       const cancelledRental = await this.rentalService.cancelRental(
         id,
-        cancelRentalDto.cancellationDate
+        cancellationDate
       );
       const rentalDto = RentalMapper.toResponseDto(cancelledRental);
       res.json(rentalDto);

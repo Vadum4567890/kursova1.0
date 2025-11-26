@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { carService, Car, CarFilters } from '../../services/carService';
+import { carService } from '../../services/carService';
+import { Car, CarFilters } from '../../interfaces';
 
 const QUERY_KEYS = {
   all: ['cars'] as const,

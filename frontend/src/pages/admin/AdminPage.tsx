@@ -1,277 +1,138 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Container,
-  Box,
-  Typography,
-  Tabs,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Chip,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
-import { Edit, Delete, PersonAdd, Block, CheckCircle } from '@mui/icons-material';
-import { userService, User } from '../../services/userService';
+import React, { useState, useMemo } from 'react';
+import { PersonAdd } from '@mui/icons-material';
+import { User } from '../../interfaces';
+import { useUsers } from '../../hooks/queries/useUsers';
+import { useUserManagement } from '../../hooks/useUserManagement';
+import { useFormDialog } from '../../hooks/useFormDialog';
+import { useDeleteConfirm } from '../../hooks/useDeleteConfirm';
+import { PageHeader, LoadingSpinner, ErrorAlert, ConfirmDialog, PageContainer } from '../../components/common';
+import { UsersTable, RoleUpdateDialog, CreateUserDialog, RoleTabs } from '../../components/admin';
 
 const AdminPage: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [tabValue, setTabValue] = useState(0);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [role, setRole] = useState<string>('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadUsers();
+  // Get role based on tab
+  const role = useMemo(() => {
+    if (tabValue === 0) return undefined;
+    return ['admin', 'manager', 'employee', 'user'][tabValue - 1];
   }, [tabValue]);
 
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      let data: User[];
-      if (tabValue === 0) {
-        data = await userService.getAllUsers();
-      } else {
-        const role = ['admin', 'manager', 'employee', 'user'][tabValue - 1];
-        data = await userService.getUsersByRole(role);
-      }
-      setUsers(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження користувачів');
-    } finally {
-      setLoading(false);
-    }
+  // React Query hooks
+  const { data: users = [], isLoading: loadingUsers, error: usersError } = useUsers(role);
+
+  // User management hook
+  const userManagement = useUserManagement({
+    onSuccess: () => {
+      setCreateDialogOpen(false);
+    },
+  });
+
+  // Form dialogs
+  const roleDialog = useFormDialog<{ role: string }>({
+    initialData: { role: '' },
+  });
+
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Delete confirmation
+  const deleteConfirm = useDeleteConfirm({
+    onConfirm: async (id) => {
+      await userManagement.remove(id);
+      userManagement.clearError();
+    },
+  });
+
+  const loading = loadingUsers || userManagement.isPending;
+  const error = usersError?.message || userManagement.error;
+
+  const handleEditRole = (user: User) => {
+    setSelectedUser(user);
+    roleDialog.updateFormData({ role: user.role });
+    setRoleDialogOpen(true);
   };
 
   const handleUpdateRole = async () => {
     if (!selectedUser) return;
     try {
-      await userService.updateUserRole(selectedUser.id, role);
-      setDialogOpen(false);
-      loadUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка оновлення ролі');
+      await userManagement.updateRole(selectedUser.id, roleDialog.formData.role);
+      setRoleDialogOpen(false);
+      setSelectedUser(null);
+      roleDialog.handleSuccess();
+    } catch {
+      // Error already handled by hook
     }
   };
 
-  const handleUpdateStatus = async (id: number, isActive: boolean) => {
+  const handleToggleStatus = async (id: number, isActive: boolean) => {
     try {
-      await userService.updateUserStatus(id, isActive);
-      loadUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка оновлення статусу');
+      await userManagement.updateStatus(id, !isActive);
+    } catch {
+      // Error already handled by hook
     }
   };
 
-  const handleDeleteClick = (id: number) => {
-    setUserToDelete(id);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) return;
+  const handleCreateUser = async (formData: any) => {
     try {
-      await userService.deleteUser(userToDelete);
-      setError('');
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
-      loadUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка видалення');
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
-    }
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'error';
-      case 'manager':
-        return 'warning';
-      case 'employee':
-        return 'default';
-      case 'user':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'Адмін';
-      case 'manager':
-        return 'Менеджер';
-      case 'employee':
-        return 'Співробітник';
-      case 'user':
-        return 'Клієнт';
-      default:
-        return role;
+      await userManagement.create(formData);
+    } catch {
+      // Error already handled by hook
     }
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Управління користувачами
-        </Typography>
-        <Button variant="contained" startIcon={<PersonAdd />}>
-          Додати користувача
-        </Button>
-      </Box>
+    <PageContainer>
+      <PageHeader
+        title="Управління користувачами"
+        action={{
+          label: 'Додати користувача',
+          icon: <PersonAdd />,
+          onClick: () => setCreateDialogOpen(true),
+        }}
+      />
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-          <Tab label="Всі користувачі" />
-          <Tab label="Адміністратори" />
-          <Tab label="Менеджери" />
-          <Tab label="Співробітники" />
-          <Tab label="Клієнти" />
-        </Tabs>
-      </Box>
+      <RoleTabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorAlert message={error} onClose={() => userManagement.clearError()} />}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingSpinner />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Логін</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>ПІБ</TableCell>
-                <TableCell>Роль</TableCell>
-                <TableCell>Статус</TableCell>
-                <TableCell align="right">Дії</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell>{user.id}</TableCell>
-                  <TableCell>{user.username}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.fullName || '-'}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getRoleLabel(user.role)}
-                      color={getRoleColor(user.role)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={user.isActive ? 'Активний' : 'Неактивний'}
-                      color={user.isActive ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setRole(user.role);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <Edit />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color={user.isActive ? 'error' : 'success'}
-                      onClick={() => handleUpdateStatus(user.id, !user.isActive)}
-                    >
-                      {user.isActive ? <Block /> : <CheckCircle />}
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteClick(user.id)}
-                    >
-                      <Delete />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <UsersTable
+          users={users}
+          onEditRole={handleEditRole}
+          onToggleStatus={handleToggleStatus}
+          onDelete={deleteConfirm.handleDeleteClick}
+        />
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-        <DialogTitle>Змінити роль користувача</DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>Роль</InputLabel>
-            <Select value={role} label="Роль" onChange={(e) => setRole(e.target.value)}>
-              <MenuItem value="admin">Адмін</MenuItem>
-              <MenuItem value="manager">Менеджер</MenuItem>
-              <MenuItem value="employee">Співробітник</MenuItem>
-              <MenuItem value="user">Клієнт</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={handleUpdateRole} variant="contained">
-            Зберегти
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <RoleUpdateDialog
+        open={roleDialogOpen}
+        currentRole={roleDialog.formData.role}
+        onClose={() => {
+          setRoleDialogOpen(false);
+          setSelectedUser(null);
+        }}
+        onSave={handleUpdateRole}
+      />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ pb: 1 }}>
-          Підтвердження видалення
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Ви впевнені, що хочете видалити цього користувача? Цю дію неможливо скасувати.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
-            Скасувати
-          </Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-            Видалити
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+      <ConfirmDialog
+        open={deleteConfirm.deleteDialogOpen}
+        title="Підтвердження видалення"
+        message="Ви впевнені, що хочете видалити цього користувача? Цю дію неможливо скасувати."
+        onCancel={deleteConfirm.closeDeleteDialog}
+        onConfirm={deleteConfirm.handleDeleteConfirm}
+        confirmText="Видалити"
+      />
+
+      <CreateUserDialog
+        open={createDialogOpen}
+        loading={userManagement.isPending}
+        onClose={() => setCreateDialogOpen(false)}
+        onSubmit={handleCreateUser}
+      />
+    </PageContainer>
   );
 };
 

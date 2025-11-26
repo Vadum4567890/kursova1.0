@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { rentalService, CreateRentalData } from '../../services/rentalService';
+import { rentalService } from '../../services/rentalService';
+import { CreateRentalData } from '../../interfaces';
 
 const QUERY_KEYS = {
   all: ['rentals'] as const,
@@ -132,7 +133,11 @@ export const useCancelRental = () => {
   return useMutation({
     mutationFn: (id: number) => rentalService.cancelRental(id),
     onSuccess: () => {
+      // Invalidate all rental queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      // Specifically invalidate my rentals
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.my() });
+      // Invalidate analytics and reports
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },

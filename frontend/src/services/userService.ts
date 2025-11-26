@@ -1,15 +1,5 @@
 import api from './api';
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: 'admin' | 'manager' | 'employee';
-  fullName?: string;
-  isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { User, CreateUserData } from '../interfaces';
 
 export const userService = {
   async getAllUsers(): Promise<User[]> {
@@ -19,6 +9,11 @@ export const userService = {
 
   async getUserById(id: number): Promise<User> {
     const response = await api.get<{ data: User }>(`/users/${id}`);
+    return response.data.data;
+  },
+
+  async createUser(data: CreateUserData): Promise<User> {
+    const response = await api.post<{ message: string; data: User }>('/users', data);
     return response.data.data;
   },
 

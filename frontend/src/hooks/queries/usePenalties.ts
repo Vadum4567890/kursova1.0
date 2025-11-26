@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { penaltyService, CreatePenaltyData } from '../../services/penaltyService';
+import { penaltyService } from '../../services/penaltyService';
+import { CreatePenaltyData } from '../../interfaces';
 
 const QUERY_KEYS = {
   all: ['penalties'] as const,

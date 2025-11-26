@@ -33,7 +33,7 @@ export interface IAuthService {
   login(data: LoginData): Promise<AuthResponse>;
   verifyToken(token: string): any;
   getUserById(userId: number): Promise<any>;
-  updateProfile(userId: number, data: { email?: string; fullName?: string; address?: string }): Promise<any>;
+  updateProfile(userId: number, data: { email?: string; fullName?: string; address?: string; phone?: string }): Promise<any>;
   changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void>;
 }
 

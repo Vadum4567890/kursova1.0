@@ -15,6 +15,9 @@ export class Client {
   @Column()
   phone!: string;
 
+  @Column({ nullable: true })
+  email?: string;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   registrationDate!: Date;
 

@@ -109,3 +109,18 @@ export const getRoleLabel = (role: string): string => {
   }
 };
 
+export const getRoleColor = (role: string): 'error' | 'warning' | 'default' | 'info' => {
+  switch (role) {
+    case 'admin':
+      return 'error';
+    case 'manager':
+      return 'warning';
+    case 'employee':
+      return 'default';
+    case 'user':
+      return 'info';
+    default:
+      return 'default';
+  }
+};
+

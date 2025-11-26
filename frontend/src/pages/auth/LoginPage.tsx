@@ -10,6 +10,7 @@ import {
   Link,
   InputAdornment,
   IconButton,
+  useTheme,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Login as LoginIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 
 const LoginPage: React.FC = () => {
+  const theme = useTheme();
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +37,7 @@ const LoginPage: React.FC = () => {
       // Redirect based on user role
       const userData = authService.getUser();
       if (userData?.role === 'user') {
-        navigate('/cars');
+        navigate('/');
       } else {
         navigate('/dashboard');
       }
@@ -124,18 +126,24 @@ const LoginPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-          <Typography variant="caption" display="block" gutterBottom>
+        <Box sx={{ 
+          mt: 3, 
+          p: 2, 
+          bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+          borderRadius: 1,
+          border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+        }}>
+          <Typography variant="caption" display="block" gutterBottom sx={{ color: 'text.primary', fontWeight: 600 }}>
             Тестові облікові записи:
           </Typography>
-          <Typography variant="caption" display="block">
-            Admin: <strong>admin</strong> / <strong>admin123</strong>
+          <Typography variant="caption" display="block" sx={{ color: 'text.primary' }}>
+            Admin: <strong style={{ color: theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2' }}>admin</strong> / <strong style={{ color: theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2' }}>admin123</strong>
           </Typography>
-          <Typography variant="caption" display="block">
-            Manager: <strong>manager</strong> / <strong>manager123</strong>
+          <Typography variant="caption" display="block" sx={{ color: 'text.primary' }}>
+            Manager: <strong style={{ color: theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2' }}>manager</strong> / <strong style={{ color: theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2' }}>manager123</strong>
           </Typography>
-          <Typography variant="caption" display="block">
-            Employee: <strong>employee</strong> / <strong>employee123</strong>
+          <Typography variant="caption" display="block" sx={{ color: 'text.primary' }}>
+            Employee: <strong style={{ color: theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2' }}>employee</strong> / <strong style={{ color: theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2' }}>employee123</strong>
           </Typography>
         </Box>
       </Paper>

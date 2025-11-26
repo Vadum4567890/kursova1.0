@@ -155,9 +155,9 @@ export class AuthService implements IAuthService {
   }
 
   /**
-   * Update user profile (email, fullName)
+   * Update user profile (email, fullName, address, phone)
    */
-  async updateProfile(userId: number, data: { email?: string; fullName?: string; address?: string }): Promise<User> {
+  async updateProfile(userId: number, data: { email?: string; fullName?: string; address?: string; phone?: string }): Promise<User> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new Error('User not found');
@@ -175,6 +175,7 @@ export class AuthService implements IAuthService {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.fullName !== undefined) updateData.fullName = data.fullName;
     if (data.address !== undefined) updateData.address = data.address;
+    if (data.phone !== undefined) updateData.phone = data.phone;
 
     const updated = await this.userRepository.update(userId, updateData);
     this.logger.log(`User profile updated: ${user.username}`, 'info');

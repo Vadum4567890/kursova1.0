@@ -1,30 +1,5 @@
 import api from './api';
-
-export interface LoginData {
-  usernameOrEmail: string;
-  password: string;
-}
-
-export interface RegisterData {
-  username: string;
-  email: string;
-  password: string;
-  fullName?: string;
-  address?: string;
-  role?: string;
-}
-
-export interface AuthResponse {
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    role: string;
-    fullName?: string;
-    address?: string;
-  };
-  token: string;
-}
+import { LoginData, RegisterData, AuthResponse } from '../interfaces';
 
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
@@ -61,7 +36,7 @@ export const authService = {
     localStorage.setItem('user', JSON.stringify(data.user));
   },
 
-  async updateProfile(data: { email?: string; fullName?: string; address?: string }): Promise<AuthResponse['user']> {
+  async updateProfile(data: { email?: string; fullName?: string; address?: string; phone?: string }): Promise<AuthResponse['user']> {
     const response = await api.put<{ message: string; data: AuthResponse['user'] }>('/auth/profile', data);
     return response.data.data;
   },

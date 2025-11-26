@@ -15,6 +15,7 @@ export class ClientMapper {
       fullName: client.fullName,
       address: client.address,
       phone: client.phone,
+      email: client.email,
       registrationDate: client.registrationDate,
       createdAt: client.createdAt,
       updatedAt: client.updatedAt,
@@ -29,6 +30,7 @@ export class ClientMapper {
       fullName: dto.fullName,
       address: dto.address,
       phone: dto.phone,
+      email: dto.email,
     };
   }
 
@@ -41,6 +43,7 @@ export class ClientMapper {
     if (dto.fullName !== undefined) entity.fullName = dto.fullName;
     if (dto.address !== undefined) entity.address = dto.address;
     if (dto.phone !== undefined) entity.phone = dto.phone;
+    if (dto.email !== undefined) entity.email = dto.email;
 
     return entity;
   }
