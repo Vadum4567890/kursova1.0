@@ -26,7 +26,7 @@ export function getAnalyticsStatCardsConfig(): AnalyticsStatCardConfig[] {
       title: 'Зайнятість',
       icon: <TrendingUp sx={{ fontSize: 40 }} />,
       gradient: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)',
-      getValue: (stats, occupancyRate) => `${occupancyRate.toFixed(1)}%`,
+      getValue: (_stats, occupancyRate) => `${occupancyRate.toFixed(1)}%`,
     },
     {
       title: 'Штрафи',

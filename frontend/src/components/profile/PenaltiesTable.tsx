@@ -10,8 +10,7 @@ import {
   Alert,
 } from '@mui/material';
 import { LoadingSpinner } from '../common';
-import { formatRentalDate } from '../../utils/rentalHelpers';
-import { Penalty } from '../../interfaces';
+import { formatRentalDate } from '../../utils/dateHelpers';
 
 interface PenaltyTableItem {
   id: number;

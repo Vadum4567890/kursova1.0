@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { Cancel } from '@mui/icons-material';
 import { Rental } from '../../interfaces';
-import { formatRentalDate } from '../../utils/rentalHelpers';
+import { formatRentalDate } from '../../utils/dateHelpers';
 import { StatusChip } from '../common';
 
 interface MyRentalsTableProps {

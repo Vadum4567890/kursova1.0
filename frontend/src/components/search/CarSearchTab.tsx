@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Paper, TextField, Button, Grid } from '@mui/material';
+import { Box, Paper, TextField, Button } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { CarSearchParams, Car } from '../../interfaces';

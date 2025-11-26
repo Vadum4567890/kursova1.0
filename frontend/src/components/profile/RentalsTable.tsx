@@ -9,7 +9,7 @@ import {
   Alert,
 } from '@mui/material';
 import { LoadingSpinner, StatusChip } from '../common';
-import { formatRentalDate } from '../../utils/rentalHelpers';
+import { formatRentalDate } from '../../utils/dateHelpers';
 
 interface Rental {
   id: number;

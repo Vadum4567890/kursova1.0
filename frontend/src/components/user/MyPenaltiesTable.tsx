@@ -10,7 +10,7 @@ import {
   Paper,
 } from '@mui/material';
 import { Penalty } from '../../interfaces';
-import { formatRentalDate } from '../../utils/rentalHelpers';
+import { formatRentalDate } from '../../utils/dateHelpers';
 
 interface MyPenaltiesTableProps {
   penalties: Penalty[];

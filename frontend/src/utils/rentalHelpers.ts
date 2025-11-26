@@ -37,12 +37,8 @@ export const sortRentalsForSelection = (rentals: Rental[]): Rental[] => {
   });
 };
 
-/**
- * Format date for rental display (re-exported from dateHelpers for backward compatibility)
- */
-export const formatRentalDate = (dateString: string | Date | undefined | null): string => {
-  return formatDate(dateString);
-};
+// formatRentalDate is now exported from dateHelpers.ts
+// Import it directly: import { formatRentalDate } from '../../utils/dateHelpers';
 
 export const getRentalStatusLabel = (status: string): string => {
   const statusLabels: { [key: string]: string } = {

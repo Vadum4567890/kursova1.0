@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '../../services/userService';
-import { User } from '../../interfaces';
 
 const QUERY_KEYS = {
   all: ['users'] as const,

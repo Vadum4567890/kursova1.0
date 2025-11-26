@@ -3,7 +3,7 @@ import { Paper, Box, Typography, Grid, Card, CardContent, Button } from '@mui/ma
 import { ArrowForward } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Rental } from '../../interfaces';
-import { formatRentalDate } from '../../utils/rentalHelpers';
+import { formatRentalDate } from '../../utils/dateHelpers';
 import { StatusChip } from '../common';
 
 interface RecentRentalsSectionProps {
