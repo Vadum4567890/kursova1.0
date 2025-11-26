@@ -32,10 +32,9 @@ import { PenaltyFormData } from '../interfaces';
 import {
   filterRentalsBySearchTerm,
   sortRentalsForSelection,
-  formatRentalDate,
   getRentalStatusLabel,
 } from '../utils/rentalHelpers';
-import { formatDate } from '../utils/dateHelpers';
+import { formatDate, formatRentalDate } from '../utils/dateHelpers';
 
 const PenaltiesPage: React.FC = () => {
   const { user } = useAuth();

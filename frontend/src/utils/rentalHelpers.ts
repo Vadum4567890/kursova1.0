@@ -1,5 +1,4 @@
 import { Rental } from '../interfaces';
-import { formatDate } from './dateHelpers';
 
 export const filterRentalsBySearchTerm = (
   rentals: Rental[],
