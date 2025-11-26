@@ -1,45 +1,5 @@
 import api from './api';
-
-export interface DashboardStats {
-  totalCars: number;
-  availableCars: number;
-  rentedCars: number;
-  maintenanceCars?: number;
-  totalClients: number;
-  activeRentals: number;
-  completedRentals?: number;
-  totalRevenue: number;
-  totalPenalties: number;
-  averageRentalDuration: number;
-  occupancyRate?: number;
-  averageRevenuePerRental?: number;
-}
-
-export interface PopularCar {
-  car: {
-    id: number;
-    brand: string;
-    model: string;
-  };
-  rentalCount: number;
-  totalRevenue: number;
-}
-
-export interface TopClient {
-  client: {
-    id: number;
-    fullName: string;
-    phone: string;
-  };
-  totalSpent: number; // For backward compatibility
-  totalReceived: number; // Total money received from client
-  totalCost: number; // Total rental cost
-  totalPenalties: number; // Total penalties
-  totalDeposits: number; // Total deposits paid
-  totalToReturn: number; // Total deposit to return
-  netRevenue: number; // Net revenue (cost + penalties - deposit return)
-  rentalCount: number;
-}
+import { DashboardStats, PopularCar, TopClient } from '../interfaces';
 
 export const analyticsService = {
   async getDashboardStats(startDate?: string, endDate?: string): Promise<DashboardStats> {

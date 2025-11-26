@@ -1,30 +1,5 @@
 import api from './api';
-
-export interface Penalty {
-  id: number;
-  rentalId: number;
-  amount: number;
-  reason: string;
-  date: string;
-  rental?: {
-    id: number;
-    clientId: number;
-    carId: number;
-    client?: {
-      fullName: string;
-    };
-    car?: {
-      brand: string;
-      model: string;
-    };
-  };
-}
-
-export interface CreatePenaltyData {
-  rentalId: number;
-  amount: number;
-  reason: string;
-}
+import { Penalty, CreatePenaltyData } from '../interfaces';
 
 export const penaltyService = {
   async getAllPenalties(): Promise<Penalty[]> {

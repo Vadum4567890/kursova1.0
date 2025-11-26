@@ -1,37 +1,5 @@
 import api from './api';
-
-export interface Rental {
-  id: number;
-  clientId: number;
-  carId: number;
-  startDate: string;
-  expectedEndDate: string;
-  actualEndDate?: string;
-  depositAmount: number;
-  totalCost: number;
-  penaltyAmount: number;
-  status: 'active' | 'completed' | 'cancelled';
-  client?: {
-    id: number;
-    fullName: string;
-    phone: string;
-  };
-  car?: {
-    id: number;
-    brand: string;
-    model: string;
-    pricePerDay: number;
-  };
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface CreateRentalData {
-  clientId: number;
-  carId: number;
-  startDate: string;
-  expectedEndDate: string;
-}
+import { Rental, CreateRentalData } from '../interfaces';
 
 export const rentalService = {
   async getAllRentals(): Promise<Rental[]> {

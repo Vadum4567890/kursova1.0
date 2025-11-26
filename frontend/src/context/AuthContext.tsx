@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, AuthResponse } from '../services/authService';
+import { authService } from '../services/authService';
+import { AuthResponse } from '../interfaces';
 
 interface AuthContextType {
   user: AuthResponse['user'] | null;

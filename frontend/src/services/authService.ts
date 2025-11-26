@@ -1,31 +1,5 @@
 import api from './api';
-
-export interface LoginData {
-  usernameOrEmail: string;
-  password: string;
-}
-
-export interface RegisterData {
-  username: string;
-  email: string;
-  password: string;
-  fullName?: string;
-  address?: string;
-  role?: string;
-}
-
-export interface AuthResponse {
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    role: string;
-    fullName?: string;
-    address?: string;
-    phone?: string;
-  };
-  token: string;
-}
+import { LoginData, RegisterData, AuthResponse } from '../interfaces';
 
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {

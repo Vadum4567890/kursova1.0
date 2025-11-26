@@ -3,7 +3,7 @@
  * All financial and date calculations should be centralized here
  */
 
-import { Car } from '../services/carService';
+import { Car } from '../interfaces';
 
 /**
  * Calculate rental price based on days and car price per day

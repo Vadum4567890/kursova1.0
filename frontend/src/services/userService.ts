@@ -1,27 +1,5 @@
 import api from './api';
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: 'admin' | 'manager' | 'employee';
-  fullName?: string;
-  address?: string;
-  phone?: string;
-  isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface CreateUserData {
-  username: string;
-  email: string;
-  password: string;
-  fullName?: string;
-  address?: string;
-  phone?: string;
-  role?: 'admin' | 'manager' | 'employee' | 'user';
-}
+import { User, CreateUserData } from '../interfaces';
 
 export const userService = {
   async getAllUsers(): Promise<User[]> {

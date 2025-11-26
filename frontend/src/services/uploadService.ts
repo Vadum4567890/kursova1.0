@@ -1,13 +1,5 @@
 import api from './api';
-
-export interface UploadResponse {
-  filename: string;
-  originalName: string;
-  size: number;
-  mimetype: string;
-  url: string;
-  fullUrl: string;
-}
+import { UploadResponse } from '../interfaces';
 
 export const uploadService = {
   async uploadImage(file: File): Promise<UploadResponse> {

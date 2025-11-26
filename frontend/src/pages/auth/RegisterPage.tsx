@@ -14,6 +14,7 @@ import {
 import { Visibility, VisibilityOff, PersonAdd } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { MIN_PASSWORD_LENGTH, PASSWORD_VALIDATION_MESSAGE } from '../../constants/validation';
 
 const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -39,8 +40,8 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Пароль повинен містити мінімум 6 символів');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(PASSWORD_VALIDATION_MESSAGE);
       return;
     }
 
@@ -141,7 +142,7 @@ const RegisterPage: React.FC = () => {
                 </InputAdornment>
               ),
             }}
-            helperText="Мінімум 6 символів"
+            helperText={`Мінімум ${MIN_PASSWORD_LENGTH} символів`}
           />
           <TextField
             fullWidth
