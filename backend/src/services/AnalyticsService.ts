@@ -141,30 +141,27 @@ export class AnalyticsService {
       }
       carRentalCount[carId].count++;
       
-      // Calculate net revenue: cost + penalties - deposit return
-      // Deposit is NOT revenue - it's money we need to return (minus penalties if any)
+      // Calculate net revenue: cost + penalties
+      // IMPORTANT: Deposit is NOT revenue - it's money we hold and return (minus penalties if any)
+      // Revenue = cost + penalty (deposit doesn't affect revenue, it's just held and returned)
       let revenue = 0;
       const deposit = Number(rental.depositAmount || 0);
       const cost = Number(rental.totalCost || 0);
       const penalty = Number(rental.penaltyAmount || 0);
       
       if (rental.status === RentalStatus.COMPLETED) {
-        // Completed: actual cost + penalties - deposit return
-        // Deposit return = deposit - penalties (if penalties exceed deposit, return 0)
-        const depositToReturn = Math.max(0, deposit - penalty);
-        revenue = cost + penalty - depositToReturn;
+        // Completed: revenue = cost + penalties
+        // Deposit is returned (minus penalties if any), but doesn't affect revenue calculation
+        revenue = cost + penalty;
       } else if (rental.status === RentalStatus.ACTIVE) {
-        // Active: expected cost (deposit will be returned if no penalties)
-        // Net revenue = cost (deposit is not revenue, it will be returned)
+        // Active: expected revenue = expected cost
+        // Deposit will be returned when completed (if no penalties)
         revenue = cost;
       } else if (rental.status === RentalStatus.CANCELLED) {
-        // Cancelled: charge for actual days used + penalties - deposit return
+        // Cancelled: revenue = cost + penalties (for actual days used)
         // If cancelled before start (cost = 0, penalty = 0), revenue = 0
-        // Otherwise, revenue = cost + penalty - depositToReturn, but never negative
-        const depositToReturn = Math.max(0, deposit - penalty);
-        const calculatedRevenue = cost + penalty - depositToReturn;
-        // Revenue cannot be negative - if cancellation results in loss, revenue is 0
-        revenue = Math.max(0, calculatedRevenue);
+        // Revenue is always cost + penalty (never negative, as cost and penalty are non-negative)
+        revenue = cost + penalty;
       }
       
       carRentalCount[carId].revenue += revenue;
@@ -244,8 +241,9 @@ export class AnalyticsService {
         const depositToReturn = Math.max(0, deposit - penalty);
         stats.totalToReturn += depositToReturn;
         
-        // Net revenue: cost + penalties - deposit return
-        stats.netRevenue += cost + penalty - depositToReturn;
+        // Net revenue: cost + penalties (deposit doesn't affect revenue)
+        // Revenue is what we earn, not what we receive minus what we return
+        stats.netRevenue += cost + penalty;
         
         // Total received: deposit + cost + penalty (client paid everything)
         stats.totalReceived += deposit + cost + penalty;
@@ -260,12 +258,8 @@ export class AnalyticsService {
         // For display, we assume full deposit return for active rentals
         stats.totalToReturn += deposit;
         
-        // Net revenue: total received minus what we need to return
-        // For active rentals: (deposit + cost) - deposit = cost
-        // This represents expected revenue, will be adjusted when completed
-        // Calculate as: totalReceived - totalToReturn to ensure consistency
-        const expectedNetRevenue = (deposit + cost) - deposit; // = cost
-        stats.netRevenue += expectedNetRevenue;
+        // Net revenue: expected cost (deposit doesn't affect revenue)
+        stats.netRevenue += cost;
       } else if (rental.status === RentalStatus.CANCELLED) {
         // Cancelled rental: charge for actual days used
         stats.totalCost += cost;
@@ -274,10 +268,10 @@ export class AnalyticsService {
         const depositToReturn = Math.max(0, deposit - penalty);
         stats.totalToReturn += depositToReturn;
         
-        // Net revenue: cost + penalties - deposit return, but never negative
+        // Net revenue: cost + penalties (for actual days used)
         // If cancelled before start (cost = 0, penalty = 0), revenue = 0
-        const calculatedRevenue = cost + penalty - depositToReturn;
-        stats.netRevenue += Math.max(0, calculatedRevenue);
+        // Revenue is always cost + penalty (never negative)
+        stats.netRevenue += cost + penalty;
         
         // Total received: deposit + cost + penalty (if any)
         stats.totalReceived += deposit + cost + penalty;
@@ -286,9 +280,11 @@ export class AnalyticsService {
 
     return Object.values(clientRentalCount)
       .map(item => {
-        // Recalculate netRevenue as totalReceived - totalToReturn for consistency
-        // This ensures netRevenue always reflects actual profit
-        const calculatedNetRevenue = item.totalReceived - item.totalToReturn;
+        // Net revenue is already calculated correctly as cost + penalties
+        // Don't recalculate as totalReceived - totalToReturn because:
+        // - totalReceived includes deposit (which is not revenue)
+        // - totalToReturn includes deposit return (which is not an expense)
+        // Revenue = cost + penalties (deposit is just held and returned)
         
         return {
           client: {
@@ -303,7 +299,7 @@ export class AnalyticsService {
           totalPenalties: item.totalPenalties,
           totalDeposits: item.totalDeposits,
           totalToReturn: item.totalToReturn,
-          netRevenue: calculatedNetRevenue, // Use calculated value for consistency
+          netRevenue: item.netRevenue, // Already calculated as cost + penalties
         };
       })
       .sort((a, b) => b.netRevenue - a.netRevenue)
@@ -364,15 +360,15 @@ export class AnalyticsService {
           }
           
           if (rental.status === RentalStatus.COMPLETED) {
-            const depositToReturn = Math.max(0, deposit - penalty);
-            clientNetRevenue[rental.client.id] += cost + penalty - depositToReturn;
+            // Revenue = cost + penalties (deposit doesn't affect revenue)
+            clientNetRevenue[rental.client.id] += cost + penalty;
           } else if (rental.status === RentalStatus.ACTIVE) {
+            // Expected revenue = expected cost
             clientNetRevenue[rental.client.id] += cost;
           } else if (rental.status === RentalStatus.CANCELLED) {
-            const depositToReturn = Math.max(0, deposit - penalty);
-            const calculatedRevenue = cost + penalty - depositToReturn;
-            // Revenue cannot be negative - if cancellation results in loss, revenue is 0
-            clientNetRevenue[rental.client.id] += Math.max(0, calculatedRevenue);
+            // Revenue = cost + penalties (for actual days used)
+            // Revenue is always cost + penalty (never negative)
+            clientNetRevenue[rental.client.id] += cost + penalty;
           }
         }
       });

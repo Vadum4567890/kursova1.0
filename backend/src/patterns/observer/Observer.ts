@@ -78,6 +78,9 @@ export class RentalSubject implements Subject {
 
 /**
  * Car status observer - updates car status based on rental changes
+ * NOTE: This observer only updates the status in memory for consistency.
+ * The actual database update is handled by RentalService to ensure proper
+ * checks for other active/future rentals are performed.
  */
 export class CarStatusObserver implements Observer {
   public update(event: string, data: any): void {
@@ -86,11 +89,13 @@ export class CarStatusObserver implements Observer {
       
       if (rental?.car) {
         if (newStatus === RentalStatus.ACTIVE) {
-          // Car becomes rented
+          // Car becomes rented (in-memory update only)
           rental.car.status = CarStatus.RENTED;
         } else if (newStatus === RentalStatus.COMPLETED || 
                    newStatus === RentalStatus.CANCELLED) {
-          // Car becomes available
+          // Car becomes available (in-memory update only)
+          // Note: RentalService will check for other active/future rentals
+          // before actually updating the database
           rental.car.status = CarStatus.AVAILABLE;
         }
       }

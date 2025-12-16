@@ -219,7 +219,13 @@ export const validateRentalData = (req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  if (start < new Date()) {
+  // Normalize dates to start of day for accurate comparison
+  const normalizedStart = new Date(start);
+  normalizedStart.setHours(0, 0, 0, 0);
+  const normalizedNow = new Date();
+  normalizedNow.setHours(0, 0, 0, 0);
+
+  if (normalizedStart < normalizedNow) {
     res.status(400).json({ error: 'startDate cannot be in the past' });
     return;
   }

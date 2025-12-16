@@ -9,6 +9,9 @@ import { PricingStrategy, CombinedPricingStrategy, BasePricingStrategy, YearBase
 import { RentalSubject, CarStatusObserver, NotificationObserver, LoggingObserver } from '../patterns/observer/Observer';
 import { CarStatus } from '../models/Car.entity';
 import { IRentalService } from '../core/interfaces/IRentalService';
+import { Logger } from '../utils/Logger';
+import { DatabaseConnection } from '../database/DatabaseConnection';
+import { ExportService, ParsedRentalData, ImportResult } from './ExportService';
 
 /**
  * Service for rental management
@@ -24,6 +27,89 @@ export class RentalService implements IRentalService {
   ) {}
 
   /**
+   * Helper function to normalize date to start of day (00:00:00.000)
+   * This ensures consistent date comparisons regardless of time
+   */
+  private normalizeDateToStartOfDay(date: Date): Date {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  }
+
+  /**
+   * Helper function to check if two date ranges overlap
+   * Dates are normalized to start of day for accurate comparison
+   */
+  private doDateRangesOverlap(
+    start1: Date,
+    end1: Date,
+    start2: Date,
+    end2: Date
+  ): boolean {
+    const normStart1 = this.normalizeDateToStartOfDay(start1);
+    const normEnd1 = this.normalizeDateToStartOfDay(end1);
+    const normStart2 = this.normalizeDateToStartOfDay(start2);
+    const normEnd2 = this.normalizeDateToStartOfDay(end2);
+    
+    // Ranges overlap if: start1 <= end2 && end1 >= start2
+    return normStart1 <= normEnd2 && normEnd1 >= normStart2;
+  }
+
+  /**
+   * Helper function to check if a rental is in the future or active
+   * A rental is considered "relevant" if it overlaps with the requested period
+   */
+  private isRentalRelevantForOverlapCheck(
+    rental: any,
+    requestedStart: Date,
+    requestedEnd: Date,
+    now: Date
+  ): boolean {
+    // For ACTIVE rentals, always check (they might be current or future)
+    if (rental.status === RentalStatus.ACTIVE) {
+      return true;
+    }
+
+    // For COMPLETED or CANCELLED rentals, check if they ended in the future
+    if (rental.status === RentalStatus.COMPLETED || rental.status === RentalStatus.CANCELLED) {
+      const rentalEnd = new Date(rental.actualEndDate || rental.expectedEndDate);
+      // Only check if rental ended in the future (or today)
+      return rentalEnd >= now;
+    }
+
+    return false;
+  }
+
+  /**
+   * Helper function to check if car has any active or future rentals
+   * Used for determining if car should be AVAILABLE or RENTED
+   */
+  private async hasActiveOrFutureRentals(carId: number, excludeRentalId?: number): Promise<boolean> {
+    const rentals = await this.rentalRepository.findByCarId(carId);
+    const now = new Date();
+    
+    return rentals.some((rental: any) => {
+      // Skip the rental we're excluding (e.g., the one being completed/cancelled)
+      if (excludeRentalId && rental.id === excludeRentalId) {
+        return false;
+      }
+
+      // ACTIVE rentals are always relevant
+      if (rental.status === RentalStatus.ACTIVE) {
+        return true;
+      }
+
+      // For COMPLETED/CANCELLED, check if they end in the future
+      if (rental.status === RentalStatus.COMPLETED || rental.status === RentalStatus.CANCELLED) {
+        const rentalEnd = new Date(rental.actualEndDate || rental.expectedEndDate);
+        return rentalEnd >= now;
+      }
+
+      return false;
+    });
+  }
+
+  /**
    * Create a new rental using Builder Pattern
    */
   async createRental(
@@ -32,12 +118,18 @@ export class RentalService implements IRentalService {
     startDate: Date,
     expectedEndDate: Date
   ): Promise<Rental> {
+    // Normalize dates to start of day for validation
+    const normalizedStartDate = this.normalizeDateToStartOfDay(new Date(startDate));
+    const normalizedEndDate = this.normalizeDateToStartOfDay(new Date(expectedEndDate));
+    const normalizedNow = this.normalizeDateToStartOfDay(new Date());
+
     // Validate dates
-    if (startDate >= expectedEndDate) {
+    if (normalizedStartDate >= normalizedEndDate) {
       throw new Error('Start date must be before expected end date');
     }
 
-    if (startDate < new Date()) {
+    // Check if start date is in the past (compare normalized dates)
+    if (normalizedStartDate < normalizedNow) {
       throw new Error('Start date cannot be in the past');
     }
 
@@ -52,27 +144,31 @@ export class RentalService implements IRentalService {
       throw new Error('Car is in maintenance and cannot be rented');
     }
     
+    // Auto-complete expired rentals before checking for date overlaps
+    // This ensures we don't block new rentals due to expired ones
+    await this.completeExpiredRentals();
+    
     // Check if the requested dates overlap with existing active or future rentals
     const existingRentals = await this.rentalRepository.findByCarId(carId);
-    const requestedStart = new Date(startDate);
-    const requestedEnd = new Date(expectedEndDate);
     const now = new Date();
     
     const hasOverlap = existingRentals.some((rental: any) => {
-      // Only check active rentals or future rentals (not completed/cancelled in the past)
-      if (rental.status === RentalStatus.COMPLETED || rental.status === RentalStatus.CANCELLED) {
-        const rentalEnd = new Date(rental.actualEndDate || rental.expectedEndDate);
-        // Skip if rental ended in the past
-        if (rentalEnd < now) return false;
-      } else if (rental.status !== RentalStatus.ACTIVE) {
+      // Check if this rental is relevant for overlap checking
+      if (!this.isRentalRelevantForOverlapCheck(rental, normalizedStartDate, normalizedEndDate, now)) {
         return false;
       }
       
+      // Get rental date range
       const rentalStart = new Date(rental.startDate);
       const rentalEnd = new Date(rental.actualEndDate || rental.expectedEndDate);
       
-      // Check if date ranges overlap
-      return (requestedStart <= rentalEnd && requestedEnd >= rentalStart);
+      // Check if date ranges overlap (using normalized comparison)
+      return this.doDateRangesOverlap(
+        normalizedStartDate,
+        normalizedEndDate,
+        rentalStart,
+        rentalEnd
+      );
     });
     
     if (hasOverlap) {
@@ -98,20 +194,79 @@ export class RentalService implements IRentalService {
 
     const rental = rentalBuilder.build();
 
-    // Save rental
-    const savedRental = await this.rentalRepository.create(rental);
+    // Use transaction to prevent race conditions
+    // This ensures that the overlap check and rental creation are atomic
+    const dataSource = DatabaseConnection.getInstance().getDataSource();
+    const queryRunner = dataSource.createQueryRunner();
+    
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Update car status
-    await this.carRepository.updateStatus(carId, CarStatus.RENTED);
+    try {
+      // Re-check for overlaps within transaction (double-check pattern)
+      // This prevents race conditions where two requests pass the initial check
+      const existingRentalsInTx = await queryRunner.manager
+        .createQueryBuilder(Rental, 'rental')
+        .where('rental.car_id = :carId', { carId })
+        .getMany();
 
-    // Setup Observer Pattern for notifications
-    const rentalSubject = new RentalSubject(savedRental);
-    rentalSubject.attach(new CarStatusObserver());
-    rentalSubject.attach(new NotificationObserver());
-    rentalSubject.attach(new LoggingObserver());
-    rentalSubject.notify('rental_created', { rental: savedRental });
+      const hasOverlapInTx = existingRentalsInTx.some((existingRental: any) => {
+        if (!this.isRentalRelevantForOverlapCheck(existingRental, normalizedStartDate, normalizedEndDate, now)) {
+          return false;
+        }
+        
+        const rentalStart = new Date(existingRental.startDate);
+        const rentalEnd = new Date(existingRental.actualEndDate || existingRental.expectedEndDate);
+        
+        return this.doDateRangesOverlap(
+          normalizedStartDate,
+          normalizedEndDate,
+          rentalStart,
+          rentalEnd
+        );
+      });
 
-    return savedRental;
+      if (hasOverlapInTx) {
+        await queryRunner.rollbackTransaction();
+        throw new Error('Car is already booked for the selected dates. Please choose different dates.');
+      }
+
+      // Save rental within transaction
+      const savedRental = await queryRunner.manager.save(Rental, rental);
+
+      // Update car status within transaction
+      await queryRunner.manager
+        .createQueryBuilder()
+        .update('cars')
+        .set({ status: CarStatus.RENTED })
+        .where('id = :carId', { carId })
+        .execute();
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      // Reload rental with relations for response
+      const rentalWithRelations = await this.getRentalById(savedRental.id);
+      if (!rentalWithRelations) {
+        throw new Error('Failed to reload rental after creation');
+      }
+
+      // Setup Observer Pattern for notifications (after transaction)
+      const rentalSubject = new RentalSubject(rentalWithRelations);
+      rentalSubject.attach(new CarStatusObserver());
+      rentalSubject.attach(new NotificationObserver());
+      rentalSubject.attach(new LoggingObserver());
+      rentalSubject.notify('rental_created', { rental: rentalWithRelations });
+
+      return rentalWithRelations;
+    } catch (error) {
+      // Rollback transaction on error
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      // Release query runner
+      await queryRunner.release();
+    }
   }
 
   /**
@@ -198,14 +353,11 @@ export class RentalService implements IRentalService {
       throw new Error('Failed to reload rental after completion');
     }
 
-    // Update car status - check if there are other active rentals
-    const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
-    const hasOtherActiveRentals = otherActiveRentals.some(
-      (r: any) => r.id !== rentalId && r.status === RentalStatus.ACTIVE
-    );
+    // Update car status - check if there are other active or future rentals
+    const hasOtherRentals = await this.hasActiveOrFutureRentals(rental.car.id, rentalId);
     
-    // Only set to AVAILABLE if no other active rentals exist
-    if (!hasOtherActiveRentals && rental.car.status !== CarStatus.MAINTENANCE) {
+    // Only set to AVAILABLE if no other active or future rentals exist
+    if (!hasOtherRentals && rental.car.status !== CarStatus.MAINTENANCE) {
       await this.carRepository.updateStatus(rental.car.id, CarStatus.AVAILABLE);
     }
 
@@ -257,14 +409,11 @@ export class RentalService implements IRentalService {
         throw new Error('Failed to reload rental after cancellation');
       }
 
-      // Update car status - check if there are other active rentals
-      const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
-      const hasOtherActiveRentals = otherActiveRentals.some(
-        (r: any) => r.id !== rentalId && r.status === RentalStatus.ACTIVE
-      );
+      // Update car status - check if there are other active or future rentals
+      const hasOtherRentals = await this.hasActiveOrFutureRentals(rental.car.id, rentalId);
       
-      // Only set to AVAILABLE if no other active rentals exist
-      if (!hasOtherActiveRentals && rental.car.status !== CarStatus.MAINTENANCE) {
+      // Only set to AVAILABLE if no other active or future rentals exist
+      if (!hasOtherRentals && rental.car.status !== CarStatus.MAINTENANCE) {
         await this.carRepository.updateStatus(rental.car.id, CarStatus.AVAILABLE);
       }
 
@@ -315,14 +464,11 @@ export class RentalService implements IRentalService {
       throw new Error('Failed to reload rental after cancellation');
     }
 
-    // Update car status - check if there are other active rentals
-    const otherActiveRentals = await this.rentalRepository.findByCarId(rental.car.id);
-    const hasOtherActiveRentals = otherActiveRentals.some(
-      (r: any) => r.id !== rentalId && r.status === RentalStatus.ACTIVE
-    );
+    // Update car status - check if there are other active or future rentals
+    const hasOtherRentals = await this.hasActiveOrFutureRentals(rental.car.id, rentalId);
     
-    // Only set to AVAILABLE if no other active rentals exist
-    if (!hasOtherActiveRentals && rental.car.status !== CarStatus.MAINTENANCE) {
+    // Only set to AVAILABLE if no other active or future rentals exist
+    if (!hasOtherRentals && rental.car.status !== CarStatus.MAINTENANCE) {
       await this.carRepository.updateStatus(rental.car.id, CarStatus.AVAILABLE);
     }
 
@@ -338,8 +484,12 @@ export class RentalService implements IRentalService {
 
   /**
    * Get all rentals with relations
+   * Automatically completes expired rentals before returning
    */
   async getAllRentals(): Promise<Rental[]> {
+    // Auto-complete expired rentals first
+    await this.completeExpiredRentals();
+    
     return await this.rentalRepository.findAllWithRelations();
   }
 
@@ -357,8 +507,12 @@ export class RentalService implements IRentalService {
 
   /**
    * Get active rentals with relations
+   * Automatically completes expired rentals before returning
    */
   async getActiveRentals(): Promise<Rental[]> {
+    // Auto-complete expired rentals first
+    await this.completeExpiredRentals();
+    
     return await this.rentalRepository.findActiveRentals();
   }
 
@@ -378,8 +532,12 @@ export class RentalService implements IRentalService {
 
   /**
    * Get booked dates for a car (active and future rentals)
+   * Automatically completes expired rentals before returning
    */
   async getBookedDates(carId: number): Promise<Array<{ startDate: Date; endDate: Date }>> {
+    // Auto-complete expired rentals first
+    await this.completeExpiredRentals();
+    
     const rentals = await this.rentalRepository.findByCarId(carId);
     const now = new Date();
     
@@ -411,27 +569,55 @@ export class RentalService implements IRentalService {
    * For USER role, creates a client record based on user info
    */
   async getOrCreateClientForUser(userId: number, userEmail: string, userFullName?: string): Promise<any> {
-    // Try to find existing client by phone (using email as phone identifier)
-    let existingClient = await this.clientRepository.findByPhone(userEmail);
+    // Try to find existing client by email (proper way)
+    let existingClient = await this.clientRepository.findByEmail(userEmail);
     
-    // If not found by phone, try to find by full name if provided
+    // If not found by email, try by phone (backward compatibility - some old clients have email in phone)
+    if (!existingClient) {
+      const clientByPhone = await this.clientRepository.findByPhone(userEmail);
+      // Verify that phone actually contains email (has @)
+      if (clientByPhone && clientByPhone.phone && clientByPhone.phone.includes('@')) {
+        existingClient = clientByPhone;
+      }
+    }
+    
+    // If not found by email/phone, try to find by full name if provided
     if (!existingClient && userFullName) {
       const clientsByName = await this.clientRepository.findByFullName(userFullName);
       if (clientsByName && clientsByName.length > 0) {
-        // Find client with matching email in phone field or take first one
-        existingClient = clientsByName.find(c => c.phone === userEmail) || clientsByName[0];
+        // Find client with matching email in email field or phone field
+        existingClient = clientsByName.find(
+          c => c.email === userEmail || (c.phone && c.phone.includes('@') && c.phone === userEmail)
+        ) || clientsByName[0];
       }
     }
     
     if (existingClient) {
+      // Update existing client: if email is in phone field, move it to email field
+      if (existingClient.phone && existingClient.phone.includes('@') && !existingClient.email) {
+        await this.clientRepository.update(existingClient.id, {
+          email: existingClient.phone,
+          phone: '', // Clear phone if it was actually email
+        });
+        // Reload client
+        existingClient = await this.clientRepository.findById(existingClient.id);
+      } else if (!existingClient.email && userEmail) {
+        // Update email if missing
+        await this.clientRepository.update(existingClient.id, {
+          email: userEmail,
+        });
+        existingClient = await this.clientRepository.findById(existingClient.id);
+      }
       return existingClient;
     }
     
     // Create new client for user
+    // Store email in email field, NOT in phone field
     const newClient = await this.clientRepository.create({
       fullName: userFullName || `User ${userId}`,
       address: 'Не вказано',
-      phone: userEmail,
+      phone: '', // Don't store email in phone field
+      email: userEmail, // Store email in proper email field
       registrationDate: new Date(),
     } as any);
     
@@ -554,6 +740,56 @@ export class RentalService implements IRentalService {
   }
 
   /**
+   * Automatically complete expired rentals
+   * Completes all active rentals where expectedEndDate has passed
+   * This is called internally by get methods to ensure data consistency
+   * Uses current date as actual end date to properly calculate late penalties
+   */
+  private async completeExpiredRentals(): Promise<number> {
+    const now = new Date();
+    const activeRentals = await this.rentalRepository.findActiveRentals();
+    
+    let completedCount = 0;
+    
+    for (const rental of activeRentals) {
+      const expectedEnd = new Date(rental.expectedEndDate);
+      
+      // If expected end date has passed, complete the rental
+      if (expectedEnd < now) {
+        try {
+          // Complete rental with current date as actual end date
+          // This will properly calculate late penalties if the rental is overdue
+          await this.completeRental(rental.id, now);
+          completedCount++;
+          
+          const logger = Logger.getInstance();
+          const daysOverdue = Math.ceil((now.getTime() - expectedEnd.getTime()) / (1000 * 60 * 60 * 24));
+          logger.log(
+            `Auto-completed expired rental ID: ${rental.id} (expected: ${expectedEnd.toISOString()}, ${daysOverdue} day(s) overdue)`,
+            'info'
+          );
+        } catch (error) {
+          const logger = Logger.getInstance();
+          logger.log(
+            `Failed to auto-complete rental ID ${rental.id}: ${error}`,
+            'error'
+          );
+        }
+      }
+    }
+    
+    return completedCount;
+  }
+
+  /**
+   * Public method to manually trigger completion of expired rentals
+   * Called on server startup to clean up any expired rentals
+   */
+  async completeExpiredRentalsOnStartup(): Promise<number> {
+    return await this.completeExpiredRentals();
+  }
+
+  /**
    * Create pricing strategy
    */
   private createPricingStrategy(): PricingStrategy {
@@ -562,6 +798,209 @@ export class RentalService implements IRentalService {
       new YearBasedPricingStrategy(),
       new DurationBasedPricingStrategy(),
     ]);
+  }
+
+  /**
+   * Import rentals from file (Excel/CSV)
+   * Returns result with success count, failed count, and errors
+   */
+  async importRentalsFromFile(fileBuffer: Buffer, filename: string): Promise<ImportResult> {
+    const exportService = new ExportService();
+    const result: ImportResult = {
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [],
+      imported: [],
+      skippedItems: [],
+    };
+
+    let parsedData: ParsedRentalData[] = [];
+
+    try {
+      // Parse file
+      parsedData = await exportService.importFromFile(fileBuffer, filename);
+    } catch (error: any) {
+      // File parsing error
+      result.failed = 1;
+      result.errors.push({
+        row: 0,
+        data: null,
+        error: `Помилка парсингу файлу: ${error.message}`,
+      });
+      return result;
+    }
+
+    // Process each rental
+    for (let i = 0; i < parsedData.length; i++) {
+      const data = parsedData[i];
+      const rowNumber = i + 2; // +2 for header and 0-based index
+
+      try {
+        // Find or create client
+        let client: any = null;
+        
+        // First, try to find by email (proper way)
+        if (data.clientEmail) {
+          client = await this.clientRepository.findByEmail(data.clientEmail);
+        }
+        
+        // If not found by email, try by phone
+        if (!client && data.clientPhone) {
+          client = await this.clientRepository.findByPhone(data.clientPhone);
+          // Verify that phone is not actually an email
+          if (client && client.phone && client.phone.includes('@')) {
+            // This phone is actually an email, skip it
+            client = null;
+          }
+        }
+        
+        // If not found, try to find by full name
+        if (!client) {
+          const clientsByName = await this.clientRepository.findByFullName(data.clientName);
+          if (clientsByName && clientsByName.length > 0) {
+            // Prefer client with matching email or phone
+            client = clientsByName.find(
+              c => (data.clientEmail && c.email === data.clientEmail) ||
+                   (data.clientPhone && c.phone === data.clientPhone && !c.phone.includes('@'))
+            ) || clientsByName[0];
+          }
+        }
+
+        if (!client) {
+          // Create new client
+          // Determine phone and email properly
+          let phone = '';
+          let email = '';
+          
+          if (data.clientPhone) {
+            // If phone contains @, it's actually an email
+            if (data.clientPhone.includes('@')) {
+              email = data.clientPhone;
+              phone = '';
+            } else {
+              phone = data.clientPhone;
+            }
+          }
+          
+          if (data.clientEmail) {
+            email = data.clientEmail;
+            // If phone was set to email, clear it
+            if (phone === data.clientEmail) {
+              phone = '';
+            }
+          }
+          
+          client = await this.clientRepository.create({
+            fullName: data.clientName,
+            phone: phone,
+            email: email,
+            address: 'Не вказано',
+            registrationDate: new Date(),
+          } as any);
+        } else {
+          // Update existing client if needed: move email from phone to email field
+          if (client.phone && client.phone.includes('@') && !client.email) {
+            await this.clientRepository.update(client.id, {
+              email: client.phone,
+              phone: '',
+            });
+            client = await this.clientRepository.findById(client.id);
+          } else if (!client.email && data.clientEmail) {
+            // Update email if missing
+            await this.clientRepository.update(client.id, {
+              email: data.clientEmail,
+            });
+            client = await this.clientRepository.findById(client.id);
+          }
+        }
+
+        // Find car by brand, model, year
+        const car = await this.carRepository.findByBrandModelYear(
+          data.carBrand,
+          data.carModel,
+          data.carYear
+        );
+
+        if (!car) {
+          throw new Error(
+            `Автомобіль не знайдено: ${data.carBrand} ${data.carModel} (${data.carYear})`
+          );
+        }
+
+        // Check if car is available (skip if in maintenance)
+        if (car.status === CarStatus.MAINTENANCE) {
+          throw new Error('Автомобіль на технічному обслуговуванні');
+        }
+
+        // Check for duplicate rental (same client, car, and overlapping dates)
+        const normalizedStartDate = this.normalizeDateToStartOfDay(data.startDate);
+        const normalizedEndDate = this.normalizeDateToStartOfDay(data.expectedEndDate);
+        
+        // Get all rentals for this client with car relations loaded
+        const existingRentals = await this.rentalRepository.findByClientId(client.id);
+        const duplicateRental = existingRentals.find((rental: any) => {
+          // Ensure car is loaded (it should be from findByClientId, but check anyway)
+          const rentalCarId = rental.car?.id || rental.carId;
+          if (!rentalCarId || rentalCarId !== car.id) {
+            return false;
+          }
+          
+          // Check if dates overlap
+          const rentalStart = this.normalizeDateToStartOfDay(new Date(rental.startDate));
+          const rentalEnd = this.normalizeDateToStartOfDay(
+            new Date(rental.actualEndDate || rental.expectedEndDate)
+          );
+          
+          return this.doDateRangesOverlap(
+            normalizedStartDate,
+            normalizedEndDate,
+            rentalStart,
+            rentalEnd
+          );
+        });
+
+        if (duplicateRental) {
+          // Skip duplicate - don't create it
+          result.skipped++;
+          result.skippedItems.push({
+            row: rowNumber,
+            data: data,
+            reason: `Дублікат: прокат вже існує для цього клієнта та автомобіля на ці дати (ID: ${duplicateRental.id})`,
+          });
+          continue;
+        }
+
+        // Create rental
+        const rental = await this.createRental(
+          client.id,
+          car.id,
+          data.startDate,
+          data.expectedEndDate
+        );
+
+        // Update status if needed (for completed/cancelled rentals)
+        if (data.status && data.status !== RentalStatus.ACTIVE) {
+          if (data.status === RentalStatus.COMPLETED) {
+            await this.completeRental(rental.id, data.expectedEndDate);
+          } else if (data.status === RentalStatus.CANCELLED) {
+            await this.cancelRental(rental.id, data.startDate);
+          }
+        }
+
+        result.success++;
+        result.imported.push(rental);
+      } catch (error: any) {
+        result.failed++;
+        result.errors.push({
+          row: rowNumber,
+          data: data,
+          error: error.message || 'Невідома помилка',
+        });
+      }
+    }
+
+    return result;
   }
 }
 

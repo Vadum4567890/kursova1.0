@@ -11,5 +11,6 @@ export interface IClientRepository {
   delete(id: number): Promise<boolean>;
   findByPhone(phone: string): Promise<Client | null>;
   findByFullName(fullName: string): Promise<Client[]>;
+  findByEmail(email: string): Promise<Client | null>;
 }
 

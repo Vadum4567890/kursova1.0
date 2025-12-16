@@ -28,5 +28,14 @@ export class ClientRepository extends BaseRepository<Client> implements IClientR
       where: { fullName } as any,
     });
   }
+
+  /**
+   * Find client by email
+   */
+  async findByEmail(email: string): Promise<Client | null> {
+    return await this.repository.findOne({
+      where: { email } as any,
+    });
+  }
 }
 

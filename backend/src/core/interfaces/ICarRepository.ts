@@ -14,6 +14,7 @@ export interface ICarRepository {
   findByType(type: CarType): Promise<Car[]>;
   findByStatus(status: CarStatus): Promise<Car[]>;
   updateStatus(id: number, status: CarStatus): Promise<Car>;
+  findByBrandModelYear(brand: string, model: string, year: number): Promise<Car | null>;
   getRepository(): any; // For query builder access (temporary)
 }
 

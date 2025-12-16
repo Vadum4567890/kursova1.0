@@ -91,14 +91,11 @@ export class ReportService {
     const cancelledNetRevenue = cancelledRentals.reduce((sum, r) => {
       const cost = parseFloat(r.totalCost.toString());
       const penalty = parseFloat(r.penaltyAmount.toString());
-      const deposit = parseFloat(r.depositAmount.toString());
-      const depositToReturn = Math.max(0, deposit - penalty);
       // For cancelled rentals:
-      // - If cancelled before start: cost=0, penalty=0, full deposit returned → net = 0
-      // - If cancelled after start: cost=actual days, penalty (if late), deposit returned minus penalty → net = cost + penalty - depositToReturn
-      // Revenue cannot be negative - if cancellation results in loss, revenue is 0
-      const calculatedRevenue = cost + penalty - depositToReturn;
-      return sum + Math.max(0, calculatedRevenue);
+      // - If cancelled before start: cost=0, penalty=0 → net = 0
+      // - If cancelled after start: cost=actual days, penalty (if late) → net = cost + penalty
+      // Revenue = cost + penalties (deposit doesn't affect revenue, it's just returned)
+      return sum + cost + penalty;
     }, 0);
     
     // Active rentals: we have deposits but haven't received full payment yet
@@ -269,30 +266,48 @@ export class ReportService {
       const activeRentals = carRentals.filter(r => r.status === RentalStatus.ACTIVE);
       const cancelledRentals = carRentals.filter(r => r.status === RentalStatus.CANCELLED);
 
-      // Calculate occupancy metrics
-      const totalRentalDays = carRentals.reduce((sum, r) => {
-        if (r.status === RentalStatus.COMPLETED && r.actualEndDate) {
-          const start = new Date(r.startDate);
-          const end = new Date(r.actualEndDate);
-          return sum + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        } else if (r.status === RentalStatus.ACTIVE) {
-          const start = new Date(r.startDate);
-          const now = new Date();
-          return sum + Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        } else if (r.status === RentalStatus.CANCELLED && r.actualEndDate) {
-          const start = new Date(r.startDate);
-          const end = new Date(r.actualEndDate);
-          return sum + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        }
-        return sum;
-      }, 0);
-
       // Calculate period days (default to last 365 days if no date range)
       const periodStart = startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
       const periodEnd = endDate || new Date();
       const periodDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Calculate occupancy metrics
+      // Only count rental days that fall within the period
+      const totalRentalDays = carRentals.reduce((sum, r) => {
+        const rentalStart = new Date(r.startDate);
+        let rentalEnd: Date;
+        
+        if (r.status === RentalStatus.COMPLETED && r.actualEndDate) {
+          rentalEnd = new Date(r.actualEndDate);
+        } else if (r.status === RentalStatus.ACTIVE) {
+          rentalEnd = new Date(); // Current date for active rentals
+        } else if (r.status === RentalStatus.CANCELLED && r.actualEndDate) {
+          rentalEnd = new Date(r.actualEndDate);
+        } else {
+          return sum; // Skip rentals without end date
+        }
+
+        // Only count days that overlap with the period
+        // Calculate the intersection of rental period and report period
+        const overlapStart = rentalStart > periodStart ? rentalStart : periodStart;
+        const overlapEnd = rentalEnd < periodEnd ? rentalEnd : periodEnd;
+        
+        // If there's no overlap, skip this rental
+        if (overlapStart > overlapEnd) {
+          return sum;
+        }
+
+        // Calculate days in the overlap period
+        const days = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Ensure days is non-negative (minimum 0)
+        return sum + Math.max(0, days);
+      }, 0);
+
+      // Calculate occupancy rate: (rental days / period days) * 100
+      // Ensure it's never negative and never exceeds 100%
       const occupancyRate = periodDays > 0 ? (totalRentalDays / periodDays) * 100 : 0;
-      const occupancyRatePercent = Math.min(100, occupancyRate);
+      const occupancyRatePercent = Math.max(0, Math.min(100, occupancyRate));
 
       // Calculate financial metrics
       const totalRevenue = completedRentals.reduce((sum, r) => 
@@ -307,6 +322,7 @@ export class ReportService {
       const totalDeposits = carRentals.reduce((sum, r) => 
         sum + parseFloat(r.depositAmount.toString()), 0
       );
+      // Net revenue = cost + penalties (deposit doesn't affect revenue)
       const netRevenue = completedRentals.reduce((sum, r) => {
         const cost = parseFloat(r.totalCost.toString());
         const penalty = parseFloat(r.penaltyAmount.toString());
