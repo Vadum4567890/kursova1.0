@@ -5,8 +5,7 @@ import {
   Tab,
   Box,
   Typography,
-  List,
-  ListItem,
+  Grid,
   ListItemIcon,
   ListItemText,
   Divider,
@@ -54,105 +53,180 @@ const CarDetailsTabs: React.FC<CarDetailsTabsProps> = ({ car, isUser }) => {
         )}
 
         {tabValue === 1 && (
-          <List>
-            <ListItem>
-              <ListItemIcon>
-                <DirectionsCar />
-              </ListItemIcon>
-              <ListItemText primary="Марка та модель" secondary={`${car.brand} ${car.model}`} />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <DirectionsCar />
-              </ListItemIcon>
-              <ListItemText primary="Рік випуску" secondary={car.year} />
-            </ListItem>
-            {car.bodyType && (
-              <ListItem>
-                <ListItemIcon>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
                   <DirectionsCar />
                 </ListItemIcon>
-                <ListItemText primary="Тип кузова" secondary={getBodyTypeLabel(car.bodyType)} />
-              </ListItem>
+                <ListItemText 
+                  primary="Марка та модель" 
+                  secondary={`${car.brand} ${car.model}`}
+                  secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                  <DirectionsCar />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Рік випуску" 
+                  secondary={car.year}
+                  secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                />
+              </Box>
+            </Grid>
+            {car.bodyType && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <DirectionsCar />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Тип кузова" 
+                    secondary={getBodyTypeLabel(car.bodyType)}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.driveType && (
-              <ListItem>
-                <ListItemIcon>
-                  <Settings />
-                </ListItemIcon>
-                <ListItemText primary="Привід" secondary={getDriveTypeLabel(car.driveType)} />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <Settings />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Привід" 
+                    secondary={getDriveTypeLabel(car.driveType)}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.transmission && (
-              <ListItem>
-                <ListItemIcon>
-                  <Settings />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Коробка передач"
-                  secondary={getTransmissionLabel(car.transmission)}
-                />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <Settings />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Коробка передач"
+                    secondary={getTransmissionLabel(car.transmission)}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.engine && (
-              <ListItem>
-                <ListItemIcon>
-                  <LocalGasStation />
-                </ListItemIcon>
-                <ListItemText primary="Двигун" secondary={car.engine} />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <LocalGasStation />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Двигун" 
+                    secondary={car.engine}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.fuelType && (
-              <ListItem>
-                <ListItemIcon>
-                  <LocalGasStation />
-                </ListItemIcon>
-                <ListItemText primary="Тип палива" secondary={getFuelTypeLabel(car.fuelType)} />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <LocalGasStation />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Тип палива" 
+                    secondary={getFuelTypeLabel(car.fuelType)}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.seats && (
-              <ListItem>
-                <ListItemIcon>
-                  <EventSeat />
-                </ListItemIcon>
-                <ListItemText primary="Кількість місць" secondary={car.seats} />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <EventSeat />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Кількість місць" 
+                    secondary={car.seats}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.mileage && (
-              <ListItem>
-                <ListItemIcon>
-                  <Speed />
-                </ListItemIcon>
-                <ListItemText primary="Пробіг" secondary={`${car.mileage.toLocaleString()} км`} />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <Speed />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Пробіг" 
+                    secondary={`${car.mileage.toLocaleString()} км`}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
             {car.color && (
-              <ListItem>
-                <ListItemIcon>
-                  <Palette />
-                </ListItemIcon>
-                <ListItemText primary="Колір" secondary={car.color} />
-              </ListItem>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    <Palette />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Колір" 
+                    secondary={car.color}
+                    secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                  />
+                </Box>
+              </Grid>
             )}
-            <ListItem>
-              <ListItemIcon>
-                <CheckCircle />
-              </ListItemIcon>
-              <ListItemText primary="Клас" secondary={getTypeLabel(car.type)} />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <CheckCircle />
-              </ListItemIcon>
-              <ListItemText primary="Ціна за день" secondary={`${car.pricePerDay.toLocaleString()} ₴`} />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <CheckCircle />
-              </ListItemIcon>
-              <ListItemText primary="Базовий завдаток" secondary={`${car.deposit.toLocaleString()} ₴`} />
-            </ListItem>
-          </List>
+            <Grid item xs={12} sm={6} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                  <CheckCircle />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Клас" 
+                  secondary={getTypeLabel(car.type)}
+                  secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                  <CheckCircle />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Ціна за день" 
+                  secondary={`${car.pricePerDay.toLocaleString()} ₴`}
+                  secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                  <CheckCircle />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Базовий завдаток" 
+                  secondary={`${car.deposit.toLocaleString()} ₴`}
+                  secondaryTypographyProps={{ color: 'text.primary', fontWeight: 500 }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
         )}
 
         {tabValue === 2 && isUser && (

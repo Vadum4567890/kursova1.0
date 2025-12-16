@@ -59,5 +59,37 @@ export const rentalService = {
     });
     return response.data;
   },
+
+  async exportToExcel(): Promise<Blob> {
+    const response = await api.get('/rentals/export/excel', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async exportToCSV(): Promise<Blob> {
+    const response = await api.get('/rentals/export/csv', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async importRentals(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/rentals/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  async downloadTemplate(format: 'excel' | 'csv' = 'excel'): Promise<Blob> {
+    const response = await api.get(`/rentals/import/template?format=${format}`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 

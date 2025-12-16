@@ -47,6 +47,19 @@ export class CarRepository extends BaseRepository<Car> implements ICarRepository
   }
 
   /**
+   * Find car by brand, model, and year
+   */
+  async findByBrandModelYear(brand: string, model: string, year: number): Promise<Car | null> {
+    return await this.repository.findOne({
+      where: {
+        brand,
+        model,
+        year,
+      } as any,
+    });
+  }
+
+  /**
    * Get repository instance for query builder access
    */
   getRepository() {

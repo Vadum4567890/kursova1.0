@@ -9,6 +9,8 @@ import { Logger } from './utils/Logger';
 import { swaggerSpec } from './config/swagger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { registerServices } from './core/serviceRegistry';
+import { container } from './core/Container';
+import { IRentalService } from './core/interfaces/IRentalService';
 import path from 'path';
 
 // Load environment variables
@@ -112,6 +114,19 @@ async function startServer() {
     const logger = Logger.getInstance();
     logger.log('Database connected successfully', 'info');
     logger.log('Services registered in DI container', 'info');
+
+    // Auto-complete expired rentals on server startup
+    try {
+      const rentalService = container.resolve<IRentalService>('IRentalService');
+      const completedCount = await rentalService.completeExpiredRentalsOnStartup();
+      if (completedCount > 0) {
+        logger.log(`✅ Auto-completed ${completedCount} expired rental(s) on startup`, 'info');
+      } else {
+        logger.log('✅ No expired rentals to complete', 'info');
+      }
+    } catch (error) {
+      logger.log(`Warning: Failed to complete expired rentals on startup: ${error}`, 'warn');
+    }
 
     // Start server with error handling for port conflicts
     const server = app.listen(PORT, () => {

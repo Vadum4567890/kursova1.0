@@ -34,5 +34,9 @@ export interface IRentalService {
   getActiveRentals(): Promise<Rental[]>;
   
   addPenalty(rentalId: number, amount: number, reason: string): Promise<any>;
+
+  completeExpiredRentalsOnStartup(): Promise<number>;
+
+  importRentalsFromFile(fileBuffer: Buffer, filename: string): Promise<any>;
 }
 

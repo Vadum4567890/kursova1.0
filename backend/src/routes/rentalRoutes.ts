@@ -5,6 +5,7 @@ import { paginationMiddleware } from '../middleware/pagination';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User.entity';
 import { container } from '../core/Container';
+import { uploadRentalFile } from '../middleware/uploadFile';
 
 const router = Router();
 const rentalService = container.resolve<any>('IRentalService');
@@ -242,5 +243,124 @@ router.post('/:id/cancel', authenticate, validateId, rentalController.cancelRent
  *         description: Penalty added successfully
  */
 router.post('/:id/penalty', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), validateId, validatePenaltyData, rentalController.addPenalty);
+
+/**
+ * @swagger
+ * /api/rentals/export/excel:
+ *   get:
+ *     summary: Export all rentals to Excel format
+ *     tags: [Rentals]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel file download
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
+router.get('/export/excel', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), rentalController.exportToExcel);
+
+/**
+ * @swagger
+ * /api/rentals/export/csv:
+ *   get:
+ *     summary: Export all rentals to CSV format
+ *     tags: [Rentals]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV file download
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ */
+router.get('/export/csv', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), rentalController.exportToCSV);
+
+/**
+ * @swagger
+ * /api/rentals/import/template:
+ *   get:
+ *     summary: Download import template file
+ *     tags: [Rentals]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [excel, csv]
+ *           default: excel
+ *         description: Template file format
+ *     responses:
+ *       200:
+ *         description: Template file download
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           text/csv:
+ *             schema:
+ *               type: string
+ */
+router.get('/import/template', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), rentalController.downloadTemplate);
+
+/**
+ * @swagger
+ * /api/rentals/import:
+ *   post:
+ *     summary: Import rentals from Excel or CSV file
+ *     tags: [Rentals]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Excel (.xlsx, .xls) or CSV (.csv) file
+ *     responses:
+ *       200:
+ *         description: Import completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 success:
+ *                   type: number
+ *                 failed:
+ *                   type: number
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 imported:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       400:
+ *         description: Invalid file or no file uploaded
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires admin, manager or employee role)
+ */
+router.post('/import', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE), uploadRentalFile, rentalController.importRentals);
 
 export default router;

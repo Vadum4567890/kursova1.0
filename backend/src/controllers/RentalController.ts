@@ -3,16 +3,23 @@ import { IRentalService } from '../core/interfaces/IRentalService';
 import { IUserRepository } from '../core/interfaces/IUserRepository';
 import { CreateRentalDto, CompleteRentalDto, CancelRentalDto, CreateBookingDto } from '../dto/requests/RentalRequest.dto';
 import { RentalMapper } from '../dto/mappers/RentalMapper';
+import { ExportService } from '../services/ExportService';
+import { uploadRentalFile } from '../middleware/uploadFile';
+import { Rental } from '../models/Rental.entity';
 
 /**
  * Controller for rental-related endpoints
  * Uses Dependency Injection for services
  */
 export class RentalController {
+  private exportService: ExportService;
+
   constructor(
     private rentalService: IRentalService,
     private userRepository: IUserRepository
-  ) {}
+  ) {
+    this.exportService = new ExportService();
+  }
 
   /**
    * GET /api/rentals - Get all rentals
@@ -274,6 +281,114 @@ export class RentalController {
       res.status(201).json(penalty);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  };
+
+  /**
+   * GET /api/rentals/export/excel - Export rentals to Excel
+   */
+  exportToExcel = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const rentals = await this.rentalService.getAllRentals();
+      const excelBuffer = this.exportService.exportToExcel(rentals);
+      
+      const filename = `rentals_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(excelBuffer);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  /**
+   * GET /api/rentals/export/csv - Export rentals to CSV
+   */
+  exportToCSV = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const rentals = await this.rentalService.getAllRentals();
+      const csv = this.exportService.exportToCSV(rentals);
+      
+      const filename = `rentals_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Encoding', 'utf-8');
+      
+      // Add BOM for proper UTF-8 encoding in Excel
+      res.send('\ufeff' + csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  /**
+   * GET /api/rentals/import/template - Download import template
+   */
+  downloadTemplate = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const format = (req.query.format as string) || 'excel'; // excel or csv
+      
+      if (format === 'excel') {
+        const templateBuffer = this.exportService.generateTemplate('excel') as Buffer;
+        const filename = 'rentals_import_template.xlsx';
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(templateBuffer);
+      } else if (format === 'csv') {
+        const templateCsv = this.exportService.generateTemplate('csv') as string;
+        const filename = 'rentals_import_template.csv';
+        
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Encoding', 'utf-8');
+        
+        // Add BOM for proper UTF-8 encoding in Excel
+        res.send('\ufeff' + templateCsv);
+      } else {
+        res.status(400).json({ error: 'Invalid format. Use "excel" or "csv"' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  /**
+   * POST /api/rentals/import - Import rentals from Excel/CSV file
+   */
+  importRentals = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      const fileBuffer = req.file.buffer;
+      const filename = req.file.originalname;
+
+      // Validate file type
+      if (!filename.endsWith('.xlsx') && !filename.endsWith('.xls') && !filename.endsWith('.csv')) {
+        res.status(400).json({ error: 'Invalid file type. Only Excel (.xlsx, .xls) and CSV (.csv) files are supported' });
+        return;
+      }
+
+      // Import rentals
+      const result = await this.rentalService.importRentalsFromFile(fileBuffer, filename);
+
+      const skippedMessage = result.skipped > 0 ? `, ${result.skipped} пропущено (дублікати)` : '';
+      res.status(200).json({
+        message: `Імпорт завершено: ${result.success} успішно, ${result.failed} помилок${skippedMessage}`,
+        success: result.success,
+        failed: result.failed,
+        skipped: result.skipped || 0,
+        errors: result.errors,
+        skippedItems: result.skippedItems || [],
+        imported: result.imported.map((r: Rental) => RentalMapper.toResponseDto(r)),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   };
 }
