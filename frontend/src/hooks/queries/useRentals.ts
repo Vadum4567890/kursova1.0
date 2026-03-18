@@ -98,7 +98,7 @@ export const useCreateBooking = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ carId, startDate, expectedEndDate }: { carId: number; startDate: string; expectedEndDate: string }) =>
+    mutationFn: ({ carId, startDate, expectedEndDate }: { carId: number | string; startDate: string; expectedEndDate: string }) =>
       rentalService.createBooking(carId, startDate, expectedEndDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });

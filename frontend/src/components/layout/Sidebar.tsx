@@ -63,6 +63,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         return 'error';
       case 'manager':
         return 'warning';
+      case 'owner':
+        return 'success';
+      case 'renter':
+        return 'info';
       default:
         return 'default';
     }
@@ -78,17 +82,23 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         return 'Співробітник';
       case 'user':
         return 'Користувач';
+      case 'renter':
+        return 'Орендар';
+      case 'owner':
+        return 'Орендодавець';
       default:
         return 'Користувач';
     }
   };
 
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
-  const isUser = user?.role === 'user';
+  const isUser = user?.role === 'user' || user?.role === 'renter';
+  const isOwner = user?.role === 'owner';
 
   const menuItems = [
     { label: 'Головна', path: isStaff ? '/dashboard' : '/', icon: Dashboard, show: true },
     { label: 'Автомобілі', path: '/cars', icon: DirectionsCar, show: true },
+    { label: 'Мої авто', path: '/my-cars', icon: DirectionsCar, show: isAuthenticated && isOwner },
     { label: 'Клієнти', path: '/clients', icon: People, show: isAuthenticated && isStaff },
     { label: 'Прокати', path: '/rentals', icon: Assignment, show: isAuthenticated && isStaff },
     { label: 'Мої прокати', path: '/my-rentals', icon: Assignment, show: isAuthenticated && isUser },

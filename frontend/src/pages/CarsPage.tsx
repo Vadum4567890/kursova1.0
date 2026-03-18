@@ -43,13 +43,14 @@ const CarsPage: React.FC = () => {
   // Delete confirmation
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
+      if (typeof id !== 'number') return;
       await carManagement.remove(id);
       carManagement.clearError();
     },
   });
 
   // Booking
-  const [carIdForBooking, setCarIdForBooking] = useState<number | undefined>(undefined);
+  const [carIdForBooking, setCarIdForBooking] = useState<number | string | undefined>(undefined);
   const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carIdForBooking);
 
   const booking = useBooking({
@@ -82,7 +83,7 @@ const CarsPage: React.FC = () => {
 
   // Role checks
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
-  const isUser = user?.role === 'user';
+  const isUser = user?.role === 'user' || user?.role === 'renter';
   const isAdmin = user?.role === 'admin';
 
   // Handlers
@@ -129,13 +130,16 @@ const CarsPage: React.FC = () => {
         finalImageUrls = [...finalImageUrls, ...urls];
       }
 
-      if (formDialog.isEditing && formDialog.editingItem && formDialog.editingItem.id) {
-        await carManagement.update(
-          formDialog.editingItem.id,
-          formDialog.formData,
-          finalImageUrl,
-          finalImageUrls
-        );
+      if (formDialog.isEditing && formDialog.editingItem && formDialog.editingItem.id !== undefined) {
+        const editId = formDialog.editingItem.id;
+        if (typeof editId === 'number') {
+          await carManagement.update(
+            editId,
+            formDialog.formData,
+            finalImageUrl,
+            finalImageUrls
+          );
+        }
       } else {
         await carManagement.create(formDialog.formData, finalImageUrl, finalImageUrls);
       }

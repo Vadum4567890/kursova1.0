@@ -51,7 +51,7 @@ export const rentalService = {
     return response.data;
   },
 
-  async createBooking(carId: number, startDate: string, expectedEndDate: string): Promise<Rental> {
+  async createBooking(carId: number | string, startDate: string, expectedEndDate: string): Promise<Rental> {
     const response = await api.post<Rental>('/rentals/book', {
       carId,
       startDate,

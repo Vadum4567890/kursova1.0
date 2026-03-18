@@ -18,6 +18,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/admin/AdminPage';
 import MyRentalsPage from './pages/user/MyRentalsPage';
 import MyPenaltiesPage from './pages/user/MyPenaltiesPage';
+import MyCarsPage from './pages/owner/MyCarsPage';
 import CarDetailsPage from './pages/CarDetailsPage';
 
 function App() {
@@ -51,6 +52,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CarDetailsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/my-cars"
+                element={
+                  <ProtectedRoute allowedRoles={['owner', 'admin', 'manager']}>
+                    <MyCarsPage />
                   </ProtectedRoute>
                 }
               />

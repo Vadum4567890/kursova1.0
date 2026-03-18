@@ -10,17 +10,22 @@ import {
   Link,
   InputAdornment,
   IconButton,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
-import { Visibility, VisibilityOff, PersonAdd } from '@mui/icons-material';
+import { Visibility, VisibilityOff, PersonAdd, DirectionsCar, DriveEta } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { MIN_PASSWORD_LENGTH, PASSWORD_VALIDATION_MESSAGE } from '../../constants/validation';
+
+type RoleChoice = 'renter' | 'owner';
 
 const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<RoleChoice>('renter');
   const [fullName, setFullName] = useState('');
   const [address, setAddress] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,11 +57,11 @@ const RegisterPage: React.FC = () => {
         username,
         email,
         password,
+        role,
         fullName: fullName || undefined,
         address: address || undefined,
       });
-      // Redirect based on user role (new users are USER role by default)
-      navigate('/');
+      navigate(role === 'owner' ? '/my-cars' : '/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка реєстрації. Спробуйте ще раз.');
     } finally {
@@ -73,8 +78,29 @@ const RegisterPage: React.FC = () => {
             Реєстрація
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Створіть новий обліковий запис для доступу до системи
+            Орендуйте авто або публікуйте свої — оберіть тип акаунту
           </Typography>
+        </Box>
+
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Я хочу
+          </Typography>
+          <ToggleButtonGroup
+            value={role}
+            exclusive
+            onChange={(_, v) => v != null && setRole(v)}
+            fullWidth
+            size="small"
+            sx={{ mt: 0.5 }}
+          >
+            <ToggleButton value="renter" aria-label="орендар">
+              <DriveEta sx={{ mr: 1 }} /> Орендувати авто
+            </ToggleButton>
+            <ToggleButton value="owner" aria-label="орендодавець">
+              <DirectionsCar sx={{ mr: 1 }} /> Сдавати свої авто
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
 
         {error && (

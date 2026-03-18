@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
-import { KeycloakService } from '../services/KeycloakService';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -10,8 +9,6 @@ export interface AuthRequest extends Request {
     roles: string[];
   };
 }
-
-const keycloakService = new KeycloakService();
 
 export const authMiddleware = async (
   req: AuthRequest,
@@ -28,30 +25,20 @@ export const authMiddleware = async (
     const token = authHeader.substring(7);
     
     try {
-      // Verify token with Keycloak
-      const tokenInfo = await keycloakService.verifyToken(token);
-      
-      if (!tokenInfo || !tokenInfo.active) {
-        // Fallback to JWT decode if Keycloak verification fails (for development)
-        const decoded = jwt.decode(token) as any;
-        
-        if (!decoded || !decoded.sub) {
-          return res.status(401).json({ status: 'error', message: 'Invalid token' });
-        }
+      // Keycloak removed: treat Bearer as our own JWT and decode it.
+      // NOTE: we decode (not verify) for dev simplicity; if you want strict verify,
+      // change to jwt.verify with a shared secret/public key.
+      const decoded = jwt.decode(token) as any;
 
-        req.user = {
-          id: decoded.sub,
-          email: decoded.email || decoded.preferred_username,
-          roles: decoded.realm_access?.roles || []
-        };
-      } else {
-        // Use verified token info from Keycloak
-        req.user = {
-          id: tokenInfo.sub,
-          email: tokenInfo.email || tokenInfo.preferred_username,
-          roles: tokenInfo.realm_access?.roles || []
-        };
+      if (!decoded || !decoded.sub) {
+        return res.status(401).json({ status: 'error', message: 'Invalid token' });
       }
+
+      req.user = {
+        id: decoded.sub,
+        email: decoded.email || decoded.preferred_username || '',
+        roles: decoded.roles || decoded.realm_access?.roles || [],
+      };
 
       next();
     } catch (error) {

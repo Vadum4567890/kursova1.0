@@ -11,24 +11,24 @@ export function useUserData(userRole?: string) {
   const { data: myPenalties = [], isLoading: loadingMyPenalties } = useMyPenalties();
   const { data: allPenalties = [], isLoading: loadingAllPenalties } = usePenalties();
 
-  const isUser = userRole === 'user';
+  const isEndUser = userRole === 'user' || userRole === 'renter';
 
   const rentals = useMemo(
-    () => (isUser ? myRentals : allRentals),
-    [isUser, myRentals, allRentals]
+    () => (isEndUser ? myRentals : allRentals),
+    [isEndUser, myRentals, allRentals]
   );
 
   const penalties = useMemo(
-    () => (isUser ? myPenalties : allPenalties),
-    [isUser, myPenalties, allPenalties]
+    () => (isEndUser ? myPenalties : allPenalties),
+    [isEndUser, myPenalties, allPenalties]
   );
 
   const loading = useMemo(
     () =>
-      isUser
+      isEndUser
         ? loadingMyRentals || loadingMyPenalties
         : loadingAllRentals || loadingAllPenalties,
-    [isUser, loadingMyRentals, loadingMyPenalties, loadingAllRentals, loadingAllPenalties]
+    [isEndUser, loadingMyRentals, loadingMyPenalties, loadingAllRentals, loadingAllPenalties]
   );
 
   return {

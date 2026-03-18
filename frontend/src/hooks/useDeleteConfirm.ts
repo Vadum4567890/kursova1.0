@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useUIStore } from '../stores';
 
 interface UseDeleteConfirmOptions {
-  onConfirm: (id: number) => Promise<void>;
+  onConfirm: (id: number | string) => Promise<void>;
   onError?: (error: string) => void;
 }
 
@@ -15,7 +15,7 @@ export function useDeleteConfirm(options: UseDeleteConfirmOptions) {
     closeDeleteDialog 
   } = useUIStore();
 
-  const handleDeleteClick = useCallback((id: number, type: 'car' | 'client' | 'rental' | 'penalty' | 'user' = 'car') => {
+  const handleDeleteClick = useCallback((id: number | string, type: 'car' | 'client' | 'rental' | 'penalty' | 'user' = 'car') => {
     openDeleteDialog(id, type);
   }, [openDeleteDialog]);
 

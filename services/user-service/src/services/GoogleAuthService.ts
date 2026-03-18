@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { logger } from '../utils/logger';
-import { KeycloakService } from './KeycloakService';
+import jwt from 'jsonwebtoken';
 
 export interface GoogleUserInfo {
   id: string;
@@ -16,11 +16,11 @@ export interface GoogleUserInfo {
 
 export class GoogleAuthService {
   private googleClientId: string;
-  private keycloakService: KeycloakService;
+  private jwtSecret: string;
 
   constructor() {
     this.googleClientId = process.env.GOOGLE_CLIENT_ID || '';
-    this.keycloakService = new KeycloakService();
+    this.jwtSecret = process.env.JWT_SECRET || 'dev-user-service-secret';
 
     if (!this.googleClientId) {
       logger.warn('GOOGLE_CLIENT_ID not set, Google Auth will not work');
@@ -80,11 +80,11 @@ export class GoogleAuthService {
 
   /**
    * Create or get user from Google authentication
-   * Returns Keycloak user ID
+   * Returns service JWT + user info
    */
   async authenticateWithGoogle(googleToken: string): Promise<{
-    keycloakUserId: string;
     userInfo: GoogleUserInfo;
+    jwtToken: string;
   }> {
     try {
       // Verify Google token
@@ -93,24 +93,26 @@ export class GoogleAuthService {
         throw new Error('Invalid Google token or missing email');
       }
 
-      // Check if user exists in Keycloak by email
-      // Note: This requires searching users by email in Keycloak
-      // For now, we'll create a new user or return existing
+      // Keycloak removed: issue our own JWT for the user-service.
+      // Downstream services/gateway should treat this as the primary auth token.
+      const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+      const jwtToken = jwt.sign(
+        {
+          sub: googleUser.id,
+          email: googleUser.email,
+          roles: ['renter'],
+        },
+        this.jwtSecret,
+        {
+          expiresIn: expiresIn as any,
+        }
+      );
 
-      // Create user in Keycloak with Google info
-      const keycloakUserId = await this.keycloakService.createUser({
-        email: googleUser.email,
-        username: googleUser.email,
-        firstName: googleUser.given_name,
-        lastName: googleUser.family_name,
-        emailVerified: googleUser.verified_email,
-      });
-
-      logger.info(`Google user authenticated: ${googleUser.email}, Keycloak ID: ${keycloakUserId}`);
+      logger.info(`Google user authenticated: ${googleUser.email}`);
 
       return {
-        keycloakUserId,
         userInfo: googleUser,
+        jwtToken,
       };
     } catch (error: any) {
       logger.error('Google authentication failed:', error.message);

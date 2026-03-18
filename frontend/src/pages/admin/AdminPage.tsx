@@ -39,6 +39,7 @@ const AdminPage: React.FC = () => {
   // Delete confirmation
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
+      if (typeof id !== 'number') return;
       await userManagement.remove(id);
       userManagement.clearError();
     },

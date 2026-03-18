@@ -6,11 +6,12 @@ const QUERY_KEYS = {
   all: ['cars'] as const,
   lists: () => [...QUERY_KEYS.all, 'list'] as const,
   list: (filters?: CarFilters) => [...QUERY_KEYS.lists(), filters] as const,
+  my: () => [...QUERY_KEYS.all, 'my'] as const,
   details: () => [...QUERY_KEYS.all, 'detail'] as const,
-  detail: (id: number) => [...QUERY_KEYS.details(), id] as const,
+  detail: (id: number | string) => [...QUERY_KEYS.details(), id] as const,
   available: (filters?: CarFilters) => [...QUERY_KEYS.all, 'available', filters] as const,
   byType: (type: string, filters?: CarFilters) => [...QUERY_KEYS.all, 'type', type, filters] as const,
-  bookedDates: (id: number) => [...QUERY_KEYS.all, 'booked-dates', id] as const,
+  bookedDates: (id: number | string) => [...QUERY_KEYS.all, 'booked-dates', id] as const,
 };
 
 /**
@@ -20,6 +21,16 @@ export const useCars = (filters?: CarFilters) => {
   return useQuery({
     queryKey: QUERY_KEYS.list(filters),
     queryFn: () => carService.getAllCars(filters),
+  });
+};
+
+/**
+ * Get current user's cars (marketplace owner)
+ */
+export const useMyCars = () => {
+  return useQuery({
+    queryKey: QUERY_KEYS.my(),
+    queryFn: () => carService.getMyCars(),
   });
 };
 
@@ -34,9 +45,9 @@ export const useAvailableCars = (filters?: CarFilters) => {
 };
 
 /**
- * Get car by ID
+ * Get car by ID (number from monolith or string UUID from car-service)
  */
-export const useCar = (id: number | undefined) => {
+export const useCar = (id: number | string | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.detail(id!),
     queryFn: () => carService.getCarById(id!),
@@ -58,7 +69,7 @@ export const useCarsByType = (type: string, filters?: CarFilters) => {
 /**
  * Get booked dates for a car
  */
-export const useBookedDates = (id: number | undefined) => {
+export const useBookedDates = (id: number | string | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.bookedDates(id!),
     queryFn: () => carService.getBookedDates(id!),
@@ -76,6 +87,7 @@ export const useCreateCar = () => {
     mutationFn: (data: Partial<Car>) => carService.createCar(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.my() });
     },
   });
 };
@@ -91,6 +103,7 @@ export const useUpdateCar = () => {
       carService.updateCar(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.my() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.detail(variables.id) });
     },
   });
@@ -122,6 +135,7 @@ export const useDeleteCar = () => {
     mutationFn: (id: number) => carService.deleteCar(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.my() });
     },
   });
 };

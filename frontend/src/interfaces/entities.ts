@@ -4,7 +4,8 @@
  */
 
 export interface Car {
-  id: number;
+  id: number | string; // string when from car-service (UUID)
+  ownerId?: number | null | string;
   brand: string;
   model: string;
   year: number;

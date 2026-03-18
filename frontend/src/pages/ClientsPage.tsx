@@ -53,6 +53,7 @@ const ClientsPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
+      if (typeof id !== 'number') return;
       await deleteClient.mutateAsync(id);
       clearError();
     },

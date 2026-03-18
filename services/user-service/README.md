@@ -50,10 +50,9 @@ DB_USERNAME=postgres
 DB_PASSWORD=1234
 DB_DATABASE=car_rental_db
 
-# Keycloak
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=car-rental-realm
-KEYCLOAK_CLIENT_ID=web-app
+# Auth (JWT issued by user-service)
+JWT_SECRET=dev-user-service-secret
+JWT_EXPIRES_IN=24h
 
 # Kafka
 KAFKA_BROKER=localhost:9092
@@ -122,7 +121,7 @@ npm start
 
 ## 🔐 Security
 
-- JWT токени від Keycloak
+- JWT токени, які видає user-service (Google login → user-service JWT)
 - Валідація вхідних даних
 - Rate limiting через Kong Gateway
 

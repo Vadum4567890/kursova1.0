@@ -5,8 +5,8 @@ import { CircularProgress, Box } from '@mui/material';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'employee' | 'user';
-  allowedRoles?: ('admin' | 'manager' | 'employee' | 'user')[];
+  requiredRole?: 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner';
+  allowedRoles?: ('admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner')[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -39,7 +39,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role as 'admin' | 'manager' | 'employee' | 'user')) {
+  if (allowedRoles && user && !allowedRoles.includes(user.role as 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner')) {
     return <Navigate to="/" replace />;
   }
 

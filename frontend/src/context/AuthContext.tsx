@@ -6,7 +6,7 @@ interface AuthContextType {
   user: AuthResponse['user'] | null;
   token: string | null;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
-  register: (data: { username: string; email: string; password: string; fullName?: string; address?: string }) => Promise<void>;
+  register: (data: { username: string; email: string; password: string; role?: 'renter' | 'owner'; fullName?: string; address?: string }) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;

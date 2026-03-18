@@ -102,6 +102,7 @@ export interface RegisterData {
   username: string;
   email: string;
   password: string;
+  role?: 'renter' | 'owner';
   fullName?: string;
   address?: string;
   phone?: string;

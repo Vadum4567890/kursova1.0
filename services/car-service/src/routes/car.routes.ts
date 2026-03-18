@@ -14,6 +14,7 @@ router.get('/:id/images', carController.getCarImages);
 router.post('/', carController.createCar);
 router.get('/owner/:ownerId', carController.getCarsByOwner);
 router.put('/:id', carController.updateCar);
+router.patch('/:id/status', carController.updateCarStatus);
 router.delete('/:id', carController.deleteCar);
 router.post('/:id/images', carController.addImage);
 router.put('/:id/images/:imageId/primary', carController.setPrimaryImage);

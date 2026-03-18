@@ -29,15 +29,17 @@ const CarDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const carId = id ? Number(id) : undefined;
+  const carId: number | string | undefined = id
+    ? id.includes('-')
+      ? id
+      : (Number(id) || undefined)
+    : undefined;
 
-  // React Query hooks
   const { data: car, isLoading: loading, error: carError } = useCar(carId);
   const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carId);
 
-  // Redirect if no ID provided
   useEffect(() => {
-    if (!id || isNaN(Number(id))) {
+    if (!id || (isNaN(Number(id)) && !id.includes('-'))) {
       navigate('/cars');
     }
   }, [id, navigate]);

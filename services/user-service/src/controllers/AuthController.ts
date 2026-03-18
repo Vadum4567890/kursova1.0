@@ -1,17 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import { KeycloakService } from '../services/KeycloakService';
 import { GoogleAuthService } from '../services/GoogleAuthService';
 import { UserService } from '../services/UserService';
 import { logger } from '../utils/logger';
 
 export class AuthController {
-  private keycloakService: KeycloakService;
   private googleAuthService: GoogleAuthService;
   private userService: UserService;
 
   constructor() {
-    this.keycloakService = new KeycloakService();
     this.googleAuthService = new GoogleAuthService();
     this.userService = new UserService();
   }
@@ -51,7 +48,7 @@ export class AuthController {
         });
       }
 
-      const { keycloakUserId, userInfo } = await this.googleAuthService.authenticateWithGoogle(idToken);
+      const { userInfo, jwtToken } = await this.googleAuthService.authenticateWithGoogle(idToken);
 
       // Check if user exists in our database
       let user = await this.userService.getUserByEmail(userInfo.email);
@@ -73,14 +70,11 @@ export class AuthController {
         }
       }
 
-      // Get Keycloak tokens for the user
-      // Note: This would require additional Keycloak setup for Google identity provider
-
       res.json({
         status: 'success',
         data: {
           userId: user.id,
-          keycloakUserId,
+          token: jwtToken,
           email: userInfo.email,
           name: userInfo.name,
         },
@@ -171,7 +165,7 @@ export class AuthController {
       }
 
       const tokens = await this.googleAuthService.exchangeCodeForTokens(code, redirectUri);
-      const { keycloakUserId, userInfo } = await this.googleAuthService.authenticateWithGoogle(tokens.idToken);
+      const { userInfo, jwtToken } = await this.googleAuthService.authenticateWithGoogle(tokens.idToken);
 
       // Create or get user
       let user = await this.userService.getUserByEmail(userInfo.email);
@@ -186,7 +180,7 @@ export class AuthController {
         status: 'success',
         data: {
           userId: user.id,
-          keycloakUserId,
+          token: jwtToken,
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
         },

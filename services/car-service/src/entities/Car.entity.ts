@@ -39,6 +39,7 @@ export enum FuelType {
 export enum CarStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
+  RENTED = 'rented',
   MAINTENANCE = 'maintenance',
   DELETED = 'deleted',
 }

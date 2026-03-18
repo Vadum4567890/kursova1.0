@@ -5,6 +5,9 @@ import { CreatePricingDto } from '../dto/CreatePricingDto';
 import { SearchCarsDto } from '../dto/SearchCarsDto';
 import { validateDto } from '../middleware/validation';
 import { UserServiceClient } from '../services/UserServiceClient';
+import { CarStatus } from '../entities/Car.entity';
+
+const ALLOWED_STATUS_UPDATE = [CarStatus.ACTIVE, CarStatus.RENTED, CarStatus.MAINTENANCE];
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -21,9 +24,6 @@ export class CarController {
   createCar = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const carData = await validateDto(CreateCarDto, req.body);
-      
-      // Set ownerId from authenticated user
-      carData.ownerId = req.userId || carData.ownerId;
 
       const car = await this.carService.createCar(carData);
       
@@ -281,6 +281,50 @@ export class CarController {
       res.json({
         success: true,
         data: pricing,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** PATCH /api/cars/:id/status — for rental-service (X-Service-Key) or owner */
+  updateCarStatus = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const serviceKey = req.headers['x-service-key'] as string;
+
+      if (!status || !ALLOWED_STATUS_UPDATE.includes(status)) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Invalid status. Allowed: active, rented, maintenance' },
+        });
+        return;
+      }
+
+      const car = await this.carService.getCarById(id);
+      if (!car) {
+        res.status(404).json({
+          success: false,
+          error: { message: 'Car not found' },
+        });
+        return;
+      }
+
+      const isInternalCall = serviceKey && serviceKey === process.env.SERVICE_API_KEY;
+      const isOwner = req.userId && car.ownerId === req.userId;
+      if (!isInternalCall && !isOwner) {
+        res.status(403).json({
+          success: false,
+          error: { message: 'Forbidden' },
+        });
+        return;
+      }
+
+      const updated = await this.carService.updateCar(id, { status });
+      res.json({
+        success: true,
+        data: updated,
       });
     } catch (error) {
       next(error);

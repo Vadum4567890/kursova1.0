@@ -14,9 +14,6 @@ import {
 import { CarCategory, TransmissionType, FuelType } from '../entities/Car.entity';
 
 export class CreateCarDto {
-  @IsUUID()
-  ownerId: string;
-
   @IsString()
   @Length(1, 100)
   make: string;

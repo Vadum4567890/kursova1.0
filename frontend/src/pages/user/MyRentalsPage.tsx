@@ -13,6 +13,7 @@ const MyRentalsPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
+      if (typeof id !== 'number') return;
       await cancelRental.mutateAsync(id);
       clearError();
     },

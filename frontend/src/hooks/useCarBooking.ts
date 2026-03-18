@@ -10,7 +10,7 @@ interface BookedPeriod {
 }
 
 interface UseCarBookingOptions {
-  carId?: number;
+  carId?: number | string;
   bookedDates?: BookedPeriod[];
   onSuccess?: () => void;
 }
@@ -86,6 +86,11 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
 
     if (!carId || !bookingData.startDate || !bookingData.expectedEndDate) {
       setError('Помилка: не вказано ID автомобіля або дати');
+      return;
+    }
+
+    if (typeof carId !== 'number') {
+      setError('Бронювання цього авто через сервіс зараз недоступне');
       return;
     }
 

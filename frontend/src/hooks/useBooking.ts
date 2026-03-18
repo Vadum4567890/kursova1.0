@@ -14,7 +14,7 @@ interface BookingPeriod {
 
 interface UseBookingOptions {
   bookedDates?: BookingPeriod[];
-  onCreateBooking: (data: { carId: number; startDate: string; expectedEndDate: string }) => Promise<void>;
+  onCreateBooking: (data: { carId: number | string; startDate: string; expectedEndDate: string }) => Promise<void>;
   onSuccess?: () => void;
 }
 
@@ -23,13 +23,13 @@ export function useBooking(options: UseBookingOptions) {
   const { error, handleError, clearError } = useErrorHandler();
   
   const [open, setOpen] = useState(false);
-  const [carId, setCarId] = useState<number | null>(null);
+  const [carId, setCarId] = useState<number | string | null>(null);
   const [bookingData, setBookingData] = useState({
     startDate: null as Dayjs | null,
     expectedEndDate: null as Dayjs | null,
   });
 
-  const openBooking = useCallback((id: number) => {
+  const openBooking = useCallback((id: number | string) => {
     setCarId(id);
     setOpen(true);
     clearError();
