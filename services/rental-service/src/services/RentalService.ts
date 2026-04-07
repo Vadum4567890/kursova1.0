@@ -1,8 +1,8 @@
 import { Rental } from '../entities/Rental.entity';
 import { RentalStatus } from '../entities/Rental.entity';
 import { RentalRepository } from '../repositories/RentalRepository';
-import { CarServiceClient } from './CarServiceClient';
-import { UserServiceClient } from './UserServiceClient';
+import { CarInfo, CarServiceClient } from './CarServiceClient';
+import { UserInfo, UserServiceClient } from './UserServiceClient';
 import { sendEvent } from '../kafka/producer';
 import logger from '../utils/logger';
 
@@ -36,6 +36,65 @@ export class RentalService {
     return start1 <= end2 && end1 >= start2;
   }
 
+  /** Plain JSON shape for API; includes optional `car` from car-service for UI labels. */
+  private rentalToJson(r: Rental): Record<string, unknown> {
+    return {
+      id: r.id,
+      carId: r.carId,
+      renterUserId: r.renterUserId,
+      startDate: r.startDate,
+      expectedEndDate: r.expectedEndDate,
+      actualEndDate: r.actualEndDate,
+      depositAmount: r.depositAmount,
+      totalCost: r.totalCost,
+      penaltyAmount: r.penaltyAmount,
+      status: r.status,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      penalties: r.penalties,
+    };
+  }
+
+  private carSummary(info: CarInfo) {
+    return {
+      id: info.id,
+      make: info.make,
+      model: info.model,
+      brand: info.make,
+    };
+  }
+
+  private userSummary(info: UserInfo) {
+    return {
+      id: info.id,
+      email: info.email,
+      fullName: (info as any).fullName || (info as any).username || info.email,
+    };
+  }
+
+  /** Batch-load car and renter info for all rentals. */
+  private async withCarSummaries(rentals: Rental[]): Promise<Record<string, unknown>[]> {
+    const uniqueCarIds = [...new Set(rentals.map((r) => r.carId))];
+    const uniqueUserIds = [...new Set(rentals.map((r) => r.renterUserId))];
+
+    const [carPairs, userPairs] = await Promise.all([
+      Promise.all(uniqueCarIds.map(async (id) => [id, await this.carServiceClient.getCarById(id)] as const)),
+      Promise.all(uniqueUserIds.map(async (id) => [id, await this.userServiceClient.getUserById(id).catch(() => null)] as const)),
+    ]);
+
+    const carById = new Map<string, CarInfo | null>(carPairs);
+    const userById = new Map<string, UserInfo | null>(userPairs);
+
+    return rentals.map((r) => {
+      const row = this.rentalToJson(r);
+      const carInfo = carById.get(r.carId);
+      if (carInfo) row.car = this.carSummary(carInfo);
+      const userInfo = userById.get(r.renterUserId);
+      if (userInfo) row.renter = this.userSummary(userInfo);
+      return row;
+    });
+  }
+
   async createRental(
     carId: string,
     renterUserId: string,
@@ -46,12 +105,16 @@ export class RentalService {
     const end = new Date(expectedEndDate);
 
     if (start >= end) {
-      throw new Error('Start date must be before expected end date');
+      const err: Error & { statusCode?: number } = new Error('Start date must be before expected end date');
+      err.statusCode = 400;
+      throw err;
     }
 
     const now = new Date();
     if (this.normalizeDateToStartOfDay(start) < this.normalizeDateToStartOfDay(now)) {
-      throw new Error('Start date cannot be in the past');
+      const err: Error & { statusCode?: number } = new Error('Start date cannot be in the past');
+      err.statusCode = 400;
+      throw err;
     }
 
     const carForRental = await this.carServiceClient.getCarForRental(carId);
@@ -116,7 +179,8 @@ export class RentalService {
     });
 
     logger.info('Rental created', { rentalId: rental.id, carId, renterUserId });
-    return rental;
+    const [withCar] = await this.withCarSummaries([rental]);
+    return withCar as unknown as Rental;
   }
 
   async completeRental(rentalId: string, actualEndDate?: Date): Promise<Rental> {
@@ -162,7 +226,9 @@ export class RentalService {
       timestamp: new Date().toISOString(),
     });
 
-    return (await this.rentalRepository.findById(rentalId))!;
+    const updated = (await this.rentalRepository.findById(rentalId))!;
+    const [withCar] = await this.withCarSummaries([updated]);
+    return withCar as unknown as Rental;
   }
 
   async cancelRental(rentalId: string, cancellationDate?: Date): Promise<Rental> {
@@ -211,27 +277,36 @@ export class RentalService {
       timestamp: new Date().toISOString(),
     });
 
-    return (await this.rentalRepository.findById(rentalId))!;
+    const updated = (await this.rentalRepository.findById(rentalId))!;
+    const [withCar] = await this.withCarSummaries([updated]);
+    return withCar as unknown as Rental;
   }
 
   async getRentalById(id: string): Promise<Rental | null> {
-    return await this.rentalRepository.findById(id);
+    const r = await this.rentalRepository.findById(id);
+    if (!r) return null;
+    const [withCar] = await this.withCarSummaries([r]);
+    return withCar as unknown as Rental;
   }
 
   async getAllRentals(): Promise<Rental[]> {
-    return await this.rentalRepository.findAll();
+    const rows = await this.rentalRepository.findAll();
+    return (await this.withCarSummaries(rows)) as unknown as Rental[];
   }
 
   async getActiveRentals(): Promise<Rental[]> {
-    return await this.rentalRepository.findActive();
+    const rows = await this.rentalRepository.findActive();
+    return (await this.withCarSummaries(rows)) as unknown as Rental[];
   }
 
   async getRentalsByCarId(carId: string): Promise<Rental[]> {
-    return await this.rentalRepository.findByCarId(carId);
+    const rows = await this.rentalRepository.findByCarId(carId);
+    return (await this.withCarSummaries(rows)) as unknown as Rental[];
   }
 
   async getRentalsByRenterId(renterUserId: string): Promise<Rental[]> {
-    return await this.rentalRepository.findByRenterId(renterUserId);
+    const rows = await this.rentalRepository.findByRenterId(renterUserId);
+    return (await this.withCarSummaries(rows)) as unknown as Rental[];
   }
 
   async getRentalsForCurrentRenter(renterUserId: string): Promise<Rental[]> {

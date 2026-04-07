@@ -1,272 +1,132 @@
-# 🚗 Система прокату автомобілів
+# Car Rental Platform
 
-Курсовий проект - інформаційна система для відстеження фінансових показників роботи пункту прокату автомобілів.
+Microservices-based course project for car rental operations, booking flows, and financial reporting.
 
-## 📋 Опис проекту
+## Active Architecture
 
-Система дозволяє:
-- Управляти автопарком (додавання, редагування, видалення автомобілів)
-- Реєструвати клієнтів та вести історію їх звернень
-- Створювати та керувати угодами прокату
-- Розраховувати вартість прокату з урахуванням різних факторів
-- Нараховувати штрафи за неналежне повернення
-- Генерувати звіти про фінансові показники та зайнятість
+Primary runtime topology:
 
-## 🛠 Технологічний стек
+- `api-gateway` on `3000`
+- `user-service` on `3002`
+- `car-service` on `3003`
+- `rental-service` on `3004`
+- `media-service` on `3006`
+- `reporting-service` on `3009`
+- `frontend` on `3001`
 
-### Backend
-- **Node.js** + **Express.js** + **TypeScript**
-- **TypeORM** - ORM для роботи з БД
-- **PostgreSQL** - реляційна база даних
-- **JWT** - аутентифікація
+Deprecated but still present in the repo:
 
-### Frontend
-- **React.js** + **TypeScript**
-- **Material-UI** - UI компоненти
-- **React Router** - маршрутизація
-- **Axios** - HTTP клієнт
+- `client-service`
+- `search-service`
 
-## 🏗 Архітектура
+Those two services are no longer required in the main request path:
 
-Проект використовує наступні GoF-патерни проектування:
-- **Singleton** - для Database Connection, Logger, Config
-- **Factory Method** - для створення автомобілів та звітів
-- **Builder** - для побудови складних угод прокату
-- **Strategy** - для різних стратегій розрахунку ціни
-- **Template Method** - для генерації різних типів звітів
-- **Observer** - для сповіщень про зміни статусів
+- client compatibility is handled by `user-service`
+- aggregated search compatibility is handled by `api-gateway`
 
-Детальний опис патернів див. в [DESIGN_PATTERNS.md](./DESIGN_PATTERNS.md)
+## Responsibilities
 
-## 📁 Структура проекту
+- `api-gateway`: single frontend entry point, proxy/BFF, compatibility search routes, dev auth fallback
+- `user-service`: users, renter/client profile data, documents, ratings
+- `car-service`: cars, pricing, images metadata, availability
+- `rental-service`: bookings, rentals, lifecycle transitions
+- `reporting-service`: penalties, analytics, revenue calculations, reports
+- `media-service`: uploads and file serving
 
-```
-kursova1.0/
-├── backend/                 # Backend додаток
-│   ├── src/
-│   │   ├── config/          # Конфігурація (Singleton)
-│   │   ├── database/        # Підключення до БД
-│   │   ├── models/          # Моделі даних (Entities)
-│   │   ├── repositories/    # Repository pattern
-│   │   ├── services/        # Бізнес-логіка
-│   │   ├── controllers/     # REST контролери
-│   │   ├── patterns/        # GoF-патерни
-│   │   ├── middleware/      # Middleware
-│   │   ├── routes/          # API маршрути
-│   │   └── utils/           # Утиліти
-│   ├── tests/               # Тести
-│   └── package.json
-├── frontend/                # Frontend додаток
-│   ├── src/
-│   │   ├── components/      # React компоненти
-│   │   ├── pages/           # Сторінки
-│   │   │   ├── client/      # Клієнтська частина
-│   │   │   └── admin/       # Адмін-панель
-│   │   ├── services/        # API клієнти
-│   │   ├── hooks/           # Custom hooks
-│   │   └── utils/
-│   └── package.json
-├── database/                # Скрипти БД
-│   └── migrations/          # Міграції
-├── docs/                    # Документація
-│   ├── use-cases.md
-│   ├── class-diagram.md
-│   └── patterns-explanation.md
-├── PROJECT_PLAN.md          # План реалізації
-├── TECHNOLOGY_STACK.md      # Опис технологій
-├── DESIGN_PATTERNS.md       # Опис GoF-патернів
-└── README.md                # Цей файл
-```
+## Quick Start
 
-## 🚀 Швидкий старт
+Recommended:
 
-### Передумови
-
-- Node.js (v18 або вище)
-- PostgreSQL (v14 або вище)
-- npm або yarn
-
-### Встановлення
-
-1. **Клонуйте репозиторій:**
 ```bash
-git clone https://github.com/yourusername/kursova1.0.git
-cd kursova1.0
+docker compose up --build
 ```
 
-2. **Встановіть залежності Backend:**
+Then run the frontend separately:
+
 ```bash
-cd backend
+cd frontend
 npm install
-```
-
-3. **Встановіть залежності Frontend:**
-```bash
-cd ../frontend
-npm install
-```
-
-4. **Налаштуйте базу даних:**
-```bash
-# Створіть базу даних
-createdb car_rental_db
-
-# Або через psql:
-psql -U postgres
-CREATE DATABASE car_rental_db;
-\q
-```
-
-5. **Налаштуйте змінні оточення:**
-
-Створіть файл `backend/.env`:
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-DB_DATABASE=car_rental_db
-JWT_SECRET=your-secret-key-here
-PORT=3000
-```
-
-Створіть файл `frontend/.env`:
-```env
-REACT_APP_API_URL=http://localhost:3000/api
-```
-
-6. **Запустіть міграції:**
-```bash
-cd backend
-npm run migration:run
-```
-
-7. **Запустіть Backend:**
-```bash
-cd backend
 npm run dev
 ```
 
-Backend буде доступний на `http://localhost:3000`
+Frontend API base:
 
-8. **Запустіть Frontend (в новому терміналі):**
-```bash
-cd frontend
-npm start
+```env
+VITE_API_URL=http://localhost:3000/api
 ```
 
-Frontend буде доступний на `http://localhost:3001`
+## Verification
 
-## 📚 Документація API
+Active runtime verification:
 
-Після запуску Backend, документація Swagger буде доступна за адресою:
-`http://localhost:3000/api-docs`
-
-## 🧪 Тестування
-
-### Backend тести:
-```bash
-cd backend
-npm test
+```powershell
+npm run verify:backend
 ```
 
-### Frontend тести:
-```bash
-cd frontend
-npm test
+Legacy service verification:
+
+```powershell
+npm run verify:legacy
 ```
 
-## 🗄 База даних
+Full workspace verification:
 
-### Основні таблиці:
+```powershell
+npm run verify:all
+```
 
-- **cars** - Автомобілі
-- **clients** - Клієнти
-- **rentals** - Угоди прокату
-- **penalties** - Штрафи
+Note: in the current restricted environment the frontend build may fail with `spawn EPERM`.
 
-ER-діаграма та детальний опис див. в документації.
+## Client Data Migration
 
-## 📊 Основні функції
+To migrate legacy `client_service_db` rows into `user_service_db`:
 
-### Клієнтська частина:
-- Перегляд каталогу автомобілів
-- Реєстрація клієнта
-- Створення угоди прокату
-- Перегляд історії угод
-- Розрахунок вартості прокату
+```powershell
+npm --prefix services/user-service run migrate:clients
+```
 
-### Адмін-панель:
-- Управління автопарком (CRUD)
-- Управління клієнтами (CRUD)
-- Управління угодами
-- Нарахування штрафів
-- Генерація звітів:
-  - Фінансові показники
-  - Зайнятість автомобілів
-  - Наявність автомобілів
+Optional source overrides:
 
-## 🎯 GoF-патерни в проекті
+- `CLIENT_DB_HOST`
+- `CLIENT_DB_PORT`
+- `CLIENT_DB_USERNAME`
+- `CLIENT_DB_PASSWORD`
+- `CLIENT_DB_DATABASE`
 
-Детальний опис застосування патернів див. в [DESIGN_PATTERNS.md](./DESIGN_PATTERNS.md)
+The script is idempotent by phone/email and upgrades matching users to renter-compatible records.
 
-### Singleton
-- DatabaseConnection
-- Logger
-- ConfigManager
+## Reporting Exports
 
-### Factory Method
-- CarFactory (створення різних типів автомобілів)
-- ReportFactory (створення різних типів звітів)
+`reporting-service` now supports:
 
-### Builder
-- RentalBuilder (побудова складних угод прокату)
+- richer financial report payloads with transaction rows and timeline data
+- Excel export: `GET /api/reports/financial/export?format=xlsx`
+- PDF export: `GET /api/reports/financial/export?format=pdf`
 
-### Strategy
-- PricingStrategy (різні стратегії розрахунку ціни)
-  - BasePricingStrategy
-  - YearBasedPricingStrategy
-  - DurationBasedPricingStrategy
-  - CombinedPricingStrategy
+The frontend reports page exposes both export actions once a financial report has been generated.
 
-### Template Method
-- ReportTemplate (базовий клас для звітів)
-  - FinancialReport
-  - OccupancyReport
-  - AvailabilityReport
+## Databases
 
-### Observer
-- RentalObserver (сповіщення про зміни статусу)
-  - CarStatusObserver
-  - NotificationObserver
-  - LoggingObserver
+- `user-service` -> `user_service_db`
+- `car-service` -> `car_service_db`
+- `rental-service` -> `rental_service_db`
+- `reporting-service` -> `rental_service_db`
+- `client-service` -> `client_service_db` `(legacy)`
 
-## 🔒 Безпека
+Database bootstrap scripts live in `database/init`.
 
-- JWT токени для аутентифікації
-- Валідація вхідних даних
-- Захист від SQL ін'єкцій (через ORM)
-- CORS налаштування
+## Documentation
 
-## 📝 Ліцензія
+Start with:
 
-Цей проект створено в навчальних цілях.
+- `docs/ARCHITECTURE_AUDIT.md`
+- `docs/SERVICE_CATALOG.md`
+- `docs/PROJECT_VERIFICATION.md`
+- `docs/MICROSERVICES_MIGRATION_PLAN.md`
 
-## 👤 Автор
+## Next Cleanup Steps
 
-Vadum4567890
-
-## 📞 Контакти
-
-GitHub: [@Vadum4567890](https://github.com/Vadum4567890)
-
-## 🔗 GitHub
-
-Репозиторій проекту: [https://github.com/Vadum4567890/kursova1.0](https://github.com/Vadum4567890/kursova1.0)
-
-Інструкції з налаштування GitHub див. в [GITHUB_SETUP.md](./GITHUB_SETUP.md)
-
----
-
-**Успіхів у використанні системи! 🚗✨**
-
+1. Run the client migration on real environment data and validate renter records in `user-service`.
+2. Remove `client-service` and `search-service` from the repo entirely after data cutover.
+3. Expand `reporting-service` with branded templates and more detailed BI metrics.
+4. Replace temporary gateway auth with service-owned auth only.

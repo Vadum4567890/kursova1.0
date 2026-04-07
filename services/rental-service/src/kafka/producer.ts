@@ -14,16 +14,22 @@ export const getProducer = async (): Promise<Producer | null> => {
   if (producer) return producer;
   if (connectionAttempted) return null;
   connectionAttempted = true;
+
+  const candidate = kafka.producer({ createPartitioner: Partitioners.LegacyPartitioner });
+
   try {
-    producer = kafka.producer({ createPartitioner: Partitioners.LegacyPartitioner });
     await Promise.race([
-      producer.connect(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000)),
+      candidate.connect(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout')), 2000)
+      ),
     ]);
+    producer = candidate;
     logger.info('Kafka producer connected');
     return producer;
   } catch (error) {
     logger.warn('Failed to connect to Kafka, continuing without events', { error });
+    producer = null;
     connectionAttempted = false;
     return null;
   }

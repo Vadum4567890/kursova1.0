@@ -43,7 +43,7 @@ const CarsPage: React.FC = () => {
   // Delete confirmation
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
-      if (typeof id !== 'number') return;
+      if (id === undefined || id === null || id === '') return;
       await carManagement.remove(id);
       carManagement.clearError();
     },
@@ -132,14 +132,12 @@ const CarsPage: React.FC = () => {
 
       if (formDialog.isEditing && formDialog.editingItem && formDialog.editingItem.id !== undefined) {
         const editId = formDialog.editingItem.id;
-        if (typeof editId === 'number') {
-          await carManagement.update(
-            editId,
-            formDialog.formData,
-            finalImageUrl,
-            finalImageUrls
-          );
-        }
+        await carManagement.update(
+          editId,
+          formDialog.formData,
+          finalImageUrl,
+          finalImageUrls
+        );
       } else {
         await carManagement.create(formDialog.formData, finalImageUrl, finalImageUrls);
       }
@@ -170,7 +168,14 @@ const CarsPage: React.FC = () => {
     }
   };
 
-  const displayError = carManagement.error || carsError?.message;
+  const displayError =
+    carManagement.error ||
+    (carsError as Error & { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+      ?.message ||
+    (carsError as Error)?.message;
+
+  const emptyCatalog = !loading && cars.length === 0;
+  const emptyAfterFilters = !loading && cars.length > 0 && filteredCars.length === 0;
 
   return (
     <PageContainer>
@@ -198,8 +203,13 @@ const CarsPage: React.FC = () => {
 
       {loading ? (
         <LoadingSpinner />
-      ) : filteredCars.length === 0 ? (
-        <Alert severity="info">Автомобілі не знайдено</Alert>
+      ) : emptyCatalog ? (
+        <Alert severity="info">
+          Немає автомобілів у каталозі. Якщо ви адміністратор або менеджер — додайте перше авто кнопкою «Додати
+          автомобіль».
+        </Alert>
+      ) : emptyAfterFilters ? (
+        <Alert severity="info">За обраними фільтрами нічого не знайдено. Спробуйте змінити умови пошуку.</Alert>
       ) : (
         <Grid container spacing={3}>
           {filteredCars.map((car: Car) => (

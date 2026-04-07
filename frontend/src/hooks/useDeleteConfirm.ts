@@ -21,14 +21,21 @@ export function useDeleteConfirm(options: UseDeleteConfirmOptions) {
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteDialogItemId) return;
-    
+
     try {
       await onConfirm(deleteDialogItemId);
       closeDeleteDialog();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.message || 'Помилка видалення';
+      const d = err.response?.data;
+      const msg =
+        (typeof d?.error === 'object' && d?.error?.message) ||
+        (typeof d?.error === 'string' ? d.error : null) ||
+        d?.message ||
+        err.message ||
+        'Помилка видалення';
+      const errorMessage = typeof msg === 'string' ? msg : String(msg);
       onError?.(errorMessage);
-      closeDeleteDialog();
+      /* діалог лишаємо відкритим, щоб можна було повторити або прочитати помилку в ErrorAlert */
     }
   }, [deleteDialogItemId, onConfirm, onError, closeDeleteDialog]);
 

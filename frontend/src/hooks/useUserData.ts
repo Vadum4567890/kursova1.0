@@ -1,40 +1,31 @@
 import { useMemo } from 'react';
-import { useMyRentals, useRentals } from './queries/useRentals';
-import { useMyPenalties, usePenalties } from './queries/usePenalties';
+import { useMyRentals } from './queries/useRentals';
+import { usePenalties } from './queries/usePenalties';
 
 /**
- * Hook to get user data (rentals and penalties) based on user role
+ * Hook to get user data (rentals and penalties) for the profile page.
+ * Always returns only the current user's own data, regardless of role.
+ * Admins/managers see ALL data on dedicated pages (RentalsPage, etc.).
  */
-export function useUserData(userRole?: string) {
+export function useUserData(_userRole?: string) {
   const { data: myRentals = [], isLoading: loadingMyRentals } = useMyRentals();
-  const { data: allRentals = [], isLoading: loadingAllRentals } = useRentals();
-  const { data: myPenalties = [], isLoading: loadingMyPenalties } = useMyPenalties();
-  const { data: allPenalties = [], isLoading: loadingAllPenalties } = usePenalties();
+  const { data: allPenalties = [], isLoading: loadingPenalties } = usePenalties();
 
-  const isEndUser = userRole === 'user' || userRole === 'renter';
-
-  const rentals = useMemo(
-    () => (isEndUser ? myRentals : allRentals),
-    [isEndUser, myRentals, allRentals]
+  // Filter penalties to only those linked to the current user's rentals
+  const myRentalIds = useMemo(
+    () => new Set(myRentals.map((r) => String(r.id))),
+    [myRentals]
   );
 
-  const penalties = useMemo(
-    () => (isEndUser ? myPenalties : allPenalties),
-    [isEndUser, myPenalties, allPenalties]
-  );
-
-  const loading = useMemo(
-    () =>
-      isEndUser
-        ? loadingMyRentals || loadingMyPenalties
-        : loadingAllRentals || loadingAllPenalties,
-    [isEndUser, loadingMyRentals, loadingMyPenalties, loadingAllRentals, loadingAllPenalties]
+  const myPenalties = useMemo(
+    () => allPenalties.filter((p) => myRentalIds.has(String(p.rentalId))),
+    [allPenalties, myRentalIds]
   );
 
   return {
-    rentals,
-    penalties,
-    loading,
+    rentals: myRentals,
+    penalties: myPenalties,
+    loading: loadingMyRentals || loadingPenalties,
   };
 }
 

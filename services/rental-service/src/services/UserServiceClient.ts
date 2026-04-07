@@ -5,6 +5,8 @@ export interface UserInfo {
   id: string;
   email: string;
   role?: string;
+  fullName?: string;
+  username?: string;
   verifiedStatus?: string;
 }
 
@@ -16,12 +18,18 @@ export class UserServiceClient {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
+    // Prefer gateway so it can resolve both dev-auth users (by UUID) and user-service users
+    this.baseUrl = process.env.GATEWAY_URL || process.env.USER_SERVICE_URL || 'http://localhost:3002';
   }
 
   async getUserById(userId: string): Promise<UserInfo | null> {
+    // Build URL: gateway exposes /api/users/:id; user-service exposes /api/users/:id
+    const isGateway = this.baseUrl.includes('api-gateway') || this.baseUrl.includes(':3000');
+    const url = isGateway
+      ? `${this.baseUrl}/api/users/${userId}`
+      : `${this.baseUrl}/api/users/${userId}`;
     try {
-      const response = await axios.get(`${this.baseUrl}/api/users/${userId}`, {
+      const response = await axios.get(url, {
         timeout: 5000,
         headers: {
           'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
@@ -36,8 +44,8 @@ export class UserServiceClient {
       if (error.response?.status === 404) {
         return null;
       }
-      logger.error('Error fetching user from User Service', { userId, error: error.message });
-      throw error;
+      logger.warn('User lookup failed, returning null', { userId, err: error.message });
+      return null;
     }
   }
 

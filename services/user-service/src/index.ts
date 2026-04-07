@@ -14,7 +14,7 @@ import { swaggerSpec } from './config/swagger';
 // Load environment variables
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 3002;
 
 // Middleware
@@ -44,7 +44,7 @@ app.use('/api/users', userRoutes);
 app.use(errorHandler);
 
 // Initialize database and start server
-async function startServer() {
+export async function startServer() {
   try {
     // Initialize database connection
     await AppDataSource.initialize();
@@ -74,5 +74,7 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
 

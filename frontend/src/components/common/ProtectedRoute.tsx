@@ -36,11 +36,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (requiredRole && user?.role !== requiredRole) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role as 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner')) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <>{children}</>;

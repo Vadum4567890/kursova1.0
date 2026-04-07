@@ -79,6 +79,93 @@ export class UserController {
     }
   };
 
+  listClients = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const clients = await this.userService.listClients(String(req.query.q || ''));
+      res.json(clients);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getClientById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const client = await this.userService.getClientById(req.params.id);
+      if (!client) {
+        return res.status(404).json({ message: 'Client not found' });
+      }
+
+      res.json(client);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getClientByPhone = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const phone = req.params.phone?.trim();
+      if (!phone) {
+        return res.status(400).json({ message: 'Phone required' });
+      }
+
+      const client = await this.userService.getClientByPhone(phone);
+      if (!client) {
+        return res.status(404).json({ message: 'Client not found' });
+      }
+
+      res.json(client);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createClient = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const client = await this.userService.createClient(req.body || {});
+      res.status(201).json({ data: client });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  registerOrGetClient = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const phone = req.body?.phone ? String(req.body.phone).trim() : '';
+      const existing = phone ? await this.userService.getClientByPhone(phone) : null;
+      const client = await this.userService.registerOrGetClient(req.body || {}, true);
+      const statusCode = existing ? 200 : 201;
+      res.status(statusCode).json({ data: client });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateClient = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const client = await this.userService.updateClient(req.params.id, req.body || {});
+      if (!client) {
+        return res.status(404).json({ message: 'Client not found' });
+      }
+
+      res.json({ data: client });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteClient = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const deleted = await this.userService.deleteClient(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: 'Client not found' });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  };
+
   createDocument = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) {

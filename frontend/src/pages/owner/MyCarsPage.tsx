@@ -22,7 +22,7 @@ const MyCarsPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
-      if (typeof id !== 'number') return;
+      if (id === undefined || id === null || id === '') return;
       await carManagement.remove(id);
       carManagement.clearError();
     },
@@ -59,13 +59,9 @@ const MyCarsPage: React.FC = () => {
         );
         finalImageUrls = [...finalImageUrls, ...urls];
       }
-      if (formDialog.isEditing && formDialog.editingItem?.id !== undefined && typeof formDialog.editingItem.id === 'number') {
-        await carManagement.update(
-          formDialog.editingItem.id,
-          formDialog.formData,
-          finalImageUrl,
-          finalImageUrls
-        );
+      if (formDialog.isEditing && formDialog.editingItem && formDialog.editingItem.id !== undefined) {
+        const editId = formDialog.editingItem.id;
+        await carManagement.update(editId, formDialog.formData, finalImageUrl, finalImageUrls);
       } else {
         await carManagement.create(formDialog.formData, finalImageUrl, finalImageUrls);
       }

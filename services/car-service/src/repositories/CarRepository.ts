@@ -23,11 +23,15 @@ export class CarRepository {
   }
 
   async findByOwnerId(ownerId: string): Promise<Car[]> {
-    return await this.repository.find({
-      where: { ownerId } as FindOptionsWhere<Car>,
-      relations: ['pricing', 'features', 'images'],
-      order: { createdAt: 'DESC' },
-    });
+    return await this.repository
+      .createQueryBuilder('car')
+      .leftJoinAndSelect('car.pricing', 'pricing')
+      .leftJoinAndSelect('car.features', 'features')
+      .leftJoinAndSelect('car.images', 'images')
+      .where('car.ownerId = :ownerId', { ownerId })
+      .andWhere('car.status != :deleted', { deleted: CarStatus.DELETED })
+      .orderBy('car.createdAt', 'DESC')
+      .getMany();
   }
 
   async findAll(options?: {

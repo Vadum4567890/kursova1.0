@@ -12,11 +12,33 @@ export interface AuthRequest extends Request {
 }
 
 const LEGACY_ID_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // DNS namespace (stable)
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const ALLOW_INSECURE_JWT_DECODE =
+  (process.env.ALLOW_INSECURE_JWT_DECODE || (NODE_ENV === 'production' ? 'false' : 'true')) === 'true';
+
 function isUuidLike(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 function isNumericLike(value: string): boolean {
   return /^\d+$/.test(value);
+}
+
+function readJwtPayload(token: string): Record<string, unknown> | null {
+  const secret = process.env.JWT_SECRET;
+
+  if (secret) {
+    try {
+      return jwt.verify(token, secret) as Record<string, unknown>;
+    } catch {
+      if (!ALLOW_INSECURE_JWT_DECODE) {
+        return null;
+      }
+    }
+  } else if (!ALLOW_INSECURE_JWT_DECODE) {
+    return null;
+  }
+
+  return (jwt.decode(token) as Record<string, unknown> | null) ?? null;
 }
 
 export function auth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -28,12 +50,13 @@ export function auth(req: AuthRequest, res: Response, next: NextFunction) {
   const token = header.substring(7);
 
   try {
-    const decoded: any = jwt.decode(token);
+    const decoded = readJwtPayload(token);
+    const nestedUser = decoded?.user as { id?: unknown } | undefined;
     const id =
       decoded?.sub ??
       decoded?.id ??
       decoded?.userId ??
-      decoded?.user?.id;
+      nestedUser?.id;
 
     if (!decoded || !id) {
       return res.status(401).json({ success: false, error: { message: 'Invalid token' } });
@@ -46,7 +69,7 @@ export function auth(req: AuthRequest, res: Response, next: NextFunction) {
 
     req.user = {
       id: normalizedId,
-      email: decoded.email || decoded.preferred_username,
+      email: typeof decoded.email === 'string' ? decoded.email : typeof decoded.preferred_username === 'string' ? decoded.preferred_username : undefined,
     };
 
     next();

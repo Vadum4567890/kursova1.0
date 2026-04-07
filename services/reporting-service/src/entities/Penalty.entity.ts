@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
 } from 'typeorm';
 import { Rental } from './Rental.entity';
 
@@ -12,26 +13,22 @@ export class Penalty {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ type: 'uuid', name: 'rental_id' })
+  rentalId!: string;
+
   @ManyToOne(() => Rental, (rental) => rental.penalties, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'rental_id' })
   rental!: Rental;
 
-  @Column({ type: 'uuid', name: 'rental_id' })
-  rentalId!: string;
-
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount!: number;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'varchar', length: 500 })
   reason!: string;
 
-  @Column({ type: 'timestamp', name: 'date' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   date!: Date;
 
-  @Column({ type: 'timestamp', name: 'created_at', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
-
-  @Column({ type: 'timestamp', name: 'updated_at', default: () => 'CURRENT_TIMESTAMP' })
-  updatedAt!: Date;
 }
-

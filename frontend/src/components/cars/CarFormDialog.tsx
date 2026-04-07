@@ -84,8 +84,10 @@ export const CarFormDialog: React.FC<CarFormDialogProps> = ({
               onChange={(e) => onFormDataChange({ type: e.target.value as Car['type'] })}
             >
               <MenuItem value="economy">Економ</MenuItem>
-              <MenuItem value="business">Бізнес</MenuItem>
+              <MenuItem value="business">Бізнес (комфорт)</MenuItem>
               <MenuItem value="premium">Преміум</MenuItem>
+              <MenuItem value="suv">Позашляховик (SUV)</MenuItem>
+              <MenuItem value="luxury">Люкс</MenuItem>
             </Select>
           </FormControl>
         </Box>

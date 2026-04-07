@@ -6,7 +6,7 @@ export const validateDto = async <T extends object>(
   dtoClass: new () => T,
   data: any
 ): Promise<T> => {
-  const dto = plainToInstance(dtoClass, data);
+  const dto = plainToInstance(dtoClass, data, { enableImplicitConversion: true });
   const errors: ValidationError[] = await validate(dto as object);
 
   if (errors.length > 0) {

@@ -74,6 +74,12 @@ export class SearchCarsDto {
   @IsBoolean()
   depositRequired?: boolean;
 
+  /** Сторінка пагінації (1-based); разом з limit задає offset = (page - 1) * limit */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
   @IsOptional()
   @IsNumber()
   @Min(1)

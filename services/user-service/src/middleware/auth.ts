@@ -10,6 +10,28 @@ export interface AuthRequest extends Request {
   };
 }
 
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const ALLOW_INSECURE_JWT_DECODE =
+  (process.env.ALLOW_INSECURE_JWT_DECODE || (NODE_ENV === 'production' ? 'false' : 'true')) === 'true';
+
+function readJwtPayload(token: string): any | null {
+  const secret = process.env.JWT_SECRET;
+
+  if (secret) {
+    try {
+      return jwt.verify(token, secret);
+    } catch {
+      if (!ALLOW_INSECURE_JWT_DECODE) {
+        return null;
+      }
+    }
+  } else if (!ALLOW_INSECURE_JWT_DECODE) {
+    return null;
+  }
+
+  return jwt.decode(token);
+}
+
 export const authMiddleware = async (
   req: AuthRequest,
   res: Response,
@@ -25,10 +47,7 @@ export const authMiddleware = async (
     const token = authHeader.substring(7);
     
     try {
-      // Keycloak removed: treat Bearer as our own JWT and decode it.
-      // NOTE: we decode (not verify) for dev simplicity; if you want strict verify,
-      // change to jwt.verify with a shared secret/public key.
-      const decoded = jwt.decode(token) as any;
+      const decoded = readJwtPayload(token);
 
       if (!decoded || !decoded.sub) {
         return res.status(401).json({ status: 'error', message: 'Invalid token' });

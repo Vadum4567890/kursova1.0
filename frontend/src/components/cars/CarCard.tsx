@@ -20,7 +20,7 @@ const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ
 
 const getImageUrl = (imageUrl?: string): string => {
   if (!imageUrl) return DEFAULT_IMAGE;
-  if (imageUrl.startsWith('http')) return imageUrl;
+  if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) return imageUrl;
   return `${window.location.protocol}//${window.location.hostname}:3000${imageUrl}`;
 };
 

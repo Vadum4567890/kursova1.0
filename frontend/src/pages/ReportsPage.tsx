@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { Typography, Box, Paper, Tabs, Tab } from '@mui/material';
-import { useFinancialReport, useOccupancyReport, useAvailabilityReport, useCarReport } from '../hooks/queries/useReports';
+import { Typography, Box, Paper, Tabs, Tab, Button, Stack } from '@mui/material';
+import { Download } from '@mui/icons-material';
+import {
+  useFinancialReport,
+  useOccupancyReport,
+  useAvailabilityReport,
+  useCarReport,
+} from '../hooks/queries/useReports';
 import { useReports } from '../hooks';
+import { reportService } from '../services/reportService';
 import {
   FinancialReportTab,
   OccupancyReportTab,
@@ -14,7 +21,6 @@ const ReportsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const reports = useReports();
 
-  // React Query hooks - enabled only when explicitly requested, but data persists in cache
   const {
     data: financialReport,
     isLoading: loadingFinancial,
@@ -51,7 +57,6 @@ const ReportsPage: React.FC = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    // Don't reset load flags - keep them so data persists when switching tabs
   };
 
   const handleGenerateFinancial = () => {
@@ -76,15 +81,55 @@ const ReportsPage: React.FC = () => {
     refetchCarReport();
   };
 
+  const handleDownloadFinancial = async (format: 'xlsx' | 'pdf') => {
+    if (!reports.startDate || !reports.endDate) {
+      return;
+    }
+
+    await reportService.downloadFinancialReport(format, reports.startDate, reports.endDate);
+  };
+
   return (
     <PageContainer>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Звіти
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Генерація фінансових звітів та аналітика зайнятості
-        </Typography>
+      <Box
+        sx={{
+          mb: 3,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 2,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Звіти
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Фінансова аналітика, операційні звіти та експорт у Excel / PDF
+          </Typography>
+        </Box>
+
+        {tabValue === 0 && (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={() => handleDownloadFinancial('xlsx')}
+              disabled={!financialReport || loadingFinancial}
+            >
+              Excel
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={() => handleDownloadFinancial('pdf')}
+              disabled={!financialReport || loadingFinancial}
+            >
+              PDF
+            </Button>
+          </Stack>
+        )}
       </Box>
 
       {error && <ErrorAlert message={error} />}
@@ -140,4 +185,3 @@ const ReportsPage: React.FC = () => {
 };
 
 export default ReportsPage;
-

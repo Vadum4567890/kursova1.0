@@ -38,7 +38,7 @@ const ImageSlider: React.FC<ImageSliderProps> = ({
   };
 
   const getImageUrl = (url: string): string => {
-    if (url.startsWith('http')) return url;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
     return `${window.location.protocol}//${window.location.hostname}:3000${url}`;
   };
 

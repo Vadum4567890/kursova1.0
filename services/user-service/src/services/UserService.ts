@@ -1,4 +1,4 @@
-import { User } from '../entities/User.entity';
+import { User, UserRole } from '../entities/User.entity';
 import { UserProfile } from '../entities/UserProfile.entity';
 import { UserDocument, DocumentType } from '../entities/UserDocument.entity';
 import { UserRating } from '../entities/UserRating.entity';
@@ -8,6 +8,30 @@ import { UserRepository } from '../repositories/UserRepository';
 import { UserProfileRepository } from '../repositories/UserProfileRepository';
 import { UserDocumentRepository } from '../repositories/UserDocumentRepository';
 import { UserRatingRepository } from '../repositories/UserRatingRepository';
+
+export interface ClientRecord {
+  id: string;
+  fullName: string;
+  address: string;
+  phone: string;
+  email: string | null;
+  registrationDate: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ClientPayload {
+  fullName?: string;
+  address?: string;
+  phone?: string;
+  email?: string | null;
+}
+
+function createStatusError(message: string, statusCode: number): Error & { statusCode: number } {
+  const error = new Error(message) as Error & { statusCode: number };
+  error.statusCode = statusCode;
+  return error;
+}
 
 export class UserService {
   private userRepository: UserRepository;
@@ -23,6 +47,202 @@ export class UserService {
     this.ratingRepository = new UserRatingRepository();
     this.kafkaProducer = new KafkaProducer();
     // Don't connect to Kafka on startup - use lazy connection when needed
+  }
+
+  private isClientRole(role?: UserRole): boolean {
+    return role === UserRole.RENTER || role === UserRole.BOTH;
+  }
+
+  private splitFullName(fullName?: string): { firstName: string | null; lastName: string | null } {
+    const normalized = String(fullName || '').trim().replace(/\s+/g, ' ');
+    if (!normalized) {
+      return { firstName: null, lastName: null };
+    }
+
+    const [firstName, ...rest] = normalized.split(' ');
+    return {
+      firstName: firstName || null,
+      lastName: rest.length > 0 ? rest.join(' ') : null,
+    };
+  }
+
+  private toClientRecord(user: User): ClientRecord {
+    const firstName = user.profile?.firstName?.trim();
+    const lastName = user.profile?.lastName?.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+    return {
+      id: user.id,
+      fullName: fullName || user.email || `Client ${user.id}`,
+      address: user.profile?.address || '',
+      phone: user.phone || '',
+      email: user.email || null,
+      registrationDate: user.createdAt?.toISOString() || new Date().toISOString(),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  private buildClientEmail(phone: string, email?: string | null): string {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (normalizedEmail) {
+      return normalizedEmail;
+    }
+
+    const phoneKey = phone.replace(/\D+/g, '') || Date.now().toString();
+    return `client+${phoneKey}@local.user-service`;
+  }
+
+  async listClients(searchQuery?: string): Promise<ClientRecord[]> {
+    try {
+      const users = await this.userRepository.findAll();
+      const normalizedQuery = String(searchQuery || '').trim().toLowerCase();
+      const clients = users
+        .filter((user) => this.isClientRole(user.role))
+        .map((user) => this.toClientRecord(user));
+
+      if (!normalizedQuery) {
+        return clients;
+      }
+
+      return clients.filter((client) =>
+        [client.fullName, client.phone, client.email || '', client.address].some((value) =>
+          value.toLowerCase().includes(normalizedQuery)
+        )
+      );
+    } catch (error) {
+      logger.error('Error listing clients:', error);
+      throw error;
+    }
+  }
+
+  async getClientById(userId: string): Promise<ClientRecord | null> {
+    try {
+      const user = await this.userRepository.findById(userId);
+      if (!user || !this.isClientRole(user.role)) {
+        return null;
+      }
+      return this.toClientRecord(user);
+    } catch (error) {
+      logger.error('Error getting client by ID:', error);
+      throw error;
+    }
+  }
+
+  async getClientByPhone(phone: string): Promise<ClientRecord | null> {
+    try {
+      const user = await this.userRepository.findByPhone(phone);
+      if (!user || !this.isClientRole(user.role)) {
+        return null;
+      }
+      return this.toClientRecord(user);
+    } catch (error) {
+      logger.error('Error getting client by phone:', error);
+      throw error;
+    }
+  }
+
+  async createClient(payload: ClientPayload): Promise<ClientRecord> {
+    return this.registerOrGetClient(payload, false);
+  }
+
+  async registerOrGetClient(payload: ClientPayload, allowExisting = true): Promise<ClientRecord> {
+    try {
+      const phone = String(payload.phone || '').trim();
+      const fullName = String(payload.fullName || '').trim();
+      const address = String(payload.address || '').trim();
+
+      if (!phone) {
+        throw createStatusError('phone is required', 400);
+      }
+
+      const existing = await this.userRepository.findByPhone(phone);
+      if (existing && this.isClientRole(existing.role)) {
+        if (allowExisting) {
+          return this.toClientRecord(existing);
+        }
+        throw createStatusError('Client already exists', 409);
+      }
+
+      if (!fullName || !address) {
+        throw createStatusError('fullName and address are required for new client', 400);
+      }
+
+      const email = this.buildClientEmail(phone, payload.email);
+      const { firstName, lastName } = this.splitFullName(fullName);
+      const createdUser = await this.createUser({
+        email,
+        phone,
+        role: UserRole.RENTER,
+      });
+
+      await this.updateUserProfile(createdUser.id, {
+        firstName,
+        lastName,
+        address,
+      });
+
+      const saved = await this.userRepository.findById(createdUser.id);
+      if (!saved) {
+        throw createStatusError('Client was created but could not be loaded', 500);
+      }
+
+      return this.toClientRecord(saved);
+    } catch (error) {
+      logger.error('Error creating/registering client:', error);
+      throw error;
+    }
+  }
+
+  async updateClient(userId: string, payload: ClientPayload): Promise<ClientRecord | null> {
+    try {
+      const user = await this.userRepository.findById(userId);
+      if (!user || !this.isClientRole(user.role)) {
+        return null;
+      }
+
+      const userUpdate: Partial<User> = {};
+      if (payload.phone !== undefined) {
+        userUpdate.phone = payload.phone ? String(payload.phone).trim() : null;
+      }
+      if (payload.email !== undefined) {
+        userUpdate.email = this.buildClientEmail(userUpdate.phone || user.phone || '', payload.email);
+      }
+      if (Object.keys(userUpdate).length > 0) {
+        await this.updateUser(userId, userUpdate);
+      }
+
+      const profileUpdate: Partial<UserProfile> = {};
+      if (payload.fullName !== undefined) {
+        const { firstName, lastName } = this.splitFullName(payload.fullName);
+        profileUpdate.firstName = firstName;
+        profileUpdate.lastName = lastName;
+      }
+      if (payload.address !== undefined) {
+        profileUpdate.address = payload.address ? String(payload.address).trim() : null;
+      }
+      if (Object.keys(profileUpdate).length > 0) {
+        await this.updateUserProfile(userId, profileUpdate);
+      }
+
+      return await this.getClientById(userId);
+    } catch (error) {
+      logger.error('Error updating client:', error);
+      throw error;
+    }
+  }
+
+  async deleteClient(userId: string): Promise<boolean> {
+    try {
+      const user = await this.userRepository.findById(userId);
+      if (!user || !this.isClientRole(user.role)) {
+        return false;
+      }
+      return await this.userRepository.delete(userId);
+    } catch (error) {
+      logger.error('Error deleting client:', error);
+      throw error;
+    }
   }
 
   async getUserById(userId: string): Promise<User | null> {

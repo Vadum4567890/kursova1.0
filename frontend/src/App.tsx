@@ -2,13 +2,15 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/layout/Layout';
+import PublicLayout from './components/layout/PublicLayout';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import LandingPage from './pages/LandingPage';
 import HomePage from './pages/client/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import CarsPage from './pages/CarsPage';
-import ClientsPage from './pages/ClientsPage';
+import CustomersPage from './pages/CustomersPage';
 import RentalsPage from './pages/RentalsPage';
 import PenaltiesPage from './pages/PenaltiesPage';
 import ReportsPage from './pages/ReportsPage';
@@ -25,12 +27,28 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+        <Router
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<PublicLayout />}>
+              <Route index element={<LandingPage />} />
+              <Route path="login" element={<LoginPage />} />
+              <Route path="register" element={<RegisterPage />} />
+            </Route>
+
+            <Route element={<Layout />}>
+              <Route
+                path="/home"
+                element={
+                  <ProtectedRoute>
+                    <HomePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={
@@ -64,10 +82,10 @@ function App() {
                 }
               />
               <Route
-                path="/clients"
+                path="/customers"
                 element={
                   <ProtectedRoute allowedRoles={['admin', 'manager', 'employee']}>
-                    <ClientsPage />
+                    <CustomersPage />
                   </ProtectedRoute>
                 }
               />
@@ -143,8 +161,8 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-            </Routes>
-          </Layout>
+            </Route>
+          </Routes>
         </Router>
       </AuthProvider>
     </ThemeProvider>
@@ -152,4 +170,3 @@ function App() {
 }
 
 export default App;
-

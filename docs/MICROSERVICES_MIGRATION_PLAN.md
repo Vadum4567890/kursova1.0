@@ -2,37 +2,25 @@
 
 ## Поточний стан
 
-Система зараз працює **повністю на мікросервісах**, а backend виконує роль API Gateway/BFF.
+Система працює **повністю на мікросервісах**. Окремого монолітного `backend` з TypeORM і спільною `car_rental_db` у цьому репозиторії **немає**; роль API Gateway/BFF виконує **`services/api-gateway`** (порт **3000**).
 
 ### Що є зараз
 
-- **Gateway (backend)** — додаток на порту 3000.
-  - Не використовує монолітні таблиці `cars/rentals/penalties` для нових операцій.
-  - Проксіює запити до мікросервісів:
-    - `/api/cars/*` → car-service
-    - `/api/users/*` → user-service
-    - `/api/rentals/*` → rental-service (через BFF-роути `/my`, `/book` або прямий proxy)
-    - `/api/penalties`, `/api/reports`, `/api/analytics` → reporting-service.
-  - Залишає в собі лише допоміжні речі (`/api/auth`, `/api/clients`, `/api/search`, `/api/upload`).
+- **API Gateway** (`services/api-gateway`, порт **3000**):
+  - Не підключається до монолітної БД.
+  - Проксіює: `/api/users/*` → user-service, `/api/cars/*` → car-service, `/api/rentals/*` → rental-service.
+  - Проксіює звіти та штрафи: `/api/penalties`, `/api/reports`, `/api/analytics` → **reporting-service** (`REPORTING_SERVICE_URL`, порт **3009**).
+  - Локально реалізує лише **dev `/api/auth/*`** (JWT для сумісності з фронтом) та заглушки для `/api/clients`, `/api/search`, `/api/upload` (без доменних таблиць моноліту).
 
-- **User Service** (`services/user-service`, порт **3002**):
-  - Окремий сервіс: користувачі з UUID, профіль, документи, рейтинг, Keycloak + Google Auth.
-  - Таблиця `user_accounts`, ролі: renter / owner / both / admin.
-  - Ендпоінти: `GET/PUT /api/users/me`, `GET /api/users/:id`, profile, documents, verify-diia.
-  - Swagger, health, Kafka (заготовка), Redis (в docker-compose).
-  - **Не інтегрований з монолітом** — моноліт має свою таблицю `users` і свій JWT.
+- **User Service** (`services/user-service`, порт **3002**): БД `user_service_db`, користувачі з UUID, профіль, внутрішні API.
 
-- **Car Service** (`services/car-service`, порт **3003**):
-  - Окремий сервіс: авто з **UUID**, `ownerId` (UUID), make/model/year, category (economy/comfort/premium/suv/luxury), ціноутворення, фото, availability, документи.
-  - Окрема БД: `car_service_db` (у docker-compose).
-  - Викликає **User Service** (UserServiceClient) для перевірки власника та профілю.
-  - Kafka events: `car.created` тощо.
-  - Ендпоінти: CRUD авто, search, images, pricing, owner.
-  - **Не інтегрований з монолітом** — моноліт має свою таблицю `cars` (id number, інша схема).
+- **Car Service** (`services/car-service`, порт **3003**): БД `car_service_db`, авто з UUID, `make`/`category`/pricing тощо.
 
-- **Інфраструктура**:
-  - `docker-compose.yml` — postgres, user-service, car-service, Kafka, Redis, Elasticsearch, Keycloak.
-  - `kong/kong.yml` — маршрутизація на user-service та car-service (шляхи `/api/users`, `/api/cars`).
+- **Rental Service** (`services/rental-service`, порт **3004**): БД `rental_service_db`, прокати та бронювання (`POST /api/rentals/book`, `GET /api/rentals/me`).
+
+- **Reporting Service** (`services/reporting-service`, порт **3009**): БД **`rental_service_db`** (ті самі оренди/штрафи, без монолітних таблиць).
+
+- **Інфраструктура**: `docker-compose.yml` у корені — **PostgreSQL**, **api-gateway**, **user-service**, **car-service**, **rental-service**, **reporting-service**.
 
 ---
 
@@ -160,48 +148,27 @@ The monolith can **read** booked dates from rental-service when the car comes fr
 
 ## Step 5: Microservices-only mode (current)
 
-When **USE_MICROSERVICES=true**, the backend acts as an **API Gateway**: it does not implement cars, users, or rentals itself. All requests to `/api/cars`, `/api/users`, and `/api/rentals` are served by the corresponding microservices (via proxy or BFF routes).
+Репозиторій використовує **`services/api-gateway`** як BFF: доменні `/api/cars`, `/api/users`, `/api/rentals` проксуються; `/api/penalties`, `/api/reports`, `/api/analytics` — у **reporting-service** (`REPORTING_SERVICE_URL`). Монолітний backend з `car_rental_db` у складі проєкту відсутній.
 
-### What the gateway does
-
-- **Proxy** (no monolith logic for these):
-  - `GET/POST/PUT/PATCH/DELETE /api/cars/*` → **car-service** (CAR_SERVICE_URL, default `http://localhost:3003`)
-  - `GET/POST/PUT/DELETE /api/users/*` → **user-service** (USER_SERVICE_URL, default `http://localhost:3002`)
-  - `GET/POST /api/rentals/*` → **rental-service** (RENTAL_SERVICE_URL, default `http://localhost:3004`)
-
-- **Still implemented in the gateway** (single codebase, can be split into services later):
-  - `/api/auth` — login, register, me (uses gateway DB `users` table)
-  - `/api/clients` — client CRUD (gateway DB)
-  - `/api/penalties` — penalty CRUD (gateway DB)
-  - `/api/reports` — reports (gateway DB; may need refactor to aggregate from microservices)
-  - `/api/analytics` — analytics (gateway DB; same note)
-  - `/api/search` — search (gateway DB)
-  - `/api/upload` — file uploads
-
-### Env (backend/gateway)
+### Змінні оточення gateway
 
 ```env
-USE_MICROSERVICES=true
+PORT=3000
 CAR_SERVICE_URL=http://localhost:3003
 USER_SERVICE_URL=http://localhost:3002
 RENTAL_SERVICE_URL=http://localhost:3004
+REPORTING_SERVICE_URL=http://localhost:3009
 ```
 
-### Run order
+### Порядок запуску
 
-1. Start **user-service** (3002), **car-service** (3003), **rental-service** (3004).
-2. Start **gateway** (backend with `USE_MICROSERVICES=true`) on 3000.
-3. Point frontend to `http://localhost:3000/api`.
+1. **user-service** (3002), **car-service** (3003), **rental-service** (3004), **reporting-service** (3009).
+2. **api-gateway** (3000).
+3. Фронтенд: `VITE_API_URL=http://localhost:3000/api`.
 
-### Frontend
+Деталі маршрутів: [`services/api-gateway/README_API.md`](../services/api-gateway/README_API.md).
 
-With microservices-only mode, responses for cars, users, and rentals come **directly from the microservices** (after proxy). That means:
+### Подальші кроки (опційно)
 
-- **Cars:** IDs are UUIDs; fields may use service names (e.g. `make`/`category`). The frontend already supports `car.id` as `number | string`.
-- **Users:** IDs are UUIDs; API shape is user-service’s (e.g. `/api/users/me`, Keycloak tokens if you switch auth later). Admin user list and other user screens may need to be adapted to UUID and new DTOs.
-- **Rentals:** IDs are UUIDs; `carId` and `renterUserId` are UUIDs. Rental list/detail may need to be updated to the rental-service response shape.
-
-To **fully** remove the monolith you can later:
-
-- Move auth to **user-service**/Keycloak and have the gateway only validate tokens and proxy.
-- Move **clients**, **penalties**, **reports**, **analytics**, **search**, **upload** into dedicated microservices and have the gateway only proxy to them.
+- Перенести `/api/auth` на user-service / Keycloak.
+- Реалізувати clients / search / upload окремими сервісами або storage замість заглушок у gateway.

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useHomeData } from '../../hooks';
 import { PageHeader, LoadingSpinner, PageContainer } from '../../components/common';
-import { ActionCard, RecentRentalsSection, WelcomeSection } from '../../components/home';
+import { ActionCard, RecentRentalsSection } from '../../components/home';
 import { getActionCardsConfig } from '../../constants/home';
 
 const HomePage: React.FC = () => {
@@ -13,17 +13,11 @@ const HomePage: React.FC = () => {
   const homeData = useHomeData();
   const actionCardsConfig = getActionCardsConfig();
 
-  // Redirect staff to dashboard
   useEffect(() => {
     if (isAuthenticated && user && (user.role === 'admin' || user.role === 'manager' || user.role === 'employee')) {
       navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
-
-  // Show login page for unauthenticated users
-  if (!isAuthenticated) {
-    return <WelcomeSection />;
-  }
 
   const cardData = {
     availableCars: homeData.availableCars.length,
@@ -43,7 +37,6 @@ const HomePage: React.FC = () => {
         <LoadingSpinner />
       ) : (
         <>
-          {/* Main Action Cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {actionCardsConfig.map((config, index) => (
               <Grid item xs={12} sm={6} md={4} key={index}>
@@ -59,7 +52,6 @@ const HomePage: React.FC = () => {
             ))}
           </Grid>
 
-          {/* Recent Rentals */}
           <RecentRentalsSection rentals={homeData.rentals} />
         </>
       )}
@@ -68,4 +60,3 @@ const HomePage: React.FC = () => {
 };
 
 export default HomePage;
-

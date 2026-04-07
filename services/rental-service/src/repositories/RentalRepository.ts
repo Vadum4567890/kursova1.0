@@ -11,7 +11,12 @@ export class RentalRepository {
   }
 
   async create(data: Partial<Rental>): Promise<Rental> {
-    const rental = this.repository.create(data);
+    const now = new Date();
+    const rental = this.repository.create({
+      ...data,
+      createdAt: data.createdAt ?? now,
+      updatedAt: data.updatedAt ?? now,
+    });
     return await this.repository.save(rental);
   }
 

@@ -80,5 +80,16 @@ export class CreateCarDto {
   @IsOptional()
   @IsBoolean()
   instantBook?: boolean;
+
+  /** Ціноутворення при створенні (опційно; якщо є dailyRate — створюється рядок у car_pricing) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  dailyRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  depositAmount?: number;
 }
 

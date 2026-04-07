@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useDashboardStats, usePopularCars, useRevenueStats } from './queries/useAnalytics';
 import { useCars } from './queries/useCars';
-import { useClients } from './queries/useClients';
+import { useCustomers } from './queries/useCustomers';
 import { useRentals } from './queries/useRentals';
 import { DashboardStats } from '../interfaces';
 
@@ -18,7 +18,7 @@ export function useDashboardData(userRole?: string) {
 
   // React Query hooks for employees
   const { data: carsResponse, isLoading: loadingCars } = useCars();
-  const { data: clients = [], isLoading: loadingClients } = useClients();
+  const { data: customers = [], isLoading: loadingCustomers } = useCustomers();
   const { data: rentals = [], isLoading: loadingRentals } = useRentals();
 
   // Calculate employee stats from data
@@ -29,19 +29,19 @@ export function useDashboardData(userRole?: string) {
       totalCars: cars.length,
       availableCars: cars.filter((c) => c.status === 'available').length,
       rentedCars: cars.filter((c) => c.status === 'rented').length,
-      totalClients: clients.length,
+      totalClients: customers.length,
       activeRentals: rentals.filter((r) => r.status === 'active').length,
       totalRevenue: 0,
       totalPenalties: 0,
       averageRentalDuration: 0,
     };
-  }, [carsResponse, clients, rentals, isAdminOrManager]);
+  }, [carsResponse, customers, rentals, isAdminOrManager]);
 
   // Select stats based on role
   const stats = isAdminOrManager ? dashboardStats : employeeStats;
   const loading = isAdminOrManager
     ? (loadingStats || loadingPopular || loadingRevenue)
-    : (loadingCars || loadingClients || loadingRentals);
+    : (loadingCars || loadingCustomers || loadingRentals);
   const error = statsError?.message || popularError?.message || revenueError?.message;
 
   return {

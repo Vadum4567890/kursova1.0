@@ -21,7 +21,7 @@ import {
 import { Add, CheckCircle, Cancel } from '@mui/icons-material';
 import { Rental, Client, Car } from '../interfaces';
 import { useRentals, useActiveRentals, useCreateRental, useCancelRental, useCompleteRental } from '../hooks/queries/useRentals';
-import { useClients } from '../hooks/queries/useClients';
+import { useCustomers } from '../hooks/queries/useCustomers';
 import { useCars } from '../hooks/queries/useCars';
 import { 
   ErrorAlert, 
@@ -48,8 +48,8 @@ const RentalsPage: React.FC = () => {
   const cancelRental = useCancelRental();
   const completeRental = useCompleteRental();
   
-  // Load clients and cars when dialog opens
-  const { data: clients = [] } = useClients();
+  // Load renter/customer records and cars when dialog opens
+  const { data: customers = [] } = useCustomers();
   const { data: carsResponse } = useCars();
   const cars = useMemo(() => carsResponse?.data?.filter((c: Car) => c.status === 'available') || [], [carsResponse]);
   
@@ -67,7 +67,7 @@ const RentalsPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
-      if (typeof id !== 'number') return;
+      if (id === undefined || id === null || id === '') return;
       await cancelRental.mutateAsync(id);
       clearError();
     },
@@ -85,9 +85,13 @@ const RentalsPage: React.FC = () => {
     }
     try {
       clearError();
+      const carIdRaw = String(formDialog.formData.carId).trim();
+      const carId: number | string = /^\d+$/.test(carIdRaw) ? parseInt(carIdRaw, 10) : carIdRaw;
+      const renterUserId = String(formDialog.formData.clientId).trim();
       await createRental.mutateAsync({
-        clientId: parseInt(formDialog.formData.clientId),
-        carId: parseInt(formDialog.formData.carId),
+        clientId: renterUserId || undefined,
+        carId,
+        renterUserId: renterUserId || undefined,
         startDate: new Date(formDialog.formData.startDate).toISOString(),
         expectedEndDate: new Date(formDialog.formData.expectedEndDate).toISOString(),
       });
@@ -97,7 +101,7 @@ const RentalsPage: React.FC = () => {
     }
   };
 
-  const handleComplete = async (id: number) => {
+  const handleComplete = async (id: number | string) => {
     try {
       clearError();
       await completeRental.mutateAsync({ id });
@@ -150,7 +154,11 @@ const RentalsPage: React.FC = () => {
                 <TableRow key={rental.id} hover>
                   <TableCell>{rental.id}</TableCell>
                   <TableCell>
-                    {rental.client?.fullName || (rental.clientId ? `Клієнт #${rental.clientId}` : 'Невідомо')}
+                    {rental.client?.fullName
+                      || rental.renter?.fullName
+                      || rental.renter?.email
+                      || (rental.clientId ? `Клієнт #${rental.clientId}` : '')
+                      || (rental.renterUserId ? `ID: ${rental.renterUserId.slice(0, 8)}…` : 'Невідомо')}
                   </TableCell>
                   <TableCell>
                     {rental.car
@@ -261,9 +269,9 @@ const RentalsPage: React.FC = () => {
             label="Клієнт"
             onChange={(e) => formDialog.updateFormData({ clientId: e.target.value })}
           >
-            {clients.map((client: Client) => (
-              <MenuItem key={client.id} value={client.id.toString()}>
-                {client.fullName} ({client.phone})
+            {customers.map((customer: Client) => (
+              <MenuItem key={customer.id} value={customer.id.toString()}>
+                {customer.fullName} ({customer.phone})
               </MenuItem>
             ))}
           </Select>

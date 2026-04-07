@@ -60,8 +60,8 @@ export class CarServiceClient {
       if (error.response?.status === 404) {
         return null;
       }
-      logger.error('Error fetching car from Car Service', { carId, error: error.message });
-      throw error;
+      logger.warn('Car lookup failed; treating as not found', { carId, err: error.message });
+      return null;
     }
   }
 
@@ -73,7 +73,7 @@ export class CarServiceClient {
     if (!car) return null;
 
     const status = (car.status || '').toLowerCase();
-    if (status === 'maintenance' || status === 'deleted') {
+    if (status === 'maintenance' || status === 'deleted' || status === 'inactive') {
       return null;
     }
 

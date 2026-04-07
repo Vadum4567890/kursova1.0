@@ -7,9 +7,9 @@ const reportService = new ReportService();
 const controller = new ReportController(reportService);
 
 router.get('/financial', controller.generateFinancialReport);
+router.get('/financial/export', controller.exportFinancialReport);
 router.get('/occupancy', controller.generateOccupancyReport);
 router.get('/availability', controller.generateAvailabilityReport);
 router.get('/cars', controller.generateCarReport);
 
 export default router;
-

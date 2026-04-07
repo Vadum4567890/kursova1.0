@@ -17,7 +17,7 @@ import { StatusChip } from '../common';
 
 interface MyRentalsTableProps {
   rentals: Rental[];
-  onCancelClick: (id: number) => void;
+  onCancelClick: (id: number | string) => void;
 }
 
 export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCancelClick }) => {

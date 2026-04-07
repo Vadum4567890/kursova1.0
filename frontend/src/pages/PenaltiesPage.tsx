@@ -60,8 +60,8 @@ const PenaltiesPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
-      if (typeof id !== 'number') return;
-      await deletePenalty.mutateAsync(id);
+      if (!id) return;
+      await deletePenalty.mutateAsync(id as string | number);
       penaltyCreate.clearError();
     },
   });

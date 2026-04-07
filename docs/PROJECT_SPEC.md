@@ -1,4 +1,4 @@
-о # Project Specification — Car Rental (Microservices-First)
+# Project Specification — Car Rental (Microservices-First)
 
 This document describes **what the project is**, **which features it includes**, and **how the system is intended to look and work** in the current (microservices-first) architecture.
 
@@ -33,16 +33,18 @@ flowchart LR
 
 ### Services and responsibilities
 
-- **Gateway (`backend/`)**
+- **Gateway (`services/api-gateway/`)**
   - Single entry point for the frontend (`VITE_API_URL=http://localhost:3000/api`)
   - Proxies “domain APIs” to microservices:
     - `/api/cars/*` → `car-service`
     - `/api/users/*` → `user-service`
     - `/api/rentals/*` → `rental-service` (with BFF routes for `/my` and `/book`)
     - `/api/penalties`, `/api/reports`, `/api/analytics` → `reporting-service`
-  - Keeps “edge” APIs that can be extracted later:
-    - `/api/upload`, `/api/search`, `/api/clients`
-    - `/api/auth` (legacy gateway auth; can be replaced by user-service later)
+    - `/api/search/*` → `search-service`
+    - `/api/upload/*` → `media-service`
+    - `/api/clients/*` → `client-service`
+  - Implemented in the gateway (not proxied):
+    - `/api/auth` (dev JWT; can be replaced by user-service / Keycloak later)
 
 - **User Service (`services/user-service/`)**
   - Source of truth for **accounts** (UUID ids), profile, documents, rating
@@ -63,6 +65,17 @@ flowchart LR
   - Serves `/api/penalties`, `/api/reports`, `/api/analytics`
   - Reads from `rental_service_db` for reports (financial/analytics)
 
+- **Search Service (`services/search-service/`, port **3005**)**
+  - `POST /api/search/cars` → delegates to car-service search
+  - `GET /api/search/clients?q=` → filters clients from client-service
+  - `POST /api/search/rentals` → loads rentals from rental-service and filters in-process
+
+- **Media Service (`services/media-service/`, port **3006**)**
+  - Stores uploaded images (multipart) under `UPLOAD_DIR`; serves `GET /api/upload/files/:filename`
+
+- **Client Service (`services/client-service/`, port **3007**)**
+  - CRUD for rental-point **clients** in `client_service_db` (separate from `user_accounts`)
+
 ---
 
 ## 3) Environments, ports, and required processes
@@ -75,6 +88,9 @@ flowchart LR
 - **Car service**: `3003`
 - **Rental service**: `3004`
 - **Reporting service**: `3009`
+- **Search service**: `3005`
+- **Media service**: `3006`
+- **Client service**: `3007`
 
 ### Gateway `.env` (recommended)
 
@@ -89,14 +105,10 @@ CAR_SERVICE_URL=http://localhost:3003
 USER_SERVICE_URL=http://localhost:3002
 RENTAL_SERVICE_URL=http://localhost:3004
 REPORTING_SERVICE_URL=http://localhost:3009
+SEARCH_SERVICE_URL=http://localhost:3005
+MEDIA_SERVICE_URL=http://localhost:3006
+CLIENT_SERVICE_URL=http://localhost:3007
 SERVICE_API_KEY=internal-service-key
-
-# Legacy gateway auth/DB (still used by /api/auth, /api/clients, /api/search, /api/upload)
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=1234
-DB_DATABASE=car_rental_db
 JWT_SECRET=your-secret-key-change-in-production
 JWT_EXPIRES_IN=24h
 ```

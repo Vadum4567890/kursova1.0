@@ -2,9 +2,9 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
   OneToMany,
-  JoinColumn,
 } from 'typeorm';
 import { Penalty } from './Penalty.entity';
 
@@ -50,10 +50,10 @@ export class Rental {
   })
   status!: RentalStatus;
 
-  @Column({ type: 'timestamp', name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @Column({ type: 'timestamp', name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
   @OneToMany(() => Penalty, (penalty) => penalty.rental)

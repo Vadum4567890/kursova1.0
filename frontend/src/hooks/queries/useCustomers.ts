@@ -1,56 +1,53 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clientService } from '../../services/clientService';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { customerService } from '../../services/customerService';
 import { Client } from '../../interfaces';
 
 const QUERY_KEYS = {
-  all: ['clients'] as const,
+  all: ['customers'] as const,
   lists: () => [...QUERY_KEYS.all, 'list'] as const,
   list: () => [...QUERY_KEYS.lists()] as const,
   details: () => [...QUERY_KEYS.all, 'detail'] as const,
-  detail: (id: number) => [...QUERY_KEYS.details(), id] as const,
+  detail: (id: number | string) => [...QUERY_KEYS.details(), id] as const,
   byPhone: (phone: string) => [...QUERY_KEYS.all, 'phone', phone] as const,
 };
 
-export const useClients = () => {
-  return useQuery({
+export const useCustomers = () =>
+  useQuery({
     queryKey: QUERY_KEYS.list(),
-    queryFn: () => clientService.getAllClients(),
+    queryFn: () => customerService.getAll(),
   });
-};
 
-export const useClient = (id: number | undefined) => {
-  return useQuery({
+export const useCustomer = (id: number | string | undefined) =>
+  useQuery({
     queryKey: QUERY_KEYS.detail(id!),
-    queryFn: () => clientService.getClientById(id!),
+    queryFn: () => customerService.getById(id!),
     enabled: !!id,
   });
-};
 
-export const useClientByPhone = (phone: string | undefined) => {
-  return useQuery({
+export const useCustomerByPhone = (phone: string | undefined) =>
+  useQuery({
     queryKey: QUERY_KEYS.byPhone(phone!),
-    queryFn: () => clientService.getClientByPhone(phone!),
+    queryFn: () => customerService.getByPhone(phone!),
     enabled: !!phone,
   });
-};
 
-export const useCreateClient = () => {
+export const useCreateCustomer = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (data: Partial<Client>) => clientService.createClient(data),
+    mutationFn: (data: Partial<Client>) => customerService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
     },
   });
 };
 
-export const useUpdateClient = () => {
+export const useUpdateCustomer = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Client> }) =>
-      clientService.updateClient(id, data),
+    mutationFn: ({ id, data }: { id: number | string; data: Partial<Client> }) =>
+      customerService.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.detail(variables.id) });
@@ -58,14 +55,13 @@ export const useUpdateClient = () => {
   });
 };
 
-export const useDeleteClient = () => {
+export const useDeleteCustomer = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (id: number) => clientService.deleteClient(id),
+    mutationFn: (id: number | string) => customerService.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
     },
   });
 };
-

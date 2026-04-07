@@ -9,7 +9,7 @@ export interface Car {
   brand: string;
   model: string;
   year: number;
-  type: 'economy' | 'business' | 'premium';
+  type: 'economy' | 'business' | 'premium' | 'suv' | 'luxury';
   pricePerDay: number;
   deposit: number;
   status: 'available' | 'rented' | 'maintenance';
@@ -31,9 +31,11 @@ export interface Car {
 }
 
 export interface Rental {
-  id: number;
-  clientId: number;
-  carId: number;
+  /** UUID (rental-service) або числовий id (legacy) */
+  id: number | string;
+  clientId?: number;
+  renterUserId?: string;
+  carId: number | string;
   startDate: string;
   expectedEndDate: string;
   actualEndDate?: string;
@@ -46,8 +48,13 @@ export interface Rental {
     fullName: string;
     phone: string;
   };
+  renter?: {
+    id: number | string;
+    email: string;
+    fullName: string;
+  };
   car?: {
-    id: number;
+    id: number | string;
     brand: string;
     model: string;
     pricePerDay: number;
@@ -60,7 +67,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'manager' | 'employee' | 'user';
+  role: 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner';
   fullName?: string;
   address?: string;
   phone?: string;
@@ -70,7 +77,7 @@ export interface User {
 }
 
 export interface Client {
-  id: number;
+  id: number | string;
   fullName: string;
   address: string;
   phone: string;
@@ -81,8 +88,8 @@ export interface Client {
 }
 
 export interface Penalty {
-  id: number;
-  rentalId: number;
+  id: string | number;
+  rentalId: string | number;
   amount: number;
   reason: string;
   date?: string; // Legacy field, use createdAt instead
@@ -90,9 +97,9 @@ export interface Penalty {
   createdAt?: string;
   updatedAt?: string;
   rental?: {
-    id: number;
+    id: string | number;
     clientId?: number;
-    carId?: number;
+    carId?: number | string;
     client?: {
       fullName: string;
     };

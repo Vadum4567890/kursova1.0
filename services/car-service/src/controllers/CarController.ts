@@ -5,9 +5,19 @@ import { CreatePricingDto } from '../dto/CreatePricingDto';
 import { SearchCarsDto } from '../dto/SearchCarsDto';
 import { validateDto } from '../middleware/validation';
 import { UserServiceClient } from '../services/UserServiceClient';
-import { CarStatus } from '../entities/Car.entity';
+import { CarCategory, CarStatus } from '../entities/Car.entity';
 
 const ALLOWED_STATUS_UPDATE = [CarStatus.ACTIVE, CarStatus.RENTED, CarStatus.MAINTENANCE];
+
+/** Query string дає рядки; після validate + implicit conversion — page/limit → offset */
+function searchDtoToFindAllFilters(dto: SearchCarsDto) {
+  const { page, limit, offset: dtoOffset, ...criteria } = dto;
+  let offset = dtoOffset;
+  if (page != null && limit != null) {
+    offset = (page - 1) * limit;
+  }
+  return { ...criteria, limit, offset };
+}
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -23,10 +33,27 @@ export class CarController {
 
   createCar = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const carData = await validateDto(CreateCarDto, req.body);
+      const dto = await validateDto(CreateCarDto, req.body);
+      const { dailyRate, depositAmount, ...carFields } = dto;
 
-      const car = await this.carService.createCar(carData);
-      
+      const pricing =
+        dailyRate !== undefined
+          ? {
+              dailyRate,
+              depositAmount: depositAmount ?? 0,
+              depositRequired: (depositAmount ?? 0) > 0,
+              currency: 'UAH' as const,
+            }
+          : undefined;
+
+      const car = await this.carService.createCar(
+        {
+          ...carFields,
+          ownerId: req.userId,
+        },
+        pricing
+      );
+
       res.status(201).json({
         success: true,
         data: car,
@@ -49,21 +76,33 @@ export class CarController {
         return;
       }
 
-      // Отримати інформацію про власника з User Service
-      const userServiceClient = new UserServiceClient();
-      const owner = await userServiceClient.getUserById(car.ownerId);
-      const ownerProfile = await userServiceClient.getUserProfile(car.ownerId);
+      let ownerPayload: {
+        id: string;
+        email?: string;
+        role?: string;
+        profile: unknown;
+      } | null = null;
+      try {
+        const userServiceClient = new UserServiceClient();
+        const owner = await userServiceClient.getUserById(car.ownerId);
+        const ownerProfile = await userServiceClient.getUserProfile(car.ownerId);
+        ownerPayload = owner
+          ? {
+              id: owner.id,
+              email: owner.email,
+              role: owner.role,
+              profile: ownerProfile,
+            }
+          : null;
+      } catch {
+        ownerPayload = null;
+      }
 
       res.json({
         success: true,
         data: {
           ...car,
-          owner: owner ? {
-            id: owner.id,
-            email: owner.email,
-            role: owner.role,
-            profile: ownerProfile,
-          } : null,
+          owner: ownerPayload,
         },
       });
     } catch (error) {
@@ -73,8 +112,8 @@ export class CarController {
 
   getAllCars = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const filters = await validateDto(SearchCarsDto, req.query);
-      const cars = await this.carService.getAllCars(filters);
+      const dto = await validateDto(SearchCarsDto, req.query);
+      const cars = await this.carService.getAllCars(searchDtoToFindAllFilters(dto));
 
       res.json({
         success: true,
@@ -152,6 +191,14 @@ export class CarController {
         res.status(403).json({
           success: false,
           error: { message: 'Forbidden: You can only delete your own cars' },
+        });
+        return;
+      }
+
+      if (car.status === CarStatus.DELETED) {
+        res.status(404).json({
+          success: false,
+          error: { message: 'Car already deleted' },
         });
         return;
       }
@@ -331,6 +378,82 @@ export class CarController {
     }
   };
 
+  /** GET /api/cars/available — лише активні авто (доступні для каталогу) */
+  getAvailableCars = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const dto = await validateDto(SearchCarsDto, req.query);
+      const cars = await this.carService.getAllCars({
+        ...searchDtoToFindAllFilters(dto),
+        status: CarStatus.ACTIVE,
+      });
+      res.json({
+        success: true,
+        data: cars,
+        count: cars.length,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** GET /api/cars/type/:category — фільтр за категорією (business → comfort) */
+  getCarsByCategoryParam = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const mapped = this.mapLegacyCategory(req.params.category || '');
+      if (!mapped) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Unknown category' },
+        });
+        return;
+      }
+      const dto = await validateDto(SearchCarsDto, req.query);
+      const cars = await this.carService.getAllCars({
+        ...searchDtoToFindAllFilters(dto),
+        category: mapped,
+      });
+      res.json({
+        success: true,
+        data: cars,
+        count: cars.length,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** GET /api/cars/my — авто поточного власника (JWT) */
+  getMyCars = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const ownerId = req.userId;
+      if (!ownerId) {
+        res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
+        return;
+      }
+      const cars = await this.carService.getCarsByOwner(ownerId);
+      res.json({
+        success: true,
+        data: cars,
+        count: cars.length,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  private mapLegacyCategory(param: string): CarCategory | null {
+    const p = param.trim().toLowerCase();
+    const map: Record<string, CarCategory> = {
+      economy: CarCategory.ECONOMY,
+      business: CarCategory.COMFORT,
+      comfort: CarCategory.COMFORT,
+      premium: CarCategory.PREMIUM,
+      suv: CarCategory.SUV,
+      luxury: CarCategory.LUXURY,
+    };
+    return map[p] ?? null;
+  }
+
   searchCars = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const searchParams = await validateDto(SearchCarsDto, req.query);
@@ -351,7 +474,7 @@ export class CarController {
       }
 
       // Otherwise use regular search
-      const cars = await this.carService.getAllCars(searchParams);
+      const cars = await this.carService.getAllCars(searchDtoToFindAllFilters(searchParams));
 
       res.json({
         success: true,

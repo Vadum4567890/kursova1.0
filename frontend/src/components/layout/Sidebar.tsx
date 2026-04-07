@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const getRoleColor = (role: string) => {
@@ -96,10 +96,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const isOwner = user?.role === 'owner';
 
   const menuItems = [
-    { label: 'Головна', path: isStaff ? '/dashboard' : '/', icon: Dashboard, show: true },
+    { label: 'Головна', path: isStaff ? '/dashboard' : '/home', icon: Dashboard, show: true },
     { label: 'Автомобілі', path: '/cars', icon: DirectionsCar, show: true },
     { label: 'Мої авто', path: '/my-cars', icon: DirectionsCar, show: isAuthenticated && isOwner },
-    { label: 'Клієнти', path: '/clients', icon: People, show: isAuthenticated && isStaff },
+    { label: 'Орендарі', path: '/customers', icon: People, show: isAuthenticated && isStaff },
     { label: 'Прокати', path: '/rentals', icon: Assignment, show: isAuthenticated && isStaff },
     { label: 'Мої прокати', path: '/my-rentals', icon: Assignment, show: isAuthenticated && isUser },
     { label: 'Штрафи', path: '/penalties', icon: Gavel, show: isAuthenticated && isStaff },
@@ -229,7 +229,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate('/');
+                if (!isAuthenticated) {
+                  navigate('/');
+                  return;
+                }
+                navigate(isStaff ? '/dashboard' : '/home');
               }}
             >
               Car Rental

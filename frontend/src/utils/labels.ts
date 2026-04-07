@@ -42,9 +42,14 @@ export const getTypeLabel = (type: string): string => {
     case 'economy':
       return 'Економ';
     case 'business':
+    case 'comfort':
       return 'Бізнес';
     case 'premium':
       return 'Преміум';
+    case 'suv':
+      return 'SUV';
+    case 'luxury':
+      return 'Люкс';
     default:
       return type;
   }
@@ -104,6 +109,10 @@ export const getRoleLabel = (role: string): string => {
       return 'Співробітник';
     case 'user':
       return 'Користувач';
+    case 'renter':
+      return 'Орендар';
+    case 'owner':
+      return 'Власник';
     default:
       return role;
   }

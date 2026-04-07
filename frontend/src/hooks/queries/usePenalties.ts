@@ -7,9 +7,9 @@ const QUERY_KEYS = {
   lists: () => [...QUERY_KEYS.all, 'list'] as const,
   list: () => [...QUERY_KEYS.lists()] as const,
   details: () => [...QUERY_KEYS.all, 'detail'] as const,
-  detail: (id: number) => [...QUERY_KEYS.details(), id] as const,
+  detail: (id: string | number) => [...QUERY_KEYS.details(), id] as const,
   my: () => [...QUERY_KEYS.all, 'my'] as const,
-  byRental: (rentalId: number) => [...QUERY_KEYS.all, 'rental', rentalId] as const,
+  byRental: (rentalId: string | number) => [...QUERY_KEYS.all, 'rental', rentalId] as const,
 };
 
 export const usePenalties = () => {
@@ -19,7 +19,7 @@ export const usePenalties = () => {
   });
 };
 
-export const usePenalty = (id: number | undefined) => {
+export const usePenalty = (id: string | number | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.detail(id!),
     queryFn: () => penaltyService.getPenaltyById(id!),
@@ -35,7 +35,7 @@ export const useMyPenalties = () => {
   });
 };
 
-export const usePenaltiesByRental = (rentalId: number | undefined) => {
+export const usePenaltiesByRental = (rentalId: string | number | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.byRental(rentalId!),
     queryFn: () => penaltyService.getPenaltiesByRentalId(rentalId!),
@@ -62,7 +62,7 @@ export const useDeletePenalty = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id: number) => penaltyService.deletePenalty(id),
+    mutationFn: (id: string | number) => penaltyService.deletePenalty(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lists() });
     },

@@ -47,5 +47,22 @@ export class ReportController {
       next(error);
     }
   };
-}
 
+  exportFinancialReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { startDate, endDate, format } = req.query;
+      const exportFormat = format === 'pdf' ? 'pdf' : 'xlsx';
+      const file = await this.reportService.exportFinancialReport(
+        exportFormat,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+
+      res.setHeader('Content-Type', file.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+      res.send(file.buffer);
+    } catch (error) {
+      next(error);
+    }
+  };
+}

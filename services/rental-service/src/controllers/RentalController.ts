@@ -133,11 +133,21 @@ export class RentalController {
         return;
       }
 
+      const start = new Date(startDate);
+      const end = new Date(expectedEndDate);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Invalid startDate or expectedEndDate' },
+        });
+        return;
+      }
+
       const rental = await this.rentalService.createBookingForCurrentRenter(
         req.user.id,
         String(carId),
-        new Date(startDate),
-        new Date(expectedEndDate),
+        start,
+        end,
       );
 
       res.status(201).json({ success: true, data: rental });
