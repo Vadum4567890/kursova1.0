@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { penaltyService } from '../../services/penaltyService';
 import { CreatePenaltyData } from '../../interfaces';
+import { useAuth } from '../../context/AuthContext';
 
 const QUERY_KEYS = {
   all: ['penalties'] as const,
@@ -28,10 +29,11 @@ export const usePenalty = (id: string | number | undefined) => {
 };
 
 export const useMyPenalties = () => {
-  // Backend automatically filters penalties for current user
+  const { token, user, isLoading } = useAuth();
   return useQuery({
-    queryKey: QUERY_KEYS.my(),
-    queryFn: () => penaltyService.getAllPenalties(),
+    queryKey: [...QUERY_KEYS.my(), user?.id ?? 'none'],
+    queryFn: () => penaltyService.getMyPenalties(),
+    enabled: !!token && !!user && !isLoading,
   });
 };
 

@@ -85,6 +85,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               <Typography variant="body2" color="text.secondary">
                 Ціна: {car.pricePerDay} ₴/день • Базовий завдаток: {car.deposit} ₴
               </Typography>
+              <Alert severity={car.instantBook ? 'success' : 'info'} sx={{ mt: 1 }}>
+                {car.instantBook
+                  ? 'Миттєве бронювання: підтвердження одразу після створення заявки.'
+                  : 'Бронювання за запитом: орендодавець підтвердить заявку вручну.'}
+              </Alert>
             </Box>
 
             {loadingBookedDates ? (

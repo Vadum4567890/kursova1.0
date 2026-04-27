@@ -28,6 +28,8 @@ export interface Car {
   features?: string;
   createdAt?: string;
   updatedAt?: string;
+  instantBook?: boolean;
+  unavailableDates?: string[];
 }
 
 export interface Rental {
@@ -42,7 +44,12 @@ export interface Rental {
   depositAmount: number;
   totalCost: number;
   penaltyAmount: number;
-  status: 'active' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  ownerUserId?: string | null;
+  reviewStatus?: 'not_available' | 'waiting' | 'partial' | 'published' | 'expired';
+  reviewWindowClosesAt?: string;
+  ownerReviewSubmittedAt?: string;
+  renterReviewSubmittedAt?: string;
   client?: {
     id: number;
     fullName: string;
@@ -63,11 +70,80 @@ export interface Rental {
   updatedAt?: string;
 }
 
+export interface ReviewableBooking {
+  bookingId: string;
+  carId: number | string;
+  ownerUserId?: string | null;
+  renterUserId?: string;
+  role: 'owner' | 'renter';
+  reviewStatus: 'waiting' | 'partial' | 'published' | 'expired' | 'not_available';
+  reviewWindowClosesAt?: string;
+  myReviewSubmitted?: boolean;
+  counterpartyReviewSubmitted?: boolean;
+  canSubmit?: boolean;
+  myReview?: Review | null;
+}
+
+export interface BookingReviewStatus {
+  bookingId: string;
+  canSubmit: boolean;
+  myReviewSubmitted: boolean;
+  counterpartyReviewSubmitted: boolean;
+  published: boolean;
+  expired: boolean;
+  reviewStatus: 'waiting' | 'partial' | 'published' | 'expired' | 'not_available';
+  reviewWindowClosesAt?: string;
+}
+
+export interface Review {
+  id: string;
+  bookingId: string;
+  reviewerUserId: string;
+  revieweeUserId: string;
+  carId: string;
+  reviewType: 'owner_to_renter' | 'renter_to_owner_and_car';
+  revieweeType: 'owner' | 'renter';
+  status: 'submitted' | 'published' | 'expired';
+  comment?: string | null;
+  submittedAt: string;
+  publishedAt?: string | null;
+  scores: Record<string, number>;
+}
+
+export interface CarRatingSummary {
+  carId: string;
+  rating: number;
+  reviewsCount: number;
+  cleanlinessAvg: number;
+  technicalConditionAvg: number;
+  accuracyOfDescriptionAvg: number;
+  completedRentalsCount: number;
+}
+
+export interface UserRatingSummary {
+  userId: string;
+  rating: number;
+  reviewsCount: number;
+  asRenterRating: number;
+  asRenterCount: number;
+  asOwnerRating: number;
+  asOwnerCount: number;
+  ownerCommunicationAvg: number;
+  ownerHonestyAvg: number;
+  ownerResponseSpeedAvg: number;
+  renterReturnedOnTimeAvg: number;
+  renterDamageFreeReturnAvg: number;
+  renterBehaviorAvg: number;
+  completedRentalsCount: number;
+  updatedAt?: string;
+}
+
 export interface User {
-  id: number;
+  /** Числовий id (dev gateway) або UUID (user-service) */
+  id: number | string;
   username: string;
   email: string;
-  role: 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner';
+  role: 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner' | 'both';
   fullName?: string;
   address?: string;
   phone?: string;
@@ -109,4 +185,3 @@ export interface Penalty {
     };
   };
 }
-

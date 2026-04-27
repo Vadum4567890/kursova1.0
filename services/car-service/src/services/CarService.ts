@@ -7,6 +7,7 @@ import { CarDocument } from '../entities/CarDocument.entity';
 import { CarRepository } from '../repositories/CarRepository';
 import { CarPricingRepository } from '../repositories/CarPricingRepository';
 import { CarImageRepository } from '../repositories/CarImageRepository';
+import { CarRatingRepository } from '../repositories/CarRatingRepository';
 import { UserServiceClient } from './UserServiceClient';
 import logger from '../utils/logger';
 import { sendEvent } from '../kafka/producer';
@@ -17,29 +18,57 @@ import {
   TransmissionType,
   FuelType,
 } from '../entities/Car.entity';
+import { CarRating } from '../entities/CarRating.entity';
 
 export class CarService {
   private carRepository: CarRepository;
   private pricingRepository: CarPricingRepository;
   private imageRepository: CarImageRepository;
+  private carRatingRepository: CarRatingRepository;
   private userServiceClient: UserServiceClient;
 
   constructor() {
     this.carRepository = new CarRepository();
     this.pricingRepository = new CarPricingRepository();
     this.imageRepository = new CarImageRepository();
+    this.carRatingRepository = new CarRatingRepository();
     this.userServiceClient = new UserServiceClient();
+  }
+
+  private buildBlockedAvailability(carId: string, ownerId: string, unavailableDates: string[]): CarAvailability[] {
+    const uniqueDates = [...new Set(unavailableDates)].filter(Boolean);
+    return uniqueDates.map((date) => {
+      const item = new CarAvailability();
+      item.carId = carId;
+      item.date = new Date(date);
+      item.isAvailable = false;
+      item.blockedReason = 'owner_unavailable';
+      item.blockedBy = ownerId;
+      return item;
+    });
   }
 
   async createCar(carData: Partial<Car>, pricingData?: Partial<CarPricing>): Promise<Car> {
     try {
       // Тимчасово створюємо технічного власника, щоб не блокувати створення авто
       const ownerId = carData.ownerId || uuidv4();
+      const unavailableDates = Array.isArray((carData as any).unavailableDates)
+        ? (carData as any).unavailableDates
+        : [];
+      const { unavailableDates: _unused, ...carPersistFields } = carData as Partial<Car> & {
+        unavailableDates?: string[];
+      };
 
       const car = await this.carRepository.create({
-        ...carData,
+        ...carPersistFields,
         ownerId,
       });
+
+      if (unavailableDates.length > 0) {
+        await this.carRepository.update(car.id, {
+          availability: this.buildBlockedAvailability(car.id, ownerId, unavailableDates),
+        });
+      }
 
       if (pricingData) {
         await this.pricingRepository.create({
@@ -107,7 +136,25 @@ export class CarService {
 
   async updateCar(carId: string, carData: Partial<Car>): Promise<Car> {
     try {
-      const updated = await this.carRepository.update(carId, carData);
+      const unavailableDates = Array.isArray((carData as any).unavailableDates)
+        ? (carData as any).unavailableDates
+        : undefined;
+      const existing = await this.carRepository.findById(carId);
+      if (!existing) {
+        throw new Error('Car not found');
+      }
+      const { unavailableDates: _unused, ...carPersistFields } = carData as Partial<Car> & {
+        unavailableDates?: string[];
+      };
+      const normalizedUpdate: Partial<Car> = { ...carPersistFields };
+      if (unavailableDates) {
+        normalizedUpdate.availability = this.buildBlockedAvailability(
+          carId,
+          existing.ownerId,
+          unavailableDates
+        );
+      }
+      const updated = await this.carRepository.update(carId, normalizedUpdate);
 
       // Send Kafka event
       await sendEvent('car.updated', {
@@ -218,5 +265,22 @@ export class CarService {
       throw error;
     }
   }
-}
 
+  async getCarRating(carId: string): Promise<CarRating> {
+    return await this.carRatingRepository.getOrCreate(carId);
+  }
+
+  async incrementCompletedRentals(carId: string): Promise<CarRating> {
+    return await this.carRatingRepository.incrementCompletedRentals(carId);
+  }
+
+  async applyPublishedReviewAggregate(
+    carId: string,
+    payload: {
+      overallScore: number;
+      categories: Record<string, number>;
+    }
+  ): Promise<CarRating> {
+    return await this.carRatingRepository.applyPublishedReviewAggregate(carId, payload);
+  }
+}

@@ -15,6 +15,8 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
+  Badge,
+  Stack,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -31,10 +33,14 @@ import {
   Gavel,
   Brightness4,
   Brightness7,
+  Chat,
+  Garage,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAppTheme } from '../../context/ThemeContext';
+import { useUnreadChatsSummary } from '../../hooks/queries/useUnreadChats';
+import { UnreadCountBadge } from '../common';
 
 const DRAWER_WIDTH = 280;
 const DRAWER_WIDTH_COLLAPSED = 72;
@@ -93,12 +99,44 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
   const isUser = user?.role === 'user' || user?.role === 'renter';
-  const isOwner = user?.role === 'owner';
+  const isOwner = user?.role === 'owner' || user?.role === 'both';
+  const showChats =
+    isAuthenticated &&
+    !isStaff &&
+    ['user', 'renter', 'owner', 'both'].includes(user?.role || '');
 
-  const menuItems = [
+  const { data: unreadChats } = useUnreadChatsSummary();
+  const chatsUnreadTotal = showChats ? unreadChats?.total ?? 0 : 0;
+
+  const menuItems: Array<{
+    label: string;
+    path: string;
+    icon: typeof Dashboard;
+    show: boolean;
+    isActive?: (pathname: string) => boolean;
+  }> = [
     { label: 'Головна', path: isStaff ? '/dashboard' : '/home', icon: Dashboard, show: true },
-    { label: 'Автомобілі', path: '/cars', icon: DirectionsCar, show: true },
-    { label: 'Мої авто', path: '/my-cars', icon: DirectionsCar, show: isAuthenticated && isOwner },
+    {
+      label: 'Автомобілі',
+      path: '/cars',
+      icon: DirectionsCar,
+      show: true,
+      isActive: (p) => p.startsWith('/cars') && !p.includes('/chat'),
+    },
+    {
+      label: 'Чати',
+      path: '/chats',
+      icon: Chat,
+      show: showChats,
+      isActive: (p) => p === '/chats' || (p.includes('/cars/') && p.includes('/chat')),
+    },
+    {
+      label: 'Мої авто',
+      path: '/my-cars',
+      icon: Garage,
+      show: isAuthenticated && isOwner,
+      isActive: (p) => p === '/my-cars',
+    },
     { label: 'Орендарі', path: '/customers', icon: People, show: isAuthenticated && isStaff },
     { label: 'Прокати', path: '/rentals', icon: Assignment, show: isAuthenticated && isStaff },
     { label: 'Мої прокати', path: '/my-rentals', icon: Assignment, show: isAuthenticated && isUser },
@@ -112,10 +150,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   const filteredMenuItems = menuItems.filter(item => item.show);
 
-  const MenuItemContent = ({ item }: { item: typeof menuItems[0] }) => {
+  const MenuItemContent = ({ item }: { item: (typeof menuItems)[0] }) => {
     const Icon = item.icon;
-    const isActive = location.pathname === item.path;
-    
+    const isActive = item.isActive ? item.isActive(location.pathname) : location.pathname === item.path;
+    const showChatsBadge = item.path === '/chats' && chatsUnreadTotal > 0;
+    const badgeLabel = chatsUnreadTotal > 99 ? '99+' : String(chatsUnreadTotal);
+
     const content = (
       <ListItemButton
         onClick={() => navigate(item.path)}
@@ -157,16 +197,42 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             color: 'inherit',
           }}
         >
-          <Icon />
+          {showChatsBadge && !open ? (
+            <Badge
+              badgeContent={badgeLabel}
+              overlap="circular"
+              max={99}
+              sx={{
+                '& .MuiBadge-badge': {
+                  bgcolor: 'error.main',
+                  color: 'common.white',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  minWidth: 22,
+                  height: 22,
+                  borderRadius: 999,
+                  padding: '0 6px',
+                },
+              }}
+            >
+              <Icon />
+            </Badge>
+          ) : (
+            <Icon />
+          )}
         </ListItemIcon>
         {open && (
-          <ListItemText 
-            primary={item.label} 
-            primaryTypographyProps={{
-              fontWeight: isActive ? 600 : 400,
-              fontSize: '0.9375rem',
-            }}
-          />
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+            <ListItemText
+              primary={item.label}
+              primaryTypographyProps={{
+                fontWeight: isActive ? 600 : 400,
+                fontSize: '0.9375rem',
+              }}
+              sx={{ flex: '1 1 auto', minWidth: 0, my: 0 }}
+            />
+            {showChatsBadge && <UnreadCountBadge count={chatsUnreadTotal} />}
+          </Stack>
         )}
       </ListItemButton>
     );
@@ -259,7 +325,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       {/* Navigation Menu */}
       <List sx={{ px: 1, py: 2, flex: 1, overflow: 'auto' }}>
         {filteredMenuItems.map((item) => (
-          <ListItem key={item.path} disablePadding>
+          <ListItem key={`${item.path}-${item.label}`} disablePadding>
             <MenuItemContent item={item} />
           </ListItem>
         ))}

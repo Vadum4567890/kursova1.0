@@ -10,6 +10,8 @@ import {
   Length,
   IsLatitude,
   IsLongitude,
+  IsArray,
+  IsDateString,
 } from 'class-validator';
 import { CarCategory, TransmissionType, FuelType } from '../entities/Car.entity';
 
@@ -80,6 +82,11 @@ export class CreateCarDto {
   @IsOptional()
   @IsBoolean()
   instantBook?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsDateString({}, { each: true })
+  unavailableDates?: string[];
 
   /** Ціноутворення при створенні (опційно; якщо є dailyRate — створюється рядок у car_pricing) */
   @IsOptional()

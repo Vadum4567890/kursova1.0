@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
 import { useCreateBooking } from './queries/useRentals';
 import { isDateRangeValid } from '../utils/dateHelpers';
@@ -20,7 +20,7 @@ interface UseCarBookingOptions {
  */
 export function useCarBooking(options: UseCarBookingOptions = {}) {
   const { carId, bookedDates = [], onSuccess } = options;
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const createBooking = useCreateBooking();
   
   const [error, setError] = useState('');
@@ -89,30 +89,28 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
       return;
     }
 
-    if (typeof carId !== 'number') {
-      setError('Бронювання цього авто через сервіс зараз недоступне');
-      return;
-    }
-
     try {
       setError('');
       const startDateStr = bookingData.startDate.format('YYYY-MM-DD');
       const expectedEndDateStr = bookingData.expectedEndDate.format('YYYY-MM-DD');
 
       await createBooking.mutateAsync({
-        carId,
+        carId: carId as number | string,
         startDate: startDateStr,
         expectedEndDate: expectedEndDateStr,
       });
 
       resetBookingData();
+      void queryClient.invalidateQueries({ queryKey: ['rentals'] });
+      if (carId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: ['rentals', 'landlord-contact', carId] });
+      }
       onSuccess?.();
-      navigate('/my-rentals');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка бронювання');
       throw err;
     }
-  }, [carId, bookingData, validateBooking, createBooking, resetBookingData, onSuccess, navigate]);
+  }, [carId, bookingData, validateBooking, createBooking, resetBookingData, onSuccess, queryClient]);
 
   const isDateRangeValidForBooking = useCallback(() => {
     if (!bookingData.startDate || !bookingData.expectedEndDate) return false;

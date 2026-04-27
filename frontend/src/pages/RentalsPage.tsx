@@ -37,6 +37,7 @@ import { useErrorHandler } from '../hooks/useErrorHandler';
 import { StatusChip } from '../components/common';
 import { RentalFormData } from '../interfaces';
 import { formatDate } from '../utils/dateHelpers';
+import { getRenterDisplayName } from '../utils/rentalDisplay';
 
 const RentalsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -52,6 +53,10 @@ const RentalsPage: React.FC = () => {
   const { data: customers = [] } = useCustomers();
   const { data: carsResponse } = useCars();
   const cars = useMemo(() => carsResponse?.data?.filter((c: Car) => c.status === 'available') || [], [carsResponse]);
+  const clientNamesByUserId = useMemo(
+    () => new Map(customers.map((c: Client) => [String(c.id), c.fullName])),
+    [customers]
+  );
   
   const { error, handleError, clearError } = useErrorHandler();
   const displayError = error || rentalsError?.message || activeError?.message;
@@ -153,13 +158,7 @@ const RentalsPage: React.FC = () => {
               {rentals.map((rental: Rental) => (
                 <TableRow key={rental.id} hover>
                   <TableCell>{rental.id}</TableCell>
-                  <TableCell>
-                    {rental.client?.fullName
-                      || rental.renter?.fullName
-                      || rental.renter?.email
-                      || (rental.clientId ? `Клієнт #${rental.clientId}` : '')
-                      || (rental.renterUserId ? `ID: ${rental.renterUserId.slice(0, 8)}…` : 'Невідомо')}
-                  </TableCell>
+                  <TableCell>{getRenterDisplayName(rental, clientNamesByUserId)}</TableCell>
                   <TableCell>
                     {rental.car
                       ? `${rental.car.brand} ${rental.car.model}`

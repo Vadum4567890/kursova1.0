@@ -9,9 +9,19 @@ import {
 import { Penalty } from './Penalty.entity';
 
 export enum RentalStatus {
+  /** Бронь з майбутньою датою початку (ще не в прокаті) */
+  PENDING = 'pending',
   ACTIVE = 'active',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+}
+
+export enum RentalReviewStatus {
+  NOT_AVAILABLE = 'not_available',
+  WAITING = 'waiting',
+  PARTIAL = 'partial',
+  PUBLISHED = 'published',
+  EXPIRED = 'expired',
 }
 
 @Entity('rentals')
@@ -24,6 +34,9 @@ export class Rental {
 
   @Column({ type: 'uuid', name: 'renter_user_id' })
   renterUserId: string;
+
+  @Column({ type: 'uuid', name: 'owner_user_id', nullable: true })
+  ownerUserId: string | null;
 
   @Column({ type: 'timestamp', name: 'start_date' })
   startDate: Date;
@@ -49,6 +62,23 @@ export class Rental {
     default: RentalStatus.ACTIVE,
   })
   status: RentalStatus;
+
+  @Column({
+    type: 'enum',
+    enum: RentalReviewStatus,
+    name: 'review_status',
+    default: RentalReviewStatus.NOT_AVAILABLE,
+  })
+  reviewStatus: RentalReviewStatus;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'review_window_closes_at' })
+  reviewWindowClosesAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'owner_review_submitted_at' })
+  ownerReviewSubmittedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'renter_review_submitted_at' })
+  renterReviewSubmittedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

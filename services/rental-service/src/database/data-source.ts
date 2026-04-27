@@ -2,6 +2,11 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { Rental } from '../entities/Rental.entity';
 import { Penalty } from '../entities/Penalty.entity';
+import { RentalMessage } from '../entities/RentalMessage.entity';
+import { CarInquiryMessage } from '../entities/CarInquiryMessage.entity';
+import { ChatReadCursor } from '../entities/ChatReadCursor.entity';
+import { Review } from '../entities/Review.entity';
+import { ReviewScore } from '../entities/ReviewScore.entity';
 
 const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
 const synchronize = process.env.DB_SYNCHRONIZE ? process.env.DB_SYNCHRONIZE === 'true' : isDevelopment;
@@ -16,7 +21,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'rental_service_db',
   synchronize,
   logging,
-  entities: [Rental, Penalty],
+  entities: [Rental, Penalty, RentalMessage, CarInquiryMessage, ChatReadCursor, Review, ReviewScore],
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   subscribers: [],
 });

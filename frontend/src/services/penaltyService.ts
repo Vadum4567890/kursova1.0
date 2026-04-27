@@ -13,6 +13,17 @@ export const penaltyService = {
     }
   },
 
+  /** Штрафи лише поточного орендаря (JWT); не плутати з getAllPenalties (адмін). */
+  async getMyPenalties(): Promise<Penalty[]> {
+    try {
+      const response = await api.get<Penalty[]>('/penalties/me');
+      return response.data;
+    } catch (err) {
+      if (isUpstreamUnavailable(err)) return [];
+      throw err;
+    }
+  },
+
   async getPenaltyById(id: string | number): Promise<Penalty> {
     const response = await api.get<Penalty>(`/penalties/${id}`);
     return response.data;

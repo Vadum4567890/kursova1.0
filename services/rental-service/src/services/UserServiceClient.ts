@@ -4,10 +4,15 @@ import logger from '../utils/logger';
 export interface UserInfo {
   id: string;
   email: string;
+  phone?: string | null;
   role?: string;
   fullName?: string;
   username?: string;
   verifiedStatus?: string;
+  profile?: {
+    firstName?: string | null;
+    lastName?: string | null;
+  };
 }
 
 /**
@@ -16,10 +21,12 @@ export interface UserInfo {
  */
 export class UserServiceClient {
   private baseUrl: string;
+  private writeBaseUrl: string;
 
   constructor() {
     // Prefer gateway so it can resolve both dev-auth users (by UUID) and user-service users
     this.baseUrl = process.env.GATEWAY_URL || process.env.USER_SERVICE_URL || 'http://localhost:3002';
+    this.writeBaseUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
   }
 
   async getUserById(userId: string): Promise<UserInfo | null> {
@@ -36,8 +43,14 @@ export class UserServiceClient {
         },
       });
 
-      if (response.data?.status === 'success' && response.data?.data) {
-        return response.data.data;
+      const root = response.data as { success?: boolean; status?: string; data?: UserInfo } | undefined;
+      if (root && root.success === false) {
+        return null;
+      }
+      if (root?.data && typeof root.data === 'object') {
+        if (root.status === 'success' || root.status === undefined) {
+          return root.data as UserInfo;
+        }
       }
       return null;
     } catch (error: any) {
@@ -60,5 +73,38 @@ export class UserServiceClient {
     } catch {
       return allowLegacy;
     }
+  }
+
+  async incrementCompletedRentals(userId: string): Promise<void> {
+    await axios.post(
+      `${this.writeBaseUrl}/api/users/${userId}/rating/completed-rental`,
+      {},
+      {
+        timeout: 5000,
+        headers: {
+          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+        },
+      }
+    );
+  }
+
+  async applyPublishedReviewAggregate(
+    userId: string,
+    payload: {
+      role: 'owner' | 'renter';
+      overallScore: number;
+      categories: Record<string, number>;
+    }
+  ): Promise<void> {
+    await axios.post(
+      `${this.writeBaseUrl}/api/users/${userId}/rating/aggregate`,
+      payload,
+      {
+        timeout: 5000,
+        headers: {
+          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+        },
+      }
+    );
   }
 }

@@ -267,6 +267,54 @@ export class CarController {
     }
   };
 
+  getCarRating = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const rating = await this.carService.getCarRating(req.params.id);
+      res.json({ success: true, data: rating });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  incrementCompletedRentals = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const serviceKey = req.headers['x-service-key'] as string;
+      if (!serviceKey || serviceKey !== process.env.SERVICE_API_KEY) {
+        res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+        return;
+      }
+      const rating = await this.carService.incrementCompletedRentals(req.params.id);
+      res.json({ success: true, data: rating });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  applyPublishedReviewAggregate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const serviceKey = req.headers['x-service-key'] as string;
+      const { overallScore, categories } = req.body || {};
+      if (!serviceKey || serviceKey !== process.env.SERVICE_API_KEY) {
+        res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+        return;
+      }
+      if (typeof overallScore !== 'number' || !categories || typeof categories !== 'object') {
+        res.status(400).json({
+          success: false,
+          error: { message: 'overallScore and categories are required' },
+        });
+        return;
+      }
+      const rating = await this.carService.applyPublishedReviewAggregate(req.params.id, {
+        overallScore,
+        categories,
+      });
+      res.json({ success: true, data: rating });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   setPrimaryImage = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id, imageId } = req.params;
@@ -486,4 +534,3 @@ export class CarController {
     }
   };
 }
-

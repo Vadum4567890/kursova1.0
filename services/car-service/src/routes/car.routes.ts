@@ -14,6 +14,7 @@ router.get('/', carController.getAllCars);
 router.get('/owner/:ownerId', carController.getCarsByOwner);
 
 router.get('/:id/images', carController.getCarImages);
+router.get('/:id/rating', carController.getCarRating);
 router.get('/:id', carController.getCarById);
 
 router.post('/', optionalJwtUser, carController.createCar);
@@ -24,5 +25,7 @@ router.post('/:id/images', requireJwtUser, carController.addImage);
 router.put('/:id/images/:imageId/primary', requireJwtUser, carController.setPrimaryImage);
 router.post('/:id/pricing', requireJwtUser, carController.updatePricing);
 router.put('/:id/pricing', requireJwtUser, carController.updatePricing);
+router.post('/:id/rating/completed-rental', carController.incrementCompletedRentals);
+router.post('/:id/rating/aggregate', carController.applyPublishedReviewAggregate);
 
 export default router;

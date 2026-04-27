@@ -400,9 +400,38 @@ export class UserService {
 
   async getUserRating(userId: string): Promise<UserRating | null> {
     try {
-      return await this.ratingRepository.findByUserId(userId);
+      const existing = await this.ratingRepository.findByUserId(userId);
+      if (existing) {
+        return existing;
+      }
+      return await this.ratingRepository.create({ userId });
     } catch (error) {
       logger.error('Error getting user rating:', error);
+      throw error;
+    }
+  }
+
+  async incrementCompletedRentals(userId: string): Promise<UserRating | null> {
+    try {
+      return await this.ratingRepository.incrementCompletedRentals(userId);
+    } catch (error) {
+      logger.error('Error incrementing completed rentals:', error);
+      throw error;
+    }
+  }
+
+  async applyPublishedReviewAggregate(
+    userId: string,
+    payload: {
+      role: 'owner' | 'renter';
+      overallScore: number;
+      categories: Record<string, number>;
+    }
+  ): Promise<UserRating | null> {
+    try {
+      return await this.ratingRepository.applyPublishedReviewAggregate(userId, payload);
+    } catch (error) {
+      logger.error('Error applying published review aggregate:', error);
       throw error;
     }
   }

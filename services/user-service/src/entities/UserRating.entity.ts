@@ -31,6 +31,27 @@ export class UserRating {
   @Column({ type: 'integer', default: 0 })
   asOwnerCount: number;
 
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  ownerCommunicationAvg: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  ownerHonestyAvg: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  ownerResponseSpeedAvg: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  renterReturnedOnTimeAvg: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  renterDamageFreeReturnAvg: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  renterBehaviorAvg: number;
+
+  @Column({ type: 'integer', default: 0 })
+  completedRentalsCount: number;
+
   @UpdateDateColumn()
   updatedAt: Date;
 

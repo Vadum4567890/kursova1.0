@@ -46,6 +46,36 @@ describe('reporting-service integration (pg-mem)', () => {
     await dataSource.query('DELETE FROM rentals');
   });
 
+  it('getPenaltiesForRenter returns only penalties for that renter and JSON-serializes', async () => {
+    const rentalRepo = dataSource.getRepository(Rental);
+    const renterA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const rental = await rentalRepo.save(
+      rentalRepo.create({
+        id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        carId: '11111111-1111-4111-8111-111111111111',
+        renterUserId: renterA,
+        startDate: new Date('2026-01-10T00:00:00.000Z'),
+        expectedEndDate: new Date('2026-01-12T00:00:00.000Z'),
+        actualEndDate: new Date('2026-01-12T00:00:00.000Z'),
+        depositAmount: 300,
+        totalCost: 500,
+        penaltyAmount: 0,
+        status: RentalStatus.COMPLETED,
+      })
+    );
+    const svc = new PenaltyService();
+    await svc.createPenalty(rental.id, 10, 'a');
+
+    const forA = await svc.getPenaltiesForRenter(renterA);
+    expect(forA).toHaveLength(1);
+    expect(Number(forA[0].amount)).toBe(10);
+
+    const forOther = await svc.getPenaltiesForRenter('99999999-9999-4999-8999-999999999999');
+    expect(forOther).toHaveLength(0);
+
+    expect(() => JSON.stringify(forA)).not.toThrow();
+  });
+
   it('creates a penalty and updates rental penalty total', async () => {
     const rentalRepo = dataSource.getRepository(Rental);
     const rental = await rentalRepo.save(

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rentalService } from '../../services/rentalService';
 import { CreateRentalData } from '../../interfaces';
+import { useAuth } from '../../context/AuthContext';
 
 const QUERY_KEYS = {
   all: ['rentals'] as const,
@@ -10,6 +11,7 @@ const QUERY_KEYS = {
   detail: (id: number | string) => [...QUERY_KEYS.details(), id] as const,
   active: () => [...QUERY_KEYS.all, 'active'] as const,
   my: () => [...QUERY_KEYS.all, 'my'] as const,
+  ownerBookings: (userKey: string | number) => [...QUERY_KEYS.all, 'owner-bookings', userKey] as const,
   byClient: (clientId: number | string) => [...QUERY_KEYS.all, 'client', clientId] as const,
   byCar: (carId: number | string) => [...QUERY_KEYS.all, 'car', carId] as const,
 };
@@ -48,10 +50,55 @@ export const useRental = (id: number | string | undefined) => {
 /**
  * Get my rentals (for regular users)
  */
-export const useMyRentals = () => {
+export const useMyRentals = (options?: { refetchInterval?: number }) => {
+  const { token, user, isLoading } = useAuth();
   return useQuery({
-    queryKey: QUERY_KEYS.my(),
+    queryKey: [...QUERY_KEYS.my(), user?.id ?? 'none'],
     queryFn: () => rentalService.getMyRentals(),
+    enabled: !!token && !!user && !isLoading,
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: false,
+    // Список фільтрує лише rental-service за JWT; не порівнювати тут user.id з renterUserId —
+    // у dev auth id числовий (10000), у БД renter_user_id — UUID (v5 від legacy:id).
+  });
+};
+
+/** Заявки та бронювання по авто власника (JWT = owner_user_id). */
+export const useOwnerBookings = () => {
+  const { token, user, isLoading } = useAuth();
+  return useQuery({
+    queryKey: QUERY_KEYS.ownerBookings(user?.id ?? 'none'),
+    queryFn: () => rentalService.getOwnerBookings(),
+    enabled: !!token && !!user && !isLoading,
+    staleTime: 15_000,
+  });
+};
+
+export const useApproveBookingAsOwner = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (rentalId: string | number) => rentalService.approveBookingAsOwner(rentalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      if (user?.id != null) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ownerBookings(user.id) });
+      }
+    },
+  });
+};
+
+export const useRejectBookingAsOwner = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (rentalId: string | number) => rentalService.rejectBookingAsOwner(rentalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      if (user?.id != null) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ownerBookings(user.id) });
+      }
+    },
   });
 };
 

@@ -7,7 +7,8 @@ const QUERY_KEYS = {
   list: () => [...QUERY_KEYS.lists()] as const,
   byRole: (role: string) => [...QUERY_KEYS.all, 'role', role] as const,
   details: () => [...QUERY_KEYS.all, 'detail'] as const,
-  detail: (id: number) => [...QUERY_KEYS.details(), id] as const,
+  detail: (id: number | string) => [...QUERY_KEYS.details(), id] as const,
+  rating: (id: number | string) => [...QUERY_KEYS.all, 'rating', id] as const,
 };
 
 export const useUsers = (role?: string) => {
@@ -17,10 +18,18 @@ export const useUsers = (role?: string) => {
   });
 };
 
-export const useUser = (id: number | undefined) => {
+export const useUser = (id: number | string | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.detail(id!),
     queryFn: () => userService.getUserById(id!),
+    enabled: !!id,
+  });
+};
+
+export const useUserRating = (id: number | string | undefined) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.rating(id!),
+    queryFn: () => userService.getUserRating(id!),
     enabled: !!id,
   });
 };

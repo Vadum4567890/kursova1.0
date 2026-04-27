@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { Rental } from '../entities/Rental.entity';
 import { RentalStatus } from '../entities/Rental.entity';
@@ -43,6 +43,23 @@ export class RentalRepository {
     });
   }
 
+  async findByOwnerUserId(ownerUserId: string): Promise<Rental[]> {
+    return await this.repository.find({
+      where: { ownerUserId },
+      order: { createdAt: 'DESC' },
+      relations: ['penalties'],
+    });
+  }
+
+  async findByCarIds(carIds: string[]): Promise<Rental[]> {
+    if (carIds.length === 0) return [];
+    return await this.repository.find({
+      where: { carId: In(carIds) },
+      order: { startDate: 'DESC' },
+      relations: ['penalties'],
+    });
+  }
+
   async findAll(): Promise<Rental[]> {
     return await this.repository.find({
       order: { createdAt: 'DESC' },
@@ -52,10 +69,18 @@ export class RentalRepository {
 
   async findActive(): Promise<Rental[]> {
     return await this.repository.find({
-      where: { status: RentalStatus.ACTIVE },
+      where: { status: In([RentalStatus.ACTIVE, RentalStatus.PENDING]) },
       order: { startDate: 'ASC' },
       relations: ['penalties'],
     });
+  }
+
+  /** Майбутній старт вже настав — переводимо pending → active */
+  async promoteDuePendingRentals(now: Date = new Date()): Promise<void> {
+    await this.repository.update(
+      { status: RentalStatus.PENDING, startDate: LessThanOrEqual(now) },
+      { status: RentalStatus.ACTIVE }
+    );
   }
 
   async update(id: string, data: Partial<Rental>): Promise<Rental> {

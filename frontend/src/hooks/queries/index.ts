@@ -10,4 +10,6 @@ export * from './useAnalytics';
 export * from './useReports';
 export * from './useSearch';
 export * from './useAuth';
+export * from './useReviews';
+export * from './useUsers';
 

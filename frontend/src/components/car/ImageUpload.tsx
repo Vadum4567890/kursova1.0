@@ -116,8 +116,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         Підтримувані формати: JPEG, PNG, GIF, WebP (макс. 5MB)
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-        <Box sx={{ flex: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          alignItems: 'flex-start',
+          width: '100%',
+          minWidth: 0,
+          overflowX: 'hidden',
+        }}
+      >
+        <Box sx={{ flex: 1, width: '100%', minWidth: 0 }}>
           <Button
             variant="outlined"
             component="label"
@@ -156,7 +166,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            width: { xs: '100%', md: 'auto' },
+            maxWidth: '100%',
+          }}
+        >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Головне фото:
           </Typography>
@@ -240,7 +258,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
                 Інші фото ({additionalImageUrls.length}):
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxWidth: 300 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxWidth: '100%' }}>
                 {additionalImageUrls.map((url, index) => (
                   <Box
                     key={index}

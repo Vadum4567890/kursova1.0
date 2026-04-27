@@ -38,6 +38,27 @@ function mapServiceStatusToUi(status?: string): Car['status'] {
   return 'available';
 }
 
+/** Query для GET /cars: car-service очікує `category` та `status` (active/rented/…), а не UI-поля `type` / `available`. */
+function buildCarListQueryParams(filters?: CarFilters): Record<string, string | number | undefined> {
+  if (!filters) return {};
+  const params: Record<string, string | number | undefined> = {};
+  if (filters.page != null) params.page = filters.page;
+  if (filters.limit != null) params.limit = filters.limit;
+  if (filters.sort) params.sort = filters.sort;
+  if (filters.type) {
+    params.category = mapUiCategoryToService(filters.type);
+  }
+  if (filters.status) {
+    params.status = mapUiStatusToService(filters.status as Car['status']);
+  }
+  const brand = filters.brand?.trim();
+  const model = filters.model?.trim();
+  if (brand || model) {
+    params.searchQuery = [brand, model].filter(Boolean).join(' ').trim();
+  }
+  return params;
+}
+
 function mapFuelToService(fuel?: string): string {
   const f = (fuel || 'gasoline').toLowerCase();
   const m: Record<string, string> = {
@@ -73,7 +94,8 @@ export function mapCarFormToCreateBody(form: Partial<Car>): Record<string, unkno
     mileage: form.mileage,
     color: form.color || undefined,
     description: form.description || undefined,
-    instantBook: false,
+    instantBook: Boolean(form.instantBook),
+    unavailableDates: Array.isArray(form.unavailableDates) ? form.unavailableDates : [],
     dailyRate: form.pricePerDay ?? 0,
     depositAmount: form.deposit ?? 0,
   };
@@ -137,6 +159,12 @@ function mapCarFromService(dto: CarServiceDto): Car {
     mileage: dto.mileage,
     color: dto.color,
     features: dto.features,
+    instantBook: Boolean(dto.instantBook),
+    unavailableDates: Array.isArray(dto.availability)
+      ? dto.availability
+          .filter((item: any) => item && item.isAvailable === false && item.date)
+          .map((item: any) => String(item.date))
+      : [],
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
@@ -145,7 +173,7 @@ function mapCarFromService(dto: CarServiceDto): Car {
 export const carService = {
   async getAllCars(filters?: CarFilters): Promise<PaginatedResponse<Car>> {
     try {
-      const response = await api.get<any>('/cars', { params: filters });
+      const response = await api.get<any>('/cars', { params: buildCarListQueryParams(filters) });
       const data = response.data;
 
       if ('success' in data && Array.isArray(data.data)) {
@@ -167,7 +195,7 @@ export const carService = {
 
   async getAvailableCars(filters?: CarFilters): Promise<PaginatedResponse<Car>> {
     try {
-      const response = await api.get<any>('/cars/available', { params: filters });
+      const response = await api.get<any>('/cars/available', { params: buildCarListQueryParams(filters) });
       const data = response.data;
       if ('success' in data && Array.isArray(data.data)) {
         return {
@@ -203,8 +231,9 @@ export const carService = {
 
   async getCarsByType(type: string, filters?: CarFilters): Promise<PaginatedResponse<Car>> {
     try {
-      const response = await api.get<any>(`/cars/type/${type}`, {
-        params: filters,
+      const category = mapUiCategoryToService(type);
+      const response = await api.get<any>(`/cars/type/${category}`, {
+        params: buildCarListQueryParams(filters),
       });
       const data = response.data;
       if ('success' in data && Array.isArray(data.data)) {

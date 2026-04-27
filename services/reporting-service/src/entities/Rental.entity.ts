@@ -9,6 +9,7 @@ import {
 import { Penalty } from './Penalty.entity';
 
 export enum RentalStatus {
+  PENDING = 'pending',
   ACTIVE = 'active',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',

@@ -16,7 +16,7 @@ const AdminPage: React.FC = () => {
   // Get role based on tab
   const role = useMemo(() => {
     if (tabValue === 0) return undefined;
-    return ['admin', 'manager', 'employee', 'user'][tabValue - 1];
+    return ['admin', 'manager', 'employee', 'renter', 'owner'][tabValue - 1];
   }, [tabValue]);
 
   // React Query hooks
@@ -55,7 +55,7 @@ const AdminPage: React.FC = () => {
   };
 
   const handleUpdateRole = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || typeof selectedUser.id !== 'number') return;
     try {
       await userManagement.updateRole(selectedUser.id, roleDialog.formData.role);
       setRoleDialogOpen(false);

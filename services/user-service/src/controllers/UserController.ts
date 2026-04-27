@@ -79,6 +79,37 @@ export class UserController {
     }
   };
 
+  incrementCompletedRentals = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rating = await this.userService.incrementCompletedRentals(req.params.id);
+      res.json({ status: 'success', data: rating });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  applyPublishedReviewAggregate = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { role, overallScore, categories } = req.body || {};
+      if (!role || typeof overallScore !== 'number' || !categories || typeof categories !== 'object') {
+        res.status(400).json({
+          status: 'error',
+          message: 'role, overallScore, categories are required',
+        });
+        return;
+      }
+
+      const rating = await this.userService.applyPublishedReviewAggregate(req.params.id, {
+        role,
+        overallScore,
+        categories,
+      });
+      res.json({ status: 'success', data: rating });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   listClients = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clients = await this.userService.listClients(String(req.query.q || ''));

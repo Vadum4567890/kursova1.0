@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Typography, Box, Paper, Tabs, Tab, Button, Stack } from '@mui/material';
-import { Download } from '@mui/icons-material';
+import { Typography, Box, Paper, Tabs, Tab } from '@mui/material';
 import {
   useFinancialReport,
   useOccupancyReport,
@@ -14,6 +13,7 @@ import {
   OccupancyReportTab,
   AvailabilityReportTab,
   CarReportTab,
+  ReportsExportTab,
 } from '../components/reports';
 import { ErrorAlert, PageContainer } from '../components/common';
 
@@ -89,47 +89,27 @@ const ReportsPage: React.FC = () => {
     await reportService.downloadFinancialReport(format, reports.startDate, reports.endDate);
   };
 
+  const handleDownloadOccupancy = async (format: 'xlsx' | 'pdf') => {
+    await reportService.downloadOccupancyReport(format);
+  };
+
+  const handleDownloadCarReport = async (format: 'xlsx' | 'pdf') => {
+    if (!reports.startDate || !reports.endDate) {
+      return;
+    }
+
+    await reportService.downloadCarReport(format, reports.startDate, reports.endDate);
+  };
+
   return (
     <PageContainer>
-      <Box
-        sx={{
-          mb: 3,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 2,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Звіти
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Фінансова аналітика, операційні звіти та експорт у Excel / PDF
-          </Typography>
-        </Box>
-
-        {tabValue === 0 && (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Download />}
-              onClick={() => handleDownloadFinancial('xlsx')}
-              disabled={!financialReport || loadingFinancial}
-            >
-              Excel
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Download />}
-              onClick={() => handleDownloadFinancial('pdf')}
-              disabled={!financialReport || loadingFinancial}
-            >
-              PDF
-            </Button>
-          </Stack>
-        )}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Звіти
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Фінансова аналітика, операційні звіти та експорт у Excel / PDF
+        </Typography>
       </Box>
 
       {error && <ErrorAlert message={error} />}
@@ -140,6 +120,7 @@ const ReportsPage: React.FC = () => {
           <Tab label="Зайнятість" />
           <Tab label="Доступність" />
           <Tab label="Автомобілі" />
+          <Tab label="Експорт" />
         </Tabs>
       </Paper>
 
@@ -149,6 +130,8 @@ const ReportsPage: React.FC = () => {
           onStartDateChange={reports.updateStartDate}
           onEndDateChange={reports.updateEndDate}
           onGenerate={handleGenerateFinancial}
+          onDownloadExcel={() => handleDownloadFinancial('xlsx')}
+          onDownloadPdf={() => handleDownloadFinancial('pdf')}
           loading={loadingFinancial}
           report={financialReport}
         />
@@ -178,6 +161,17 @@ const ReportsPage: React.FC = () => {
           onGenerate={handleGenerateCarReport}
           loading={loadingCarReport}
           report={carReport}
+        />
+      )}
+
+      {tabValue === 4 && (
+        <ReportsExportTab
+          dateRange={reports.dateRange}
+          onStartDateChange={reports.updateStartDate}
+          onEndDateChange={reports.updateEndDate}
+          onDownloadFinancial={handleDownloadFinancial}
+          onDownloadOccupancy={handleDownloadOccupancy}
+          onDownloadCars={handleDownloadCarReport}
         />
       )}
     </PageContainer>

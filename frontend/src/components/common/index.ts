@@ -11,4 +11,5 @@ export { default as StatusChip } from './StatusChip';
 export { default as StatCard } from './StatCard';
 export type { StatCardProps } from './StatCard';
 export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as UnreadCountBadge } from './UnreadCountBadge';
 

@@ -40,6 +40,8 @@ router.delete('/clients/:id', userController.deleteClient.bind(userController));
 // Internal/user lookup routes
 router.get('/:id', internalOrAuth, userController.getUserById.bind(userController));
 router.get('/:id/profile', internalOrAuth, userController.getUserProfile.bind(userController));
-router.get('/:id/rating', authMiddleware, userController.getUserRating.bind(userController));
+router.get('/:id/rating', internalOrAuth, userController.getUserRating.bind(userController));
+router.post('/:id/rating/completed-rental', internalOrAuth, userController.incrementCompletedRentals.bind(userController));
+router.post('/:id/rating/aggregate', internalOrAuth, userController.applyPublishedReviewAggregate.bind(userController));
 
 export { router as userRoutes };

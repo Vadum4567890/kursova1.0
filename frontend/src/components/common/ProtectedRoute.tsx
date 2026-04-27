@@ -3,10 +3,12 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { CircularProgress, Box } from '@mui/material';
 
+type AppRole = 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner' | 'both';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner';
-  allowedRoles?: ('admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner')[];
+  requiredRole?: AppRole;
+  allowedRoles?: AppRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -39,7 +41,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/home" replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role as 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner')) {
+  if (allowedRoles && user && !allowedRoles.includes(user.role as AppRole)) {
     return <Navigate to="/home" replace />;
   }
 

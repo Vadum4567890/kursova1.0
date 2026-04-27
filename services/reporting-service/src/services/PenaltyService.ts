@@ -1,7 +1,11 @@
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Penalty } from '../entities/Penalty.entity';
 import { Rental } from '../entities/Rental.entity';
 import { AppDataSource } from '../database/data-source';
+
+function isUuidString(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 export class PenaltyService {
   private penaltyRepository: Repository<Penalty>;
@@ -14,6 +18,25 @@ export class PenaltyService {
 
   async getAllPenalties(): Promise<Penalty[]> {
     return this.penaltyRepository.find({
+      relations: ['rental'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /** Лише штрафи по прокатах поточного орендаря (ізоляція даних між акаунтами). */
+  async getPenaltiesForRenter(renterUserId: string): Promise<Penalty[]> {
+    if (!isUuidString(renterUserId)) {
+      return [];
+    }
+    const rentals = await this.rentalRepository.find({
+      where: { renterUserId },
+    });
+    const rentalIds = rentals.map((r) => r.id).filter(Boolean) as string[];
+    if (rentalIds.length === 0) {
+      return [];
+    }
+    return this.penaltyRepository.find({
+      where: { rentalId: In(rentalIds) },
       relations: ['rental'],
       order: { createdAt: 'DESC' },
     });

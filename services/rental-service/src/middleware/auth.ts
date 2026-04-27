@@ -41,6 +41,28 @@ function readJwtPayload(token: string): Record<string, unknown> | null {
   return (jwt.decode(token) as Record<string, unknown> | null) ?? null;
 }
 
+/** Той самий user id, що в HTTP auth (для WebSocket query token). */
+export function getUserIdFromBearerToken(token: string): string | null {
+  try {
+    const decoded = readJwtPayload(token);
+    const nestedUser = decoded?.user as { id?: unknown } | undefined;
+    const id =
+      decoded?.sub ?? decoded?.id ?? decoded?.userId ?? nestedUser?.id;
+
+    if (!decoded || id == null) {
+      return null;
+    }
+
+    const rawId = String(id);
+    const normalizedId =
+      isUuidLike(rawId) ? rawId : isNumericLike(rawId) ? uuidv5(`legacy:${rawId}`, LEGACY_ID_NAMESPACE) : rawId;
+
+    return normalizedId;
+  } catch {
+    return null;
+  }
+}
+
 export function auth(req: AuthRequest, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
@@ -51,21 +73,11 @@ export function auth(req: AuthRequest, res: Response, next: NextFunction) {
 
   try {
     const decoded = readJwtPayload(token);
-    const nestedUser = decoded?.user as { id?: unknown } | undefined;
-    const id =
-      decoded?.sub ??
-      decoded?.id ??
-      decoded?.userId ??
-      nestedUser?.id;
+    const normalizedId = getUserIdFromBearerToken(token);
 
-    if (!decoded || !id) {
+    if (!decoded || !normalizedId) {
       return res.status(401).json({ success: false, error: { message: 'Invalid token' } });
     }
-
-    const rawId = String(id);
-    // If monolith token uses numeric IDs, convert deterministically to UUID so DB (uuid columns) won't crash.
-    const normalizedId =
-      isUuidLike(rawId) ? rawId : isNumericLike(rawId) ? uuidv5(`legacy:${rawId}`, LEGACY_ID_NAMESPACE) : rawId;
 
     req.user = {
       id: normalizedId,

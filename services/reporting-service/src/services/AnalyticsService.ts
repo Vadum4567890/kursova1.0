@@ -1,6 +1,8 @@
 import { Repository } from 'typeorm';
 import { Rental, RentalStatus } from '../entities/Rental.entity';
 import { AppDataSource } from '../database/data-source';
+import { fetchCarBrandModel } from '../clients/carServiceClient';
+import { fetchUserDisplayName } from '../clients/userServiceClient';
 
 function toNumber(value: unknown): number {
   return Number(value || 0);
@@ -8,10 +10,6 @@ function toNumber(value: unknown): number {
 
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function formatRenterLabel(renterUserId: string): string {
-  return `Renter ${renterUserId.slice(0, 8)}`;
 }
 
 export class AnalyticsService {
@@ -114,22 +112,30 @@ export class AnalyticsService {
     rentals.forEach((rental) => {
       const current = map.get(rental.carId) || { rentalCount: 0, totalRevenue: 0 };
       current.rentalCount += 1;
-      current.totalRevenue += toNumber(rental.totalCost) + toNumber(rental.penaltyAmount);
+      // Лише базова вартість прокату; штрафи не є «дохідом» у цьому віджеті
+      current.totalRevenue += toNumber(rental.totalCost);
       map.set(rental.carId, current);
     });
 
-    return Array.from(map.entries())
-      .map(([carId, stats]) => ({
-        car: {
-          id: carId,
-          brand: 'Unknown',
-          model: carId.slice(0, 8),
-        },
-        rentalCount: stats.rentalCount,
-        totalRevenue: roundCurrency(stats.totalRevenue),
-      }))
+    const sorted = Array.from(map.entries())
+      .map(([carId, stats]) => ({ carId, ...stats }))
       .sort((a, b) => b.rentalCount - a.rentalCount || b.totalRevenue - a.totalRevenue)
       .slice(0, limit);
+
+    return Promise.all(
+      sorted.map(async ({ carId, rentalCount, totalRevenue }) => {
+        const meta = await fetchCarBrandModel(carId);
+        return {
+          car: {
+            id: carId,
+            brand: meta?.brand ?? 'Невідомо',
+            model: meta?.model ?? carId.slice(0, 8),
+          },
+          rentalCount,
+          totalRevenue: roundCurrency(totalRevenue),
+        };
+      })
+    );
   }
 
   async getTopClients(limit: number = 10, startDate?: Date, endDate?: Date): Promise<any[]> {
@@ -168,13 +174,22 @@ export class AnalyticsService {
       map.set(rental.renterUserId, current);
     });
 
-    return Array.from(map.entries())
+    const rows = Array.from(map.entries())
       .map(([renterUserId, stats]) => {
         const totalReceived = stats.totalCost + stats.totalPenalties;
+        const netRevenue = roundCurrency(totalReceived - stats.totalToReturn);
+        return { renterUserId, stats, totalReceived, netRevenue };
+      })
+      .sort((a, b) => b.netRevenue - a.netRevenue)
+      .slice(0, limit);
+
+    return Promise.all(
+      rows.map(async ({ renterUserId, stats, totalReceived }) => {
+        const resolvedName = await fetchUserDisplayName(renterUserId);
         return {
           client: {
             id: renterUserId,
-            fullName: formatRenterLabel(renterUserId),
+            fullName: resolvedName || 'Орендар',
             phone: '',
           },
           totalSpent: roundCurrency(totalReceived),
@@ -187,8 +202,7 @@ export class AnalyticsService {
           rentalCount: stats.rentalCount,
         };
       })
-      .sort((a, b) => b.netRevenue - a.netRevenue)
-      .slice(0, limit);
+    );
   }
 
   async calculateOccupancyRate(): Promise<number> {

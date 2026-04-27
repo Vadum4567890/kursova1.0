@@ -6,6 +6,7 @@ import { useMyCars } from '../../hooks/queries/useCars';
 import { useCarManagement, useFormDialog, useDeleteConfirm } from '../../hooks';
 import { ErrorAlert, LoadingSpinner, PageHeader, ConfirmDialog, PageContainer } from '../../components/common';
 import { CarCard, CarFormDialog } from '../../components/cars';
+import OwnerBookingRequestsPanel from '../../components/owner/OwnerBookingRequestsPanel';
 import { getInitialCarFormData, parseImageUrls } from '../../utils/carHelpers';
 
 const MyCarsPage: React.FC = () => {
@@ -85,6 +86,8 @@ const MyCarsPage: React.FC = () => {
       />
 
       {displayError && <ErrorAlert message={displayError} onClose={() => carManagement.clearError()} />}
+
+      <OwnerBookingRequestsPanel />
 
       {loading ? (
         <LoadingSpinner />

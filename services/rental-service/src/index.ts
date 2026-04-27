@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import 'dotenv/config';
+import http from 'http';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -8,6 +9,9 @@ import { AppDataSource } from './database/data-source';
 import logger from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
 import rentalRoutes from './routes/rental.routes';
+import { RentalController } from './controllers/RentalController';
+import { auth, AuthRequest } from './middleware/auth';
+import { attachChatWebSocket } from './ws/chatWebSocket';
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -22,15 +26,38 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'rental-service', timestamp: new Date().toISOString() });
 });
 
+/** Контакт орендодавця та inquiry-чат: повний шлях на app, щоб POST/GET стабільно збігались (без «Cannot POST» від mount). */
+const rentalController = new RentalController();
+app.get('/api/rentals/car/:carId/landlord-contact', auth, (req: AuthRequest, res, next) =>
+  rentalController.getLandlordContactForCar(req, res, next)
+);
+app.get('/api/rentals/car/:carId/inquiry-renter-contact', auth, (req: AuthRequest, res, next) =>
+  rentalController.getInquiryRenterContactForCar(req, res, next)
+);
+app.get('/api/rentals/car/:carId/inquiry-threads', auth, (req: AuthRequest, res, next) =>
+  rentalController.getCarInquiryThreads(req, res, next)
+);
+app.get('/api/rentals/car/:carId/inquiry-messages', auth, (req: AuthRequest, res, next) =>
+  rentalController.getCarInquiryMessages(req, res, next)
+);
+app.post('/api/rentals/car/:carId/inquiry-messages', auth, (req: AuthRequest, res, next) =>
+  rentalController.postCarInquiryMessage(req, res, next)
+);
+
 app.use('/api/rentals', rentalRoutes);
 app.use(errorHandler);
+
+const CHAT_WS_PATH = '/api/rentals/ws';
 
 const startServer = async () => {
   try {
     await AppDataSource.initialize();
     logger.info('Database connected');
 
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    attachChatWebSocket(server, CHAT_WS_PATH);
+
+    server.listen(PORT, () => {
       logger.info(`Rental Service running on port ${PORT}`);
     });
   } catch (error) {

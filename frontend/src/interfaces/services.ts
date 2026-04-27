@@ -52,6 +52,17 @@ export interface UpdateRentalData {
   penaltyAmount?: number;
 }
 
+export interface SubmitReviewData {
+  bookingId: string;
+  comment?: string;
+  scores: Record<string, number>;
+}
+
+export interface UpdateReviewData {
+  comment?: string;
+  scores: Record<string, number>;
+}
+
 // User service DTOs
 export interface CreateUserData {
   username: string;
@@ -201,6 +212,7 @@ export interface FinancialReport {
   transactions?: Array<{
     rentalId: string | number;
     renterUserId: string;
+    renterDisplayName?: string | null;
     carId: string | number;
     status: string;
     startDate: string;
@@ -339,4 +351,3 @@ export interface RentalSearchParams {
   startDate?: string;
   endDate?: string;
 }
-

@@ -52,9 +52,17 @@ const CarsPage: React.FC = () => {
   // Booking
   const [carIdForBooking, setCarIdForBooking] = useState<number | string | undefined>(undefined);
   const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carIdForBooking);
+  const carForBooking = useMemo(
+    () => cars.find((car: Car) => String(car.id) === String(carIdForBooking)) || null,
+    [carIdForBooking, cars]
+  );
+  const effectiveBookedDates = useMemo(() => {
+    const blocked = (carForBooking?.unavailableDates || []).map((date) => ({ startDate: date, endDate: date }));
+    return [...bookedDates, ...blocked];
+  }, [bookedDates, carForBooking?.unavailableDates]);
 
   const booking = useBooking({
-    bookedDates,
+    bookedDates: effectiveBookedDates,
     onCreateBooking: async (data) => {
       await createBooking.mutateAsync(data);
     },
@@ -247,7 +255,7 @@ const CarsPage: React.FC = () => {
         open={booking.open}
         onClose={booking.closeBooking}
         car={carToBook}
-        bookedDates={bookedDates}
+        bookedDates={effectiveBookedDates}
         loadingBookedDates={loadingBookedDates}
         bookingData={booking.bookingData}
         onStartDateChange={handleStartDateChange}

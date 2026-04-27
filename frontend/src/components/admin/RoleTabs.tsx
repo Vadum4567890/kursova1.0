@@ -9,12 +9,13 @@ interface RoleTabsProps {
 export const RoleTabs: React.FC<RoleTabsProps> = ({ value, onChange }) => {
   return (
     <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-      <Tabs value={value} onChange={onChange}>
+      <Tabs value={value} onChange={onChange} variant="scrollable" scrollButtons="auto">
         <Tab label="Всі користувачі" />
         <Tab label="Адміністратори" />
         <Tab label="Менеджери" />
         <Tab label="Співробітники" />
-        <Tab label="Клієнти" />
+        <Tab label="Орендарі" />
+        <Tab label="Орендодавці" />
       </Tabs>
     </Box>
   );

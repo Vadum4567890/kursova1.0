@@ -53,12 +53,16 @@ const CarSpecifications: React.FC<CarSpecificationsProps> = ({ car }) => {
             </Box>
           </Grid>
         )}
-        {car.engine && car.fuelType && (
+        {car.fuelType && (
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <LocalGasStation color="action" />
               <Typography variant="body2">
-                {car.engine}, {getFuelTypeLabel(car.fuelType)}
+                {car.engine != null &&
+                String(car.engine).trim() !== '' &&
+                String(car.engine).trim() !== '0'
+                  ? `${car.engine}, ${getFuelTypeLabel(car.fuelType)}`
+                  : getFuelTypeLabel(car.fuelType)}
               </Typography>
             </Box>
           </Grid>

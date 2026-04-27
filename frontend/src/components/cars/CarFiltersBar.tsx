@@ -35,6 +35,8 @@ export const CarFiltersBar: React.FC<CarFiltersBarProps> = ({
           <MenuItem value="economy">Економ</MenuItem>
           <MenuItem value="business">Бізнес</MenuItem>
           <MenuItem value="premium">Преміум</MenuItem>
+          <MenuItem value="suv">SUV</MenuItem>
+          <MenuItem value="luxury">Люкс</MenuItem>
         </Select>
       </FormControl>
       <FormControl sx={{ minWidth: 150, flexShrink: 0 }}>

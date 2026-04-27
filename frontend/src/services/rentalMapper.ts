@@ -48,11 +48,21 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
   const renterRaw = raw.renter as Record<string, unknown> | undefined;
   const renter =
     renterRaw && typeof renterRaw === 'object'
-      ? {
-          id: renterRaw.id as string | number,
-          email: String(renterRaw.email ?? ''),
-          fullName: String(renterRaw.fullName ?? renterRaw.username ?? renterRaw.email ?? ''),
-        }
+      ? (() => {
+          const profile = renterRaw.profile as Record<string, unknown> | undefined;
+          const fromProfile =
+            profile && typeof profile === 'object'
+              ? [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim()
+              : '';
+          const fullName = String(
+            renterRaw.fullName || fromProfile || renterRaw.username || renterRaw.email || ''
+          ).trim();
+          return {
+            id: renterRaw.id as string | number,
+            email: String(renterRaw.email ?? ''),
+            fullName: fullName || String(renterRaw.email ?? ''),
+          };
+        })()
       : undefined;
 
   return {
@@ -66,9 +76,16 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
     depositAmount: num(raw.depositAmount),
     totalCost: num(raw.totalCost),
     penaltyAmount: num(raw.penaltyAmount),
-    status: (['active', 'completed', 'cancelled'].includes(String(raw.status))
+    status: (['pending', 'active', 'completed', 'cancelled'].includes(String(raw.status))
       ? raw.status
       : 'active') as Rental['status'],
+    ownerUserId: raw.ownerUserId !== undefined && raw.ownerUserId !== null ? String(raw.ownerUserId) : undefined,
+    reviewStatus: ['not_available', 'waiting', 'partial', 'published', 'expired'].includes(String(raw.reviewStatus))
+      ? (String(raw.reviewStatus) as Rental['reviewStatus'])
+      : undefined,
+    reviewWindowClosesAt: raw.reviewWindowClosesAt ? iso(raw.reviewWindowClosesAt) : undefined,
+    ownerReviewSubmittedAt: raw.ownerReviewSubmittedAt ? iso(raw.ownerReviewSubmittedAt) : undefined,
+    renterReviewSubmittedAt: raw.renterReviewSubmittedAt ? iso(raw.renterReviewSubmittedAt) : undefined,
     client: raw.client as Rental['client'],
     renter,
     car,

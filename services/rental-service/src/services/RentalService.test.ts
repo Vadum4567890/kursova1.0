@@ -5,6 +5,11 @@ jest.mock('../kafka/producer', () => ({
   sendEvent: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../ws/chatWebSocket', () => ({
+  broadcastChatTopic: jest.fn(),
+  broadcastToUser: jest.fn(),
+}));
+
 function createRental(overrides: Partial<any> = {}) {
   return {
     id: 'rental-1',
@@ -89,7 +94,7 @@ describe('RentalService', () => {
         renterUserId: 'user-1',
         depositAmount: 200,
         totalCost: 200,
-        status: RentalStatus.ACTIVE,
+        status: RentalStatus.PENDING,
       })
     );
     expect(carServiceClient.updateCarStatus).toHaveBeenCalledWith('car-1', 'rented');

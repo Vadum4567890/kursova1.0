@@ -18,7 +18,7 @@ export class CarRepository {
   async findById(id: string): Promise<Car | null> {
     return await this.repository.findOne({
       where: { id } as FindOptionsWhere<Car>,
-      relations: ['pricing', 'features', 'images', 'documents'],
+      relations: ['pricing', 'features', 'availability', 'images', 'documents'],
     });
   }
 
@@ -89,12 +89,12 @@ export class CarRepository {
   }
 
   async update(id: string, carData: Partial<Car>): Promise<Car> {
-    await this.repository.update(id, carData);
-    const updated = await this.findById(id);
-    if (!updated) {
-      throw new Error('Car not found after update');
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error('Car not found');
     }
-    return updated;
+    const merged = this.repository.merge(existing, carData);
+    return await this.repository.save(merged);
   }
 
   async delete(id: string): Promise<void> {

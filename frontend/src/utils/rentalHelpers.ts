@@ -19,9 +19,10 @@ export const filterRentalsBySearchTerm = (
 export const sortRentalsForSelection = (rentals: Rental[]): Rental[] => {
   return [...rentals].sort((a, b) => {
     const statusOrder: { [key: string]: number } = {
-      'active': 0,
-      'completed': 1,
-      'cancelled': 2,
+      'pending': 0,
+      'active': 1,
+      'completed': 2,
+      'cancelled': 3,
     };
     const statusA = statusOrder[a.status?.toLowerCase() || ''] ?? 3;
     const statusB = statusOrder[b.status?.toLowerCase() || ''] ?? 3;
@@ -41,6 +42,7 @@ export const sortRentalsForSelection = (rentals: Rental[]): Rental[] => {
 
 export const getRentalStatusLabel = (status: string): string => {
   const statusLabels: { [key: string]: string } = {
+    'pending': 'В очікуванні',
     'active': 'Активний',
     'completed': 'Завершений',
     'cancelled': 'Скасований',
