@@ -35,4 +35,3 @@ export const ClientSearchResults: React.FC<ClientSearchResultsProps> = ({ client
     </TableContainer>
   );
 };
-

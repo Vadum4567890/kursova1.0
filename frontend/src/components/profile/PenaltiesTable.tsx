@@ -13,10 +13,10 @@ import { LoadingSpinner } from '../common';
 import { formatRentalDate } from '../../utils/dateHelpers';
 
 interface PenaltyTableItem {
-  id: number;
-  rentalId?: number;
+  id: string | number;
+  rentalId?: string | number;
   rental?: {
-    id: number;
+    id: string | number;
   };
   amount: number;
   reason: string;

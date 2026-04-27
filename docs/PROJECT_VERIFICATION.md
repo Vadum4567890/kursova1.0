@@ -1,201 +1,109 @@
-# ✅ Перевірка відповідності проекту опису
+# Project Verification
 
-## 📋 Статус перевірки: **ВСЕ РЕАЛІЗОВАНО** ✅
+## Current Status
 
----
+The repository is not in a "fully completed and fully verified" state yet.
 
-## 🛠 Технологічний стек
+What is verified now:
 
-### Backend ✅
-- ✅ **Node.js + Express.js + TypeScript** - реалізовано
-- ✅ **TypeORM** - реалізовано (ORM для роботи з БД)
-- ✅ **PostgreSQL** - реалізовано (реляційна база даних)
-- ✅ **JWT** - реалізовано (аутентифікація)
+- all backend services build successfully
+- backend verification can be run from the repo root for the active runtime topology
+- test commands for `user-service`, `car-service`, and `rental-service` are now valid
+- `rental-service` has working automated middleware and service tests
+- gateway behavior is more explicit about development-only auth
+- `client-service` compatibility now lives in `user-service`
+- `search` compatibility now lives in `api-gateway`
+- `user-service` has a dedicated legacy client migration script
+- `reporting-service` now supports richer analytics plus Excel/PDF export for financial reports
 
-### Frontend ✅
-- ✅ **React.js + TypeScript** - реалізовано (`frontend/package.json`)
-- ✅ **Material-UI** - реалізовано (`@mui/material`, `@mui/icons-material`)
-- ✅ **React Router** - реалізовано (`react-router-dom`)
-- ✅ **Axios** - реалізовано (`axios`)
+What is still missing:
 
----
+- meaningful automated tests for core business flows
+- full migration-based DB lifecycle across all services
+- final documentation alignment across all existing docs
+- frontend verification in this environment, because `vite build` currently fails with `spawn EPERM`
 
-## 🏗 GoF-патерни проектування
+## Verified Commands
 
-### 1. Singleton Pattern ✅
-**Реалізовано:**
-- ✅ `DatabaseConnection` - `backend/src/database/DatabaseConnection.ts`
-- ✅ `Logger` - `backend/src/utils/Logger.ts`
-- ✅ `ConfigManager` - `backend/src/config/ConfigManager.ts`
+From the repository root:
 
-### 2. Factory Method Pattern ✅
-**Реалізовано:**
-- ✅ `CarFactory` - `backend/src/patterns/factory/CarFactory.ts`
-- ✅ `ReportFactory` - `backend/src/patterns/factory/ReportFactory.ts`
-
-### 3. Builder Pattern ✅
-**Реалізовано:**
-- ✅ `RentalBuilder` - `backend/src/patterns/builder/RentalBuilder.ts`
-
-### 4. Strategy Pattern ✅
-**Реалізовано:**
-- ✅ `PricingStrategy` - `backend/src/patterns/strategy/PricingStrategy.ts`
-  - BasePricingStrategy
-  - YearBasedPricingStrategy
-  - DurationBasedPricingStrategy
-  - CombinedPricingStrategy
-
-### 5. Template Method Pattern ✅
-**Реалізовано:**
-- ✅ `ReportTemplate` - `backend/src/patterns/template/ReportTemplate.ts`
-  - FinancialReport
-  - OccupancyReport
-  - AvailabilityReport
-
-### 6. Observer Pattern ✅
-**Реалізовано:**
-- ✅ `RentalObserver` - `backend/src/patterns/observer/Observer.ts`
-  - CarStatusObserver
-  - NotificationObserver
-  - LoggingObserver
-
----
-
-## 📁 Структура проекту
-
-### Backend ✅
-```
-backend/
-├── src/
-│   ├── config/          ✅ Конфігурація (Singleton)
-│   ├── database/        ✅ Підключення до БД
-│   ├── models/          ✅ Моделі даних (Entities)
-│   ├── repositories/    ✅ Repository pattern
-│   ├── services/        ✅ Бізнес-логіка
-│   ├── controllers/     ✅ REST контролери
-│   ├── patterns/        ✅ GoF-патерни
-│   ├── middleware/      ✅ Middleware
-│   ├── routes/          ✅ API маршрути
-│   └── utils/           ✅ Утиліти
+```powershell
+npm run verify:backend
 ```
 
-### Frontend ✅
+This command currently checks:
+
+- `services/api-gateway` build
+- `services/user-service` build + test
+- `services/car-service` build + test
+- `services/rental-service` build + test
+- `services/reporting-service` build + test
+- `services/media-service` build + test
+
+Legacy services can still be verified separately with:
+
+```powershell
+npm run verify:legacy
 ```
-frontend/
-├── src/
-│   ├── components/      ✅ React компоненти
-│   ├── pages/           ✅ Сторінки
-│   │   ├── client/      ✅ Клієнтська частина
-│   │   └── admin/       ✅ Адмін-панель
-│   ├── services/        ✅ API клієнти
-│   ├── hooks/           ✅ Custom hooks
-│   └── utils/           ✅ Утиліти
+
+Optional full workspace verification:
+
+```powershell
+npm run verify:all
 ```
 
----
+This also attempts:
 
-## 📊 Основні функції
+```powershell
+npm --prefix frontend run build
+```
 
-### Клієнтська частина ✅
-- ✅ Перегляд каталогу автомобілів - `GET /api/cars`
-- ✅ Реєстрація клієнта - `POST /api/clients/register`
-- ✅ Створення угоди прокату - `POST /api/rentals`
-- ✅ Перегляд історії угод - `GET /api/rentals/client/:clientId`
-- ✅ Розрахунок вартості прокату - через PricingStrategy
+## Observed Results
 
-### Адмін-панель ✅
-- ✅ Управління автопарком (CRUD) - `/api/cars`
-- ✅ Управління клієнтами (CRUD) - `/api/clients`
-- ✅ Управління угодами - `/api/rentals`
-- ✅ Нарахування штрафів - `/api/penalties`
-- ✅ Генерація звітів:
-  - ✅ Фінансові показники - `/api/reports/financial`
-  - ✅ Зайнятість автомобілів - `/api/reports/occupancy`
-  - ✅ Наявність автомобілів - `/api/reports/availability`
+### Backend
 
-### Додаткові функції ✅
-- ✅ Аналітика - `/api/analytics/*`
-- ✅ Пошук - `/api/search/*`
-- ✅ Управління користувачами - `/api/users/*` (admin only)
+Verified successfully with:
 
----
+```powershell
+npm run verify:backend
+```
 
-## 🔒 Безпека
+### Frontend
 
-### Аутентифікація ✅
-- ✅ JWT токени - реалізовано
-- ✅ Реєстрація користувачів - `POST /api/auth/register`
-- ✅ Вхід в систему - `POST /api/auth/login`
-- ✅ Отримання інформації про користувача - `GET /api/auth/me`
+The frontend build did not complete in the current environment because Vite/esbuild failed with:
 
-### Авторизація ✅
-- ✅ Ролі користувачів (admin, manager, employee)
-- ✅ Middleware для захисту роутів - `authenticate`, `authorize`
-- ✅ Захист важливих ендпоінтів:
-  - ✅ POST/PUT/DELETE операції захищені
-  - ✅ Аналітика та звіти (manager+)
-  - ✅ Управління користувачами (admin only)
+- `spawn EPERM`
 
-### Додаткові заходи безпеки ✅
-- ✅ Хешування паролів (bcrypt)
-- ✅ Валідація вхідних даних
-- ✅ CORS налаштування
-- ✅ Error handling middleware
+This looks environment-related and should be rechecked outside the current restricted execution context.
 
----
+## Database Verification Notes
 
-## 🗄 База даних
+Current service databases:
 
-### Основні таблиці ✅
-- ✅ `cars` - Автомобілі
-- ✅ `clients` - Клієнти
-- ✅ `rentals` - Угоди прокату
-- ✅ `penalties` - Штрафи
-- ✅ `users` - Користувачі системи
+- `user-service` -> `user_service_db`
+- `car-service` -> `car_service_db`
+- `rental-service` -> `rental_service_db`
+- `reporting-service` -> `rental_service_db`
+- `client-service` -> `client_service_db` `(legacy / pending migration)`
 
-### Міграції ✅
-- ✅ Міграція для таблиці users - `backend/database/migrations/1700000000000-CreateUsersTable.ts`
-- ✅ TypeORM синхронізація в development режимі
+Current DB lifecycle status:
 
----
+- `database/init/*.sql` exists for initial database creation
+- services now expose a clearer path toward migration-based management
+- some services still rely on `DB_SYNCHRONIZE` defaults in development until full migrations are added
+- legacy client cutover is prepared via `npm --prefix services/user-service run migrate:clients`
 
-## 📚 Документація
+## Important Runtime Flags
 
-### API Документація ✅
-- ✅ Swagger/OpenAPI - `http://localhost:3000/api-docs`
-- ✅ Повна документація всіх ендпоінтів
-- ✅ Приклади запитів та відповідей
+- `ENABLE_DEV_AUTH`: controls temporary auth endpoints in `api-gateway`
+- `ALLOW_INSECURE_JWT_DECODE`: allows decode-without-verify fallback in development-only compatibility flows
+- `DB_SYNCHRONIZE`: explicit override for TypeORM schema sync behavior
+- `DB_LOGGING`: explicit override for TypeORM SQL logging
 
-### Документація проекту ✅
-- ✅ `README.md` - основний опис
-- ✅ `DESIGN_PATTERNS.md` - опис GoF-патернів
-- ✅ `TECHNOLOGY_STACK.md` - опис технологій
-- ✅ `PROJECT_PLAN.md` - план реалізації
-- ✅ `docs/AUTHENTICATION.md` - документація аутентифікації
-- ✅ `docs/API_FIELDS_EXPLANATION.md` - опис полів API
+## Documentation Truth Source
 
----
+For the audited state of the architecture and the remediation backlog, use:
 
-## ✅ Висновок
+- `docs/ARCHITECTURE_AUDIT.md`
 
-**ВСЕ З ОПИСУ ПРОЕКТУ РЕАЛІЗОВАНО!** 🎉
-
-### Статус компонентів:
-- ✅ Технологічний стек - 100%
-- ✅ GoF-патерни - 100% (6/6 патернів)
-- ✅ Структура проекту - 100%
-- ✅ Основні функції - 100%
-- ✅ Безпека - 100%
-- ✅ База даних - 100%
-- ✅ Документація - 100%
-
-### Додаткові реалізовані функції:
-- ✅ Система аутентифікації та авторизації
-- ✅ Управління користувачами
-- ✅ Аналітика та статистика
-- ✅ Розширений пошук
-- ✅ Валідація та обробка помилок
-- ✅ Пагінація та фільтрація
-
-**Проект готовий до розробки фронтенду!** 🚀
-
+This file should be treated as the current source of truth for project verification and remaining work.

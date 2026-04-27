@@ -25,9 +25,16 @@ export function useCarFilters(options: UseCarFiltersOptions = {}) {
 
   const filterCars = useCallback(
     (cars: Car[]) => {
-      return filterBySearchTerm(cars, searchTerm, ['brand', 'model']);
+      let list = filterBySearchTerm(cars, searchTerm, ['brand', 'model']);
+      if (filters.type) {
+        list = list.filter((c) => c.type === filters.type);
+      }
+      if (filters.status) {
+        list = list.filter((c) => c.status === filters.status);
+      }
+      return list;
     },
-    [searchTerm]
+    [searchTerm, filters.type, filters.status]
   );
 
   return {

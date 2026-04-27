@@ -13,7 +13,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Login as LoginIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 
@@ -34,12 +34,12 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(usernameOrEmail, password);
-      // Redirect based on user role
       const userData = authService.getUser();
-      if (userData?.role === 'user') {
-        navigate('/');
-      } else {
+      const r = userData?.role;
+      if (r === 'admin' || r === 'manager' || r === 'employee') {
         navigate('/dashboard');
+      } else {
+        navigate('/home');
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Помилка входу. Перевірте дані.');
@@ -49,7 +49,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 8 }}>
+    <Container maxWidth="sm" sx={{ py: 6 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Box sx={{ textAlign: 'center', mb: 3 }}>
           <LoginIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
@@ -115,12 +115,7 @@ const LoginPage: React.FC = () => {
         <Box sx={{ textAlign: 'center', mt: 2 }}>
           <Typography variant="body2">
             Немає акаунту?{' '}
-            <Link
-              component="button"
-              variant="body2"
-              onClick={() => navigate('/register')}
-              sx={{ cursor: 'pointer' }}
-            >
+            <Link component={RouterLink} to="/register" variant="body2">
               Зареєструватися
             </Link>
           </Typography>
@@ -152,4 +147,3 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-

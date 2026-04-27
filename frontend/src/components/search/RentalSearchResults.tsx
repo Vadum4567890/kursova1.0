@@ -2,6 +2,7 @@ import React from 'react';
 import { formatDate } from '../../utils/dateHelpers';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Rental } from '../../interfaces';
+import { getRenterDisplayName } from '../../utils/rentalDisplay';
 import { StatusChip } from '../common';
 
 interface RentalSearchResultsProps {
@@ -27,7 +28,7 @@ export const RentalSearchResults: React.FC<RentalSearchResultsProps> = ({ rental
           {rentals.map((rental) => (
             <TableRow key={rental.id}>
               <TableCell>{rental.id}</TableCell>
-              <TableCell>{rental.client?.fullName || 'Невідомо'}</TableCell>
+              <TableCell>{getRenterDisplayName(rental)}</TableCell>
               <TableCell>
                 {rental.car ? `${rental.car.brand} ${rental.car.model}` : 'Невідомо'}
               </TableCell>

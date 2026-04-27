@@ -17,7 +17,7 @@ const SearchPage: React.FC = () => {
     searchOps.searchCars(search.carParams, search.setLoading, search.setError);
   };
 
-  const handleSearchClients = () => {
+  const handleSearchCustomers = () => {
     searchOps.searchClients(search.clientQuery, search.setLoading, search.setError);
   };
 
@@ -32,16 +32,16 @@ const SearchPage: React.FC = () => {
           Пошук
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Розширений пошук по автомобілям, клієнтам та прокатам
+          Розширений пошук по автомобілях, орендарях та прокатах
         </Typography>
       </Box>
 
       {search.error && <ErrorAlert message={search.error} onClose={search.clearError} />}
 
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
           <Tab label="Автомобілі" />
-          <Tab label="Клієнти" />
+          <Tab label="Орендарі" />
           <Tab label="Прокати" />
         </Tabs>
       </Paper>
@@ -60,7 +60,7 @@ const SearchPage: React.FC = () => {
         <ClientSearchTab
           query={search.clientQuery}
           onQueryChange={search.setClientQuery}
-          onSearch={handleSearchClients}
+          onSearch={handleSearchCustomers}
           loading={search.loading}
           results={searchOps.clientResults}
         />
@@ -80,4 +80,3 @@ const SearchPage: React.FC = () => {
 };
 
 export default SearchPage;
-

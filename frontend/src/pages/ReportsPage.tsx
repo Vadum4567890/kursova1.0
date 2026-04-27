@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { Typography, Box, Paper, Tabs, Tab } from '@mui/material';
-import { useFinancialReport, useOccupancyReport, useAvailabilityReport, useCarReport } from '../hooks/queries/useReports';
+import {
+  useFinancialReport,
+  useOccupancyReport,
+  useAvailabilityReport,
+  useCarReport,
+} from '../hooks/queries/useReports';
 import { useReports } from '../hooks';
+import { reportService } from '../services/reportService';
 import {
   FinancialReportTab,
   OccupancyReportTab,
   AvailabilityReportTab,
   CarReportTab,
+  ReportsExportTab,
 } from '../components/reports';
 import { ErrorAlert, PageContainer } from '../components/common';
 
@@ -14,7 +21,6 @@ const ReportsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const reports = useReports();
 
-  // React Query hooks - enabled only when explicitly requested, but data persists in cache
   const {
     data: financialReport,
     isLoading: loadingFinancial,
@@ -51,7 +57,6 @@ const ReportsPage: React.FC = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    // Don't reset load flags - keep them so data persists when switching tabs
   };
 
   const handleGenerateFinancial = () => {
@@ -76,6 +81,26 @@ const ReportsPage: React.FC = () => {
     refetchCarReport();
   };
 
+  const handleDownloadFinancial = async (format: 'xlsx' | 'pdf') => {
+    if (!reports.startDate || !reports.endDate) {
+      return;
+    }
+
+    await reportService.downloadFinancialReport(format, reports.startDate, reports.endDate);
+  };
+
+  const handleDownloadOccupancy = async (format: 'xlsx' | 'pdf') => {
+    await reportService.downloadOccupancyReport(format);
+  };
+
+  const handleDownloadCarReport = async (format: 'xlsx' | 'pdf') => {
+    if (!reports.startDate || !reports.endDate) {
+      return;
+    }
+
+    await reportService.downloadCarReport(format, reports.startDate, reports.endDate);
+  };
+
   return (
     <PageContainer>
       <Box sx={{ mb: 3 }}>
@@ -83,7 +108,7 @@ const ReportsPage: React.FC = () => {
           Звіти
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Генерація фінансових звітів та аналітика зайнятості
+          Фінансова аналітика, операційні звіти та експорт у Excel / PDF
         </Typography>
       </Box>
 
@@ -95,6 +120,7 @@ const ReportsPage: React.FC = () => {
           <Tab label="Зайнятість" />
           <Tab label="Доступність" />
           <Tab label="Автомобілі" />
+          <Tab label="Експорт" />
         </Tabs>
       </Paper>
 
@@ -104,6 +130,8 @@ const ReportsPage: React.FC = () => {
           onStartDateChange={reports.updateStartDate}
           onEndDateChange={reports.updateEndDate}
           onGenerate={handleGenerateFinancial}
+          onDownloadExcel={() => handleDownloadFinancial('xlsx')}
+          onDownloadPdf={() => handleDownloadFinancial('pdf')}
           loading={loadingFinancial}
           report={financialReport}
         />
@@ -135,9 +163,19 @@ const ReportsPage: React.FC = () => {
           report={carReport}
         />
       )}
+
+      {tabValue === 4 && (
+        <ReportsExportTab
+          dateRange={reports.dateRange}
+          onStartDateChange={reports.updateStartDate}
+          onEndDateChange={reports.updateEndDate}
+          onDownloadFinancial={handleDownloadFinancial}
+          onDownloadOccupancy={handleDownloadOccupancy}
+          onDownloadCars={handleDownloadCarReport}
+        />
+      )}
     </PageContainer>
   );
 };
 
 export default ReportsPage;
-

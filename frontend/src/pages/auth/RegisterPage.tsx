@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Container,
   Paper,
@@ -10,18 +10,42 @@ import {
   Link,
   InputAdornment,
   IconButton,
+  Stepper,
+  Step,
+  StepLabel,
+  Card,
+  CardActionArea,
+  CardContent,
+  useTheme,
 } from '@mui/material';
-import { Visibility, VisibilityOff, PersonAdd } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { Visibility, VisibilityOff, PersonAdd, DirectionsCar, DriveEta } from '@mui/icons-material';
+import { useNavigate, Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { MIN_PASSWORD_LENGTH, PASSWORD_VALIDATION_MESSAGE } from '../../constants/validation';
 
+type RoleChoice = 'renter' | 'owner';
+
+const steps = ['Тип акаунту', 'Дані для входу', 'Профіль'];
+
 const RegisterPage: React.FC = () => {
+  const theme = useTheme();
+  const [searchParams] = useSearchParams();
+  const roleFromQuery = searchParams.get('role');
+
+  const initialRole = useMemo((): RoleChoice | null => {
+    if (roleFromQuery === 'owner' || roleFromQuery === 'renter') return roleFromQuery;
+    return null;
+  }, [roleFromQuery]);
+
+  const [activeStep, setActiveStep] = useState(() => (initialRole ? 1 : 0));
+  const [role, setRole] = useState<RoleChoice | null>(initialRole);
+
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -29,22 +53,36 @@ const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const submitLock = useRef(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleNextFromRole = () => {
+    if (!role) {
+      setError('Оберіть тип акаунту');
+      return;
+    }
     setError('');
+    setActiveStep(1);
+  };
 
-    // Validation
+  const handleNextFromCredentials = () => {
+    setError('');
     if (password !== confirmPassword) {
       setError('Паролі не співпадають');
       return;
     }
-
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(PASSWORD_VALIDATION_MESSAGE);
       return;
     }
+    setActiveStep(2);
+  };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!role) return;
+    if (submitLock.current) return;
+    setError('');
+    submitLock.current = true;
     setLoading(true);
 
     try {
@@ -52,30 +90,44 @@ const RegisterPage: React.FC = () => {
         username,
         email,
         password,
+        role,
         fullName: fullName || undefined,
         address: address || undefined,
+        phone: phone || undefined,
       });
-      // Redirect based on user role (new users are USER role by default)
-      navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка реєстрації. Спробуйте ще раз.');
+      navigate(role === 'owner' ? '/my-cars' : '/home');
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { message?: string; error?: string } } };
+      const apiMsg = ax.response?.data?.message ?? ax.response?.data?.error;
+      setError(apiMsg || 'Помилка реєстрації. Спробуйте ще раз.');
+      submitLock.current = false;
     } finally {
       setLoading(false);
     }
   };
 
+  const stepperIndex = activeStep;
+
   return (
-    <Container maxWidth="sm" sx={{ mt: 8 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
+    <Container maxWidth="sm" sx={{ py: 4 }}>
+      <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 } }}>
         <Box sx={{ textAlign: 'center', mb: 3 }}>
           <PersonAdd sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
           <Typography variant="h4" component="h1" gutterBottom>
             Реєстрація
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Створіть новий обліковий запис для доступу до системи
+            Орендар або орендодавець — крок за кроком
           </Typography>
         </Box>
+
+        <Stepper activeStep={stepperIndex} sx={{ mb: 3, display: { xs: 'none', sm: 'flex' } }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -83,112 +135,198 @@ const RegisterPage: React.FC = () => {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="Ім'я користувача"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            margin="normal"
-            required
-            autoFocus
-            autoComplete="username"
-          />
-          <TextField
-            fullWidth
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            margin="normal"
-            required
-            autoComplete="email"
-          />
-          <TextField
-            fullWidth
-            label="Повне ім'я (необов'язково)"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            margin="normal"
-            autoComplete="name"
-          />
-          <TextField
-            fullWidth
-            label="Адреса (необов'язково)"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            margin="normal"
-            autoComplete="street-address"
-            placeholder="Місце проживання"
-          />
-          <TextField
-            fullWidth
-            label="Пароль"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            margin="normal"
-            required
-            autoComplete="new-password"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword(!showPassword)}
-                    edge="end"
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            helperText={`Мінімум ${MIN_PASSWORD_LENGTH} символів`}
-          />
-          <TextField
-            fullWidth
-            label="Підтвердження пароля"
-            type={showConfirmPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            margin="normal"
-            required
-            autoComplete="new-password"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    edge="end"
-                  >
-                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            disabled={loading}
-            sx={{ mt: 3, mb: 2, py: 1.5 }}
-          >
-            {loading ? 'Реєстрація...' : 'Зареєструватися'}
-          </Button>
-        </form>
+        {activeStep === 0 && (
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom align="center">
+              Хто ви?
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mt: 2 }}>
+              <Card
+                variant="outlined"
+                sx={{
+                  flex: 1,
+                  borderColor: role === 'renter' ? 'primary.main' : 'divider',
+                  borderWidth: role === 'renter' ? 2 : 1,
+                }}
+              >
+                <CardActionArea onClick={() => { setRole('renter'); setError(''); }}>
+                  <CardContent>
+                    <DriveEta color="primary" sx={{ fontSize: 40, mb: 1 }} />
+                    <Typography variant="h6">Орендар</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Шукаю авто для поїздок і бронювань
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+              <Card
+                variant="outlined"
+                sx={{
+                  flex: 1,
+                  borderColor: role === 'owner' ? 'primary.main' : 'divider',
+                  borderWidth: role === 'owner' ? 2 : 1,
+                }}
+              >
+                <CardActionArea onClick={() => { setRole('owner'); setError(''); }}>
+                  <CardContent>
+                    <DirectionsCar color="primary" sx={{ fontSize: 40, mb: 1 }} />
+                    <Typography variant="h6">Орендодавець</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Хочу здавати в оренду свої автомобілі
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Box>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              sx={{ mt: 3 }}
+              onClick={handleNextFromRole}
+            >
+              Далі
+            </Button>
+          </Box>
+        )}
 
-        <Box sx={{ textAlign: 'center', mt: 2 }}>
+        {role != null && activeStep === 1 && (
+          <Box component="form" onSubmit={(e) => { e.preventDefault(); handleNextFromCredentials(); }}>
+            <TextField
+              fullWidth
+              label="Ім'я користувача"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              margin="normal"
+              required
+              autoComplete="username"
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              margin="normal"
+              required
+              autoComplete="email"
+            />
+            <TextField
+              fullWidth
+              label="Пароль"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              margin="normal"
+              required
+              autoComplete="new-password"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              helperText={`Мінімум ${MIN_PASSWORD_LENGTH} символів`}
+            />
+            <TextField
+              fullWidth
+              label="Підтвердження пароля"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              margin="normal"
+              required
+              autoComplete="new-password"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
+              {!initialRole && (
+                <Button onClick={() => { setActiveStep(0); setError(''); }} fullWidth variant="outlined">
+                  Назад
+                </Button>
+              )}
+              <Button type="submit" fullWidth variant="contained" size="large">
+                Далі
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        {role != null && activeStep === 2 && (
+          <Box component="form" onSubmit={handleSubmit}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Контактні дані допоможуть оформити прокат. Поля можна змінити пізніше в профілі.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Повне ім'я"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              margin="normal"
+              autoComplete="name"
+            />
+            <TextField
+              fullWidth
+              label="Телефон"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              margin="normal"
+              autoComplete="tel"
+              placeholder="+380..."
+            />
+            <TextField
+              fullWidth
+              label="Адреса"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              margin="normal"
+              autoComplete="street-address"
+            />
+            <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
+              <Button
+                type="button"
+                onClick={() => { setActiveStep(1); setError(''); }}
+                fullWidth
+                variant="outlined"
+                disabled={loading}
+              >
+                Назад
+              </Button>
+              <Button type="submit" fullWidth variant="contained" size="large" disabled={loading}>
+                {loading ? 'Реєстрація...' : 'Завершити реєстрацію'}
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        <Box sx={{ textAlign: 'center', mt: 3 }}>
           <Typography variant="body2">
             Вже є акаунт?{' '}
-            <Link
-              component="button"
-              variant="body2"
-              onClick={() => navigate('/login')}
-              sx={{ cursor: 'pointer' }}
-            >
+            <Link component={RouterLink} to="/login" variant="body2">
               Увійти
             </Link>
+          </Typography>
+        </Box>
+
+        <Box sx={{ 
+          mt: 2, 
+          p: 2, 
+          bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+          borderRadius: 1,
+        }}>
+          <Typography variant="caption" color="text.secondary">
+            Натискаючи «Завершити реєстрацію», ви погоджуєтесь з обробкою персональних даних у межах сервісу.
           </Typography>
         </Box>
       </Paper>
@@ -197,4 +335,3 @@ const RegisterPage: React.FC = () => {
 };
 
 export default RegisterPage;
-

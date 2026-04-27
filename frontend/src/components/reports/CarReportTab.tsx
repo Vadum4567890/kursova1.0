@@ -1,8 +1,23 @@
 import React from 'react';
-import { Box, Paper, Grid, Button, TextField, CircularProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Grid,
+  Button,
+  TextField,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
 import { Description } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import { StatCard, StatusChip } from '../common';
+import { reportDateFieldPlainSx } from './reportDateFieldSx';
 
 interface CarReportTabProps {
   dateRange: {
@@ -34,15 +49,17 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
             label="Дата початку"
             type="date"
             value={dateRange.startDate}
-            onChange={(e) => onStartDateChange(e.target.value)}
+            onChange={(event) => onStartDateChange(event.target.value)}
             InputLabelProps={{ shrink: true }}
+            sx={reportDateFieldPlainSx}
           />
           <TextField
             label="Дата кінця"
             type="date"
             value={dateRange.endDate}
-            onChange={(e) => onEndDateChange(e.target.value)}
+            onChange={(event) => onEndDateChange(event.target.value)}
             InputLabelProps={{ shrink: true }}
+            sx={reportDateFieldPlainSx}
           />
           <Button
             variant="contained"
@@ -57,7 +74,6 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
 
       {report && (
         <>
-          {/* Summary Cards */}
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid item xs={12} md={3}>
               <StatCard title="Всього автомобілів" value={report.summary.totalCars} variant="h5" />
@@ -65,7 +81,7 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
             <Grid item xs={12} md={3}>
               <StatCard
                 title="Загальний дохід"
-                value={`${report.summary.totalRevenue.toLocaleString()} ₴`}
+                value={`${report.summary.totalRevenue.toLocaleString()} грн`}
                 color="primary"
                 variant="h5"
               />
@@ -73,7 +89,7 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
             <Grid item xs={12} md={3}>
               <StatCard
                 title="Чистий дохід"
-                value={`${report.summary.totalNetRevenue.toLocaleString()} ₴`}
+                value={`${report.summary.totalNetRevenue.toLocaleString()} грн`}
                 color="success"
                 variant="h5"
               />
@@ -87,7 +103,6 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
             </Grid>
           </Grid>
 
-          {/* Cars Table */}
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
@@ -146,27 +161,27 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {item.financial.totalRevenue.toLocaleString()} ₴
+                        {item.financial.totalRevenue.toLocaleString()} грн
                       </Typography>
                       {item.financial.expectedRevenue > 0 && (
                         <Typography variant="caption" color="text.secondary">
-                          Очікується: {item.financial.expectedRevenue.toLocaleString()} ₴
+                          Очікується: {item.financial.expectedRevenue.toLocaleString()} грн
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
-                        {item.financial.netRevenue.toLocaleString()} ₴
+                        {item.financial.netRevenue.toLocaleString()} грн
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" color="error.main">
-                        {item.financial.totalPenalties.toLocaleString()} ₴
+                        {item.financial.totalPenalties.toLocaleString()} грн
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2">
-                        {item.financial.averageRevenuePerRental.toLocaleString()} ₴
+                        {item.financial.averageRevenuePerRental.toLocaleString()} грн
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -181,4 +196,3 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
 };
 
 export default CarReportTab;
-

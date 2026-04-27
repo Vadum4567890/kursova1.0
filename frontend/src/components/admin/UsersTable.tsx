@@ -18,7 +18,7 @@ interface UsersTableProps {
   users: User[];
   onEditRole: (user: User) => void;
   onToggleStatus: (id: number, isActive: boolean) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number | string) => void;
 }
 
 export const UsersTable: React.FC<UsersTableProps> = ({
@@ -43,54 +43,60 @@ export const UsersTable: React.FC<UsersTableProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id} hover>
-              <TableCell>{user.id}</TableCell>
-              <TableCell>{user.username}</TableCell>
-              <TableCell>{user.email || '-'}</TableCell>
-              <TableCell>{user.phone || '-'}</TableCell>
-              <TableCell>{user.fullName || '-'}</TableCell>
-              <TableCell>
-                <Chip
-                  label={getRoleLabel(user.role)}
-                  color={getRoleColor(user.role)}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={user.isActive ? 'Активний' : 'Неактивний'}
-                  color={user.isActive ? 'success' : 'default'}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell align="right">
-                <IconButton
-                  size="small"
-                  onClick={() => onEditRole(user)}
-                  title="Змінити роль"
-                >
-                  <Edit />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  color={user.isActive ? 'error' : 'success'}
-                  onClick={() => onToggleStatus(user.id, !user.isActive)}
-                  title={user.isActive ? 'Заблокувати' : 'Активувати'}
-                >
-                  {user.isActive ? <Block /> : <CheckCircle />}
-                </IconButton>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => onDelete(user.id)}
-                  title="Видалити"
-                >
-                  <Delete />
-                </IconButton>
-              </TableCell>
-            </TableRow>
-          ))}
+          {users.map((user) => {
+            const isDevNumericRecord = typeof user.id === 'number';
+            return (
+              <TableRow key={user.id} hover>
+                <TableCell>{user.id}</TableCell>
+                <TableCell>{user.username}</TableCell>
+                <TableCell>{user.email || '-'}</TableCell>
+                <TableCell>{user.phone || '-'}</TableCell>
+                <TableCell>{user.fullName || '-'}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={getRoleLabel(user.role)}
+                    color={getRoleColor(user.role)}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={user.isActive ? 'Активний' : 'Неактивний'}
+                    color={user.isActive ? 'success' : 'default'}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton
+                    size="small"
+                    onClick={() => onEditRole(user)}
+                    title="Змінити роль"
+                    disabled={!isDevNumericRecord}
+                  >
+                    <Edit />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color={user.isActive ? 'error' : 'success'}
+                    onClick={() => onToggleStatus(user.id as number, !user.isActive)}
+                    title={user.isActive ? 'Заблокувати' : 'Активувати'}
+                    disabled={!isDevNumericRecord}
+                  >
+                    {user.isActive ? <Block /> : <CheckCircle />}
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => onDelete(user.id)}
+                    title="Видалити"
+                    disabled={!isDevNumericRecord}
+                  >
+                    <Delete />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>

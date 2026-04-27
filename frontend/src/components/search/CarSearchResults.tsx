@@ -24,9 +24,9 @@ export const CarSearchResults: React.FC<CarSearchResultsProps> = ({ cars }) => {
               height="150"
               image={
                 car.imageUrl
-                  ? car.imageUrl.startsWith('http')
+                  ? car.imageUrl.startsWith('http') || car.imageUrl.startsWith('data:')
                     ? car.imageUrl
-                    : car.imageUrl
+                    : `${window.location.protocol}//${window.location.hostname}:3000${car.imageUrl}`
                   : DEFAULT_IMAGE
               }
               alt={`${car.brand} ${car.model}`}

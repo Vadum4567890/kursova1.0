@@ -1,40 +1,19 @@
-import { useMemo } from 'react';
-import { useMyRentals, useRentals } from './queries/useRentals';
-import { useMyPenalties, usePenalties } from './queries/usePenalties';
+import { useMyRentals } from './queries/useRentals';
+import { useMyPenalties } from './queries/usePenalties';
 
 /**
- * Hook to get user data (rentals and penalties) based on user role
+ * Hook to get user data (rentals and penalties) for the profile page.
+ * Always returns only the current user's own data, regardless of role.
+ * Admins/managers see ALL data on dedicated pages (RentalsPage, etc.).
  */
-export function useUserData(userRole?: string) {
+export function useUserData(_userRole?: string) {
   const { data: myRentals = [], isLoading: loadingMyRentals } = useMyRentals();
-  const { data: allRentals = [], isLoading: loadingAllRentals } = useRentals();
-  const { data: myPenalties = [], isLoading: loadingMyPenalties } = useMyPenalties();
-  const { data: allPenalties = [], isLoading: loadingAllPenalties } = usePenalties();
-
-  const isUser = userRole === 'user';
-
-  const rentals = useMemo(
-    () => (isUser ? myRentals : allRentals),
-    [isUser, myRentals, allRentals]
-  );
-
-  const penalties = useMemo(
-    () => (isUser ? myPenalties : allPenalties),
-    [isUser, myPenalties, allPenalties]
-  );
-
-  const loading = useMemo(
-    () =>
-      isUser
-        ? loadingMyRentals || loadingMyPenalties
-        : loadingAllRentals || loadingAllPenalties,
-    [isUser, loadingMyRentals, loadingMyPenalties, loadingAllRentals, loadingAllPenalties]
-  );
+  const { data: myPenalties = [], isLoading: loadingPenalties } = useMyPenalties();
 
   return {
-    rentals,
-    penalties,
-    loading,
+    rentals: myRentals,
+    penalties: myPenalties,
+    loading: loadingMyRentals || loadingPenalties,
   };
 }
 

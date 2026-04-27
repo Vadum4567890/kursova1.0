@@ -1,55 +1,71 @@
 # Dependencies
 node_modules/
-/.pnp
-.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
 
-# Testing
-/coverage
-
-# Production
-/build
-/dist
-
-# Misc
-.DS_Store
+# Environment variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
+.env.development
+.env.production
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
 
 # Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
-*.log
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
+.DS_Store
+
+# Docker
+.docker/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
 
 # OS
 Thumbs.db
+.DS_Store
 
-# TypeScript
-*.tsbuildinfo
+# Uploads (keep structure, ignore content)
+backend/uploads/images/*
+!backend/uploads/images/.gitkeep
 
 # Database
 *.sqlite
 *.db
 
-# Backend specific
-backend/dist/
-backend/.env
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
 
-# Frontend specific
-frontend/build/
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
-
+# Monitoring data
+monitoring/data/
+prometheus_data/
+grafana_data/

@@ -1,17 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rentalService } from '../../services/rentalService';
 import { CreateRentalData } from '../../interfaces';
+import { useAuth } from '../../context/AuthContext';
 
 const QUERY_KEYS = {
   all: ['rentals'] as const,
   lists: () => [...QUERY_KEYS.all, 'list'] as const,
   list: () => [...QUERY_KEYS.lists()] as const,
   details: () => [...QUERY_KEYS.all, 'detail'] as const,
-  detail: (id: number) => [...QUERY_KEYS.details(), id] as const,
+  detail: (id: number | string) => [...QUERY_KEYS.details(), id] as const,
   active: () => [...QUERY_KEYS.all, 'active'] as const,
   my: () => [...QUERY_KEYS.all, 'my'] as const,
-  byClient: (clientId: number) => [...QUERY_KEYS.all, 'client', clientId] as const,
-  byCar: (carId: number) => [...QUERY_KEYS.all, 'car', carId] as const,
+  ownerBookings: (userKey: string | number) => [...QUERY_KEYS.all, 'owner-bookings', userKey] as const,
+  byClient: (clientId: number | string) => [...QUERY_KEYS.all, 'client', clientId] as const,
+  byCar: (carId: number | string) => [...QUERY_KEYS.all, 'car', carId] as const,
 };
 
 /**
@@ -37,7 +39,7 @@ export const useActiveRentals = () => {
 /**
  * Get rental by ID
  */
-export const useRental = (id: number | undefined) => {
+export const useRental = (id: number | string | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.detail(id!),
     queryFn: () => rentalService.getRentalById(id!),
@@ -48,17 +50,62 @@ export const useRental = (id: number | undefined) => {
 /**
  * Get my rentals (for regular users)
  */
-export const useMyRentals = () => {
+export const useMyRentals = (options?: { refetchInterval?: number }) => {
+  const { token, user, isLoading } = useAuth();
   return useQuery({
-    queryKey: QUERY_KEYS.my(),
+    queryKey: [...QUERY_KEYS.my(), user?.id ?? 'none'],
     queryFn: () => rentalService.getMyRentals(),
+    enabled: !!token && !!user && !isLoading,
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: false,
+    // Список фільтрує лише rental-service за JWT; не порівнювати тут user.id з renterUserId —
+    // у dev auth id числовий (10000), у БД renter_user_id — UUID (v5 від legacy:id).
+  });
+};
+
+/** Заявки та бронювання по авто власника (JWT = owner_user_id). */
+export const useOwnerBookings = () => {
+  const { token, user, isLoading } = useAuth();
+  return useQuery({
+    queryKey: QUERY_KEYS.ownerBookings(user?.id ?? 'none'),
+    queryFn: () => rentalService.getOwnerBookings(),
+    enabled: !!token && !!user && !isLoading,
+    staleTime: 15_000,
+  });
+};
+
+export const useApproveBookingAsOwner = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (rentalId: string | number) => rentalService.approveBookingAsOwner(rentalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      if (user?.id != null) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ownerBookings(user.id) });
+      }
+    },
+  });
+};
+
+export const useRejectBookingAsOwner = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (rentalId: string | number) => rentalService.rejectBookingAsOwner(rentalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      if (user?.id != null) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ownerBookings(user.id) });
+      }
+    },
   });
 };
 
 /**
  * Get rentals by client ID
  */
-export const useRentalsByClient = (clientId: number | undefined) => {
+export const useRentalsByClient = (clientId: number | string | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.byClient(clientId!),
     queryFn: () => rentalService.getRentalsByClientId(clientId!),
@@ -69,7 +116,7 @@ export const useRentalsByClient = (clientId: number | undefined) => {
 /**
  * Get rentals by car ID
  */
-export const useRentalsByCar = (carId: number | undefined) => {
+export const useRentalsByCar = (carId: number | string | undefined) => {
   return useQuery({
     queryKey: QUERY_KEYS.byCar(carId!),
     queryFn: () => rentalService.getRentalsByCarId(carId!),
@@ -98,7 +145,7 @@ export const useCreateBooking = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ carId, startDate, expectedEndDate }: { carId: number; startDate: string; expectedEndDate: string }) =>
+    mutationFn: ({ carId, startDate, expectedEndDate }: { carId: number | string; startDate: string; expectedEndDate: string }) =>
       rentalService.createBooking(carId, startDate, expectedEndDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
@@ -114,7 +161,7 @@ export const useCompleteRental = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, actualEndDate }: { id: number; actualEndDate?: string }) =>
+    mutationFn: ({ id, actualEndDate }: { id: number | string; actualEndDate?: string }) =>
       rentalService.completeRental(id, actualEndDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
@@ -131,7 +178,7 @@ export const useCancelRental = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id: number) => rentalService.cancelRental(id),
+    mutationFn: (id: number | string) => rentalService.cancelRental(id),
     onSuccess: () => {
       // Invalidate all rental queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
@@ -151,7 +198,7 @@ export const useAddPenalty = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, amount, reason }: { id: number; amount: number; reason: string }) =>
+    mutationFn: ({ id, amount, reason }: { id: number | string; amount: number; reason: string }) =>
       rentalService.addPenalty(id, amount, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
@@ -159,4 +206,3 @@ export const useAddPenalty = () => {
     },
   });
 };
-

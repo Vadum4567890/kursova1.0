@@ -1,7 +1,6 @@
 import React from 'react';
-import { Box, Paper, TextField, Button } from '@mui/material';
+import { Box, Paper, TextField, Button, CircularProgress } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
-import { CircularProgress } from '@mui/material';
 import { Client } from '../../interfaces';
 import { ClientSearchResults } from './ClientSearchResults';
 
@@ -20,8 +19,8 @@ const ClientSearchTab: React.FC<ClientSearchTabProps> = ({
   loading,
   results,
 }) => {
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
       onSearch();
     }
   };
@@ -31,10 +30,10 @@ const ClientSearchTab: React.FC<ClientSearchTabProps> = ({
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
           fullWidth
-          label="Пошук клієнта"
+          label="Пошук орендаря"
           placeholder="Ім'я, телефон або адреса"
           value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
+          onChange={(event) => onQueryChange(event.target.value)}
           onKeyPress={handleKeyPress}
         />
         <Button
@@ -53,4 +52,3 @@ const ClientSearchTab: React.FC<ClientSearchTabProps> = ({
 };
 
 export default ClientSearchTab;
-

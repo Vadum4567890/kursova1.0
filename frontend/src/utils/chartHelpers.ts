@@ -35,9 +35,9 @@ export function formatRevenueData(revenueStats?: { revenueByDay?: RevenueItem[] 
  */
 export function formatPopularCarsData(popularCars: PopularCar[]) {
   return popularCars.map((car: PopularCar) => ({
-    name: `${car.car.brand} ${car.car.model}`,
+    name: `${car.car.brand} ${car.car.model}`.trim(),
     Прокатів: car.rentalCount,
-    Дохід: Math.round(car.totalRevenue),
+    'Вартість прокату': Math.round(car.totalRevenue),
   }));
 }
 
@@ -46,9 +46,9 @@ export function formatPopularCarsData(popularCars: PopularCar[]) {
  */
 export function formatPopularCarsBarData(popularCars: PopularCar[]) {
   return popularCars.map((car: PopularCar) => ({
-    name: `${car.car.brand} ${car.car.model}`,
+    name: `${car.car.brand} ${car.car.model}`.trim(),
     Кількість: car.rentalCount,
-    Дохід: Math.round(car.totalRevenue),
+    'Вартість прокату': Math.round(car.totalRevenue),
   }));
 }
 

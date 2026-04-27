@@ -12,8 +12,8 @@ import { LoadingSpinner, StatusChip } from '../common';
 import { formatRentalDate } from '../../utils/dateHelpers';
 
 interface Rental {
-  id: number;
-  carId?: number;
+  id: number | string;
+  carId?: number | string;
   car?: {
     brand: string;
     model: string;

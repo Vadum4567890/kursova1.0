@@ -4,10 +4,12 @@
 
 export * from './useCars';
 export * from './useRentals';
-export * from './useClients';
+export * from './useCustomers';
 export * from './usePenalties';
 export * from './useAnalytics';
 export * from './useReports';
 export * from './useSearch';
 export * from './useAuth';
+export * from './useReviews';
+export * from './useUsers';
 

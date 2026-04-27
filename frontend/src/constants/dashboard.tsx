@@ -49,7 +49,7 @@ export function getStatCardsConfig(userRole?: string): StatCardConfig[] {
       getValue: (stats) => stats?.rentedCars || 0,
     },
     {
-      title: 'Клієнти',
+      title: 'Орендарі',
       icon: <People sx={{ fontSize: 40 }} />,
       color: '#9c27b0',
       gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',

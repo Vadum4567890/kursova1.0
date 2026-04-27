@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Car Rental Marketplace — презентація проєкту</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --text: #e8eef5;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --accent2: #22c55e;
+      --border: #2d3a4d;
+      --font: "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    header.hero {
+      text-align: center;
+      padding: 3rem 1rem;
+      background: linear-gradient(160deg, #1e3a5f 0%, var(--bg) 55%);
+      border-bottom: 1px solid var(--border);
+    }
+    header.hero h1 {
+      font-size: clamp(1.6rem, 4vw, 2.25rem);
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    header.hero p { color: var(--muted); margin: 0; font-size: 1.05rem; }
+    .badge {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.35rem 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: var(--accent2);
+    }
+    section {
+      margin-top: 2.75rem;
+      padding: 1.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    section h2 {
+      margin: 0 0 1rem;
+      font-size: 1.35rem;
+      color: #fff;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 0.5rem;
+      display: inline-block;
+    }
+    h3 { font-size: 1.05rem; color: var(--muted); margin: 1.25rem 0 0.6rem; }
+    ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+    li { margin: 0.35rem 0; }
+    .grid2 { display: grid; gap: 1.25rem; }
+    @media (min-width: 768px) {
+      .grid2 { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: rgba(0,0,0,0.2);
+      padding: 1rem 1.15rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .formula {
+      font-family: ui-monospace, monospace;
+      background: #0d1117;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+    }
+    .chart-box {
+      position: relative;
+      height: 280px;
+      margin: 1rem 0;
+    }
+    .chart-box.tall { height: 320px; }
+    .mermaid-wrap {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+    .mermaid-wrap .mermaid { min-height: 80px; }
+    table.swot {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    table.swot th, table.swot td {
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    table.swot th { background: rgba(59,130,246,0.15); color: #93c5fd; }
+    .footnote {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 1rem;
+    }
+    @media print {
+      body { background: #fff; color: #111; }
+      section, .card { break-inside: avoid; border-color: #ccc; background: #fafafa; }
+      header.hero { background: #e8eef5; }
+      .mermaid { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <h1>Маркетплейс оренди автомобілів</h1>
+    <p>Бізнес-модель, економіка, метрики та технічна архітектура (курсова / інвестор)</p>
+    <span class="badge">Демо-дані на графіках — для ілюстрації; підставте реальну аналітику</span>
+  </header>
+
+  <div class="wrap">
+
+    <section id="business">
+      <h2>1. Бізнес-модель</h2>
+      <div class="grid2">
+        <div class="card">
+          <strong>Тип:</strong> маркетплейс (двостороння платформа)<br /><br />
+          Платформа не володіє автопарком: з’єднує <strong>орендодавців</strong> і <strong>орендарів</strong>, забезпечує пошук, бронювання, прозорі правила та (у повній версії) платежі й виплати.
+        </div>
+        <div class="card">
+          <strong>Джерело доходу:</strong> комісія з кожної успішної оренди (типово <strong>5–10%</strong>).<br /><br />
+          Приклад: оренда 10&nbsp;000 грн, комісія 5% → <strong>500 грн</strong> виручки платформи; решта — власнику авто (за узгодженою схемою).
+        </div>
+      </div>
+      <h3>Основний процес (core flow)</h3>
+      <ol>
+        <li>Власник додає авто в каталог (опис, фото, ціна, доступність).</li>
+        <li>Клієнт обирає дати та бронює.</li>
+        <li>Оплата через платіжну систему (цільовий сценарій).</li>
+        <li>Платформа утримує комісію; решта — власнику.</li>
+        <li>Після оренди: повернення депозиту, штрафи за прострочення / пошкодження.</li>
+      </ol>
+      <h3>Value proposition</h3>
+      <div class="grid2">
+        <div class="card">
+          <strong>Для клієнта:</strong> швидкий підбір авто, зрозумілі умови, безпечна оплата, підтримка та гарантії (як частина продукту).
+        </div>
+        <div class="card">
+          <strong>Для власника:</strong> доступ до аудиторії без окремої реклами, автоматизація бронювань і календаря, менше ручної комунікації.
+        </div>
+      </div>
+    </section>
+
+    <section id="unit-econ">
+      <h2>2. Unit economics</h2>
+      <div class="formula">
+        Revenue ≈ Orders × AvgPrice × Commission%
+      </div>
+      <p>Приклад: 50 оренд/місяць, середній чек 3&nbsp;000 грн, комісія 5% → <strong>50 × 3000 × 0,05 = 7&nbsp;500 грн/міс</strong> валової виручки платформи (до витрат на інфраструктуру, маркетинг, підтримку).</p>
+      <div class="chart-box">
+        <canvas id="chartUnitExample"></canvas>
+      </div>
+      <p class="footnote">Стовпчики: ілюстрація «оренд × середній чек × ставка комісії» по місяцях (умовні цифри).</p>
+    </section>
+
+    <section id="charts">
+      <h2>3. Графіки (must-have для презентації)</h2>
+
+      <h3>3.1 Growth — користувачі та бронювання в часі</h3>
+      <div class="chart-box tall">
+        <canvas id="chartGrowth"></canvas>
+      </div>
+
+      <h3>3.2 Revenue — зростання доходу платформи</h3>
+      <div class="chart-box">
+        <canvas id="chartRevenue"></canvas>
+      </div>
+
+      <h3>3.3 Funnel — воронка конверсії</h3>
+      <p>Відвідувачі → перегляд авто → клік «Забронювати» → оплата. Нижче — горизонтальні стовпці (кількість на кроці).</p>
+      <div class="chart-box">
+        <canvas id="chartFunnel"></canvas>
+      </div>
+
+      <h3>3.4 Marketplace balance — авто vs активні клієнти</h3>
+      <div class="chart-box">
+        <canvas id="chartBalance"></canvas>
+      </div>
+
+      <h3>3.5 Unit economics breakdown — дохід, витрати, чистий результат</h3>
+      <div class="chart-box">
+        <canvas id="chartBreakdown"></canvas>
+      </div>
+
+      <h3>3.6 Retention — повторні візити / повторні оренди</h3>
+      <div class="chart-box">
+        <canvas id="chartRetention"></canvas>
+      </div>
+    </section>
+
+    <section id="diagrams">
+      <h2>4. Схеми для захисту</h2>
+
+      <h3>4.1 Потік платежів</h3>
+      <div class="mermaid-wrap"><div class="mermaid">
+flowchart LR
+  C[Клієнт] --> PS[Платіжна система]
+  PS --> P[Платформа комісія]
+  P --> O[Виплата власнику]
+      </div></div>
+
+      <h3>4.2 Бізнес-процес (спрощено)</h3>
+      <div class="mermaid-wrap"><div class="mermaid">
+flowchart TD
+  A[Власник додає авто] --> B[Клієнт бронює]
+  B --> C[Обробка оплати]
+  C --> D[Оренда активна]
+  D --> E[Завершення депозит штрафи]
+  E --> F[Виплата власнику]
+      </div></div>
+
+      <h3>4.3 Архітектура реалізації проєкту (мікросервіси + Gateway)</h3>
+      <div class="mermaid-wrap"><div class="mermaid">
+flowchart LR
+  FE[Frontend React] --> GW[API Gateway BFF]
+  GW --> US[user-service JWT Google]
+  GW --> CS[car-service UUID]
+  GW --> RS[rental-service]
+  GW --> RP[reporting-service]
+  US --> DB1[(Postgres)]
+  CS --> DB2[(Postgres)]
+  RS --> DB3[(Postgres)]
+      </div></div>
+
+      <h3>4.4 Стани замовлення (оренди)</h3>
+      <div class="mermaid-wrap"><div class="mermaid">
+stateDiagram-v2
+  [*] --> Created
+  Created --> Paid
+  Paid --> Active
+  Active --> Completed
+  Completed --> Payout
+  Payout --> Closed
+      </div></div>
+
+      <h3>4.5 Депозит: hold → перевірка → повернення або утримання</h3>
+      <div class="mermaid-wrap"><div class="mermaid">
+flowchart LR
+  H[Hold депозиту] --> R[Період оренди]
+  R --> CH[Перевірка авто]
+  CH --> Ref[Повернення]
+  CH --> Chg[Утримання штраф]
+      </div></div>
+    </section>
+
+    <section id="extra">
+      <h2>5. Що підсилює роботу на захисті</h2>
+
+      <h3>SWOT</h3>
+      <table class="swot">
+        <tr><th>Strengths</th><th>Weaknesses</th></tr>
+        <tr>
+          <td>Автоматизація каталогу та бронювань; масштабована архітектура (сервіси окремо).</td>
+          <td>Потрібні платіжка, страхування, модерація — без цього ризики для обох сторін.</td>
+        </tr>
+        <tr><th>Opportunities</th><th>Threats</th></tr>
+        <tr>
+          <td>Зростання шерінгу авто; інтеграція з локальними страховими та СТО.</td>
+          <td>Конкуренція OLX/прокатів; регуляторика; шахрайство та спори щодо стану авто.</td>
+        </tr>
+      </table>
+
+      <h3>Конкуренти (орієнтири)</h3>
+      <ul>
+        <li>Локальні прокати авто (офлайн + сайти).</li>
+        <li>Оголошення (OLX тощо) — без гарантій платформи та стандартизованого бронювання.</li>
+        <li>Міжнародні сервіси оренди (моделі C2C / B2C) — еталон UX і довіри.</li>
+      </ul>
+
+      <h3>Ризики</h3>
+      <ul>
+        <li>Шахрайство (фейкові оголошення, підроблені документи).</li>
+        <li>Пошкодження авто, суперечки щодо депозиту.</li>
+        <li>Скасування та простої — потрібна політика штрафів/компенсацій.</li>
+      </ul>
+
+      <h3>Монетизація (розширена)</h3>
+      <ul>
+        <li>Комісія з угоди (основа).</li>
+        <li>Платне підвищення оголошення в топі видачі.</li>
+        <li>Партнерські програми зі страхуванням, КАСКО, допомогою на дорозі.</li>
+      </ul>
+    </section>
+
+    <section id="tech">
+      <h2>6. Технічний зріз проєкту (для слайду «реалізація»)</h2>
+      <ul>
+        <li><strong>Клієнт:</strong> React, запити на єдиний базовий URL API (<code>/api</code>).</li>
+        <li><strong>Gateway:</strong> Node.js backend — маршрутизація до мікросервісів, BFF для бронювань.</li>
+        <li><strong>Сервіси:</strong> user-service (акаунти, JWT + Google), car-service (каталог, UUID), rental-service (оренди), reporting-service (звіти/штрафи — за наявності).</li>
+        <li><strong>Дані:</strong> окремі БД під домени (PostgreSQL), узгоджені DTO та ідентифікатори UUID.</li>
+      </ul>
+      <p class="footnote">Відкрийте цей файл у браузері; для друку/PDF: Ctrl+P → Зберегти як PDF. Діаграми Mermaid рендеряться скриптом при завантаженні сторінки.</p>
+    </section>
+  </div>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+
+    const months = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер'];
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#c8d4e0' } }
+      },
+      scales: {
+        x: { ticks: { color: '#8b9cb3' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        y: { ticks: { color: '#8b9cb3' }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      }
+    };
+
+    new Chart(document.getElementById('chartUnitExample'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'Виручка платформи (приклад, тис. грн)',
+          data: [4.5, 5.2, 6.1, 6.8, 7.2, 7.5],
+          backgroundColor: 'rgba(59, 130, 246, 0.65)',
+          borderColor: '#3b82f6',
+          borderWidth: 1
+        }]
+      },
+      options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true } } }
+    });
+
+    new Chart(document.getElementById('chartGrowth'), {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          {
+            label: 'Користувачі (умовні од.)',
+            data: [120, 180, 240, 310, 400, 480],
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+            fill: true,
+            tension: 0.3
+          },
+          {
+            label: 'Бронювання (умовні од.)',
+            data: [28, 42, 55, 68, 82, 95],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.3
+          }
+        ]
+      },
+      options: chartDefaults
+    });
+
+    new Chart(document.getElementById('chartRevenue'), {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'Дохід платформи (комісія, тис. грн)',
+          data: [12, 18, 24, 31, 38, 45],
+          borderColor: '#a855f7',
+          backgroundColor: 'rgba(168, 85, 247, 0.2)',
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: chartDefaults
+    });
+
+    new Chart(document.getElementById('chartFunnel'), {
+      type: 'bar',
+      data: {
+        labels: ['Відвідувачі', 'Перегляд авто', 'Клік «Забронювати»', 'Оплата'],
+        datasets: [{
+          label: 'Кількість на кроці',
+          data: [10000, 4200, 1100, 380],
+          backgroundColor: ['#64748b', '#3b82f6', '#22c55e', '#eab308']
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#c8d4e0' } } },
+        scales: {
+          x: { ticks: { color: '#8b9cb3' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+          y: { ticks: { color: '#8b9cb3' }, grid: { display: false } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chartBalance'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Авто в каталозі', data: [45, 52, 58, 64, 71, 78], backgroundColor: 'rgba(59, 130, 246, 0.7)' },
+          { label: 'Активні клієнти (міс.)', data: [80, 95, 110, 125, 140, 155], backgroundColor: 'rgba(34, 197, 94, 0.65)' }
+        ]
+      },
+      options: chartDefaults
+    });
+
+    new Chart(document.getElementById('chartBreakdown'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Валовий дохід', 'Операційні витрати', 'Чистий прибуток (приклад)'],
+        datasets: [{
+          data: [45, 28, 17],
+          backgroundColor: ['#3b82f6', '#ef4444', '#22c55e'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: '#c8d4e0', padding: 14 } } }
+      }
+    });
+
+    new Chart(document.getElementById('chartRetention'), {
+      type: 'line',
+      data: {
+        labels: ['Місяць 1', 'Місяць 2', 'Місяць 3', 'Місяць 4', 'Місяць 5', 'Місяць 6'],
+        datasets: [{
+          label: 'Retention cohort (%)',
+          data: [100, 42, 28, 21, 18, 16],
+          borderColor: '#f97316',
+          backgroundColor: 'rgba(249, 115, 22, 0.15)',
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: chartDefaults
+    });
+  </script>
+</body>
+</html>

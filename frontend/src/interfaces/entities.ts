@@ -4,11 +4,12 @@
  */
 
 export interface Car {
-  id: number;
+  id: number | string; // string when from car-service (UUID)
+  ownerId?: number | null | string;
   brand: string;
   model: string;
   year: number;
-  type: 'economy' | 'business' | 'premium';
+  type: 'economy' | 'business' | 'premium' | 'suv' | 'luxury';
   pricePerDay: number;
   deposit: number;
   status: 'available' | 'rented' | 'maintenance';
@@ -27,26 +28,40 @@ export interface Car {
   features?: string;
   createdAt?: string;
   updatedAt?: string;
+  instantBook?: boolean;
+  unavailableDates?: string[];
 }
 
 export interface Rental {
-  id: number;
-  clientId: number;
-  carId: number;
+  /** UUID (rental-service) або числовий id (legacy) */
+  id: number | string;
+  clientId?: number;
+  renterUserId?: string;
+  carId: number | string;
   startDate: string;
   expectedEndDate: string;
   actualEndDate?: string;
   depositAmount: number;
   totalCost: number;
   penaltyAmount: number;
-  status: 'active' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  ownerUserId?: string | null;
+  reviewStatus?: 'not_available' | 'waiting' | 'partial' | 'published' | 'expired';
+  reviewWindowClosesAt?: string;
+  ownerReviewSubmittedAt?: string;
+  renterReviewSubmittedAt?: string;
   client?: {
     id: number;
     fullName: string;
     phone: string;
   };
+  renter?: {
+    id: number | string;
+    email: string;
+    fullName: string;
+  };
   car?: {
-    id: number;
+    id: number | string;
     brand: string;
     model: string;
     pricePerDay: number;
@@ -55,11 +70,80 @@ export interface Rental {
   updatedAt?: string;
 }
 
+export interface ReviewableBooking {
+  bookingId: string;
+  carId: number | string;
+  ownerUserId?: string | null;
+  renterUserId?: string;
+  role: 'owner' | 'renter';
+  reviewStatus: 'waiting' | 'partial' | 'published' | 'expired' | 'not_available';
+  reviewWindowClosesAt?: string;
+  myReviewSubmitted?: boolean;
+  counterpartyReviewSubmitted?: boolean;
+  canSubmit?: boolean;
+  myReview?: Review | null;
+}
+
+export interface BookingReviewStatus {
+  bookingId: string;
+  canSubmit: boolean;
+  myReviewSubmitted: boolean;
+  counterpartyReviewSubmitted: boolean;
+  published: boolean;
+  expired: boolean;
+  reviewStatus: 'waiting' | 'partial' | 'published' | 'expired' | 'not_available';
+  reviewWindowClosesAt?: string;
+}
+
+export interface Review {
+  id: string;
+  bookingId: string;
+  reviewerUserId: string;
+  revieweeUserId: string;
+  carId: string;
+  reviewType: 'owner_to_renter' | 'renter_to_owner_and_car';
+  revieweeType: 'owner' | 'renter';
+  status: 'submitted' | 'published' | 'expired';
+  comment?: string | null;
+  submittedAt: string;
+  publishedAt?: string | null;
+  scores: Record<string, number>;
+}
+
+export interface CarRatingSummary {
+  carId: string;
+  rating: number;
+  reviewsCount: number;
+  cleanlinessAvg: number;
+  technicalConditionAvg: number;
+  accuracyOfDescriptionAvg: number;
+  completedRentalsCount: number;
+}
+
+export interface UserRatingSummary {
+  userId: string;
+  rating: number;
+  reviewsCount: number;
+  asRenterRating: number;
+  asRenterCount: number;
+  asOwnerRating: number;
+  asOwnerCount: number;
+  ownerCommunicationAvg: number;
+  ownerHonestyAvg: number;
+  ownerResponseSpeedAvg: number;
+  renterReturnedOnTimeAvg: number;
+  renterDamageFreeReturnAvg: number;
+  renterBehaviorAvg: number;
+  completedRentalsCount: number;
+  updatedAt?: string;
+}
+
 export interface User {
-  id: number;
+  /** Числовий id (dev gateway) або UUID (user-service) */
+  id: number | string;
   username: string;
   email: string;
-  role: 'admin' | 'manager' | 'employee' | 'user';
+  role: 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner' | 'both';
   fullName?: string;
   address?: string;
   phone?: string;
@@ -69,7 +153,7 @@ export interface User {
 }
 
 export interface Client {
-  id: number;
+  id: number | string;
   fullName: string;
   address: string;
   phone: string;
@@ -80,8 +164,8 @@ export interface Client {
 }
 
 export interface Penalty {
-  id: number;
-  rentalId: number;
+  id: string | number;
+  rentalId: string | number;
   amount: number;
   reason: string;
   date?: string; // Legacy field, use createdAt instead
@@ -89,9 +173,9 @@ export interface Penalty {
   createdAt?: string;
   updatedAt?: string;
   rental?: {
-    id: number;
+    id: string | number;
     clientId?: number;
-    carId?: number;
+    carId?: number | string;
     client?: {
       fullName: string;
     };
@@ -101,4 +185,3 @@ export interface Penalty {
     };
   };
 }
-

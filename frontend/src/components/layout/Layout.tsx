@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { Box, useTheme, AppBar, Toolbar, IconButton, useMediaQuery } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
+import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
@@ -64,7 +61,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           mt: { xs: 8, md: 0 },
         }}
       >
-        {children}
+        <Outlet />
       </Box>
     </Box>
   );

@@ -21,7 +21,7 @@ import {
 import { Add, CheckCircle, Cancel } from '@mui/icons-material';
 import { Rental, Client, Car } from '../interfaces';
 import { useRentals, useActiveRentals, useCreateRental, useCancelRental, useCompleteRental } from '../hooks/queries/useRentals';
-import { useClients } from '../hooks/queries/useClients';
+import { useCustomers } from '../hooks/queries/useCustomers';
 import { useCars } from '../hooks/queries/useCars';
 import { 
   ErrorAlert, 
@@ -37,6 +37,7 @@ import { useErrorHandler } from '../hooks/useErrorHandler';
 import { StatusChip } from '../components/common';
 import { RentalFormData } from '../interfaces';
 import { formatDate } from '../utils/dateHelpers';
+import { getRenterDisplayName } from '../utils/rentalDisplay';
 
 const RentalsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -48,10 +49,14 @@ const RentalsPage: React.FC = () => {
   const cancelRental = useCancelRental();
   const completeRental = useCompleteRental();
   
-  // Load clients and cars when dialog opens
-  const { data: clients = [] } = useClients();
+  // Load renter/customer records and cars when dialog opens
+  const { data: customers = [] } = useCustomers();
   const { data: carsResponse } = useCars();
   const cars = useMemo(() => carsResponse?.data?.filter((c: Car) => c.status === 'available') || [], [carsResponse]);
+  const clientNamesByUserId = useMemo(
+    () => new Map(customers.map((c: Client) => [String(c.id), c.fullName])),
+    [customers]
+  );
   
   const { error, handleError, clearError } = useErrorHandler();
   const displayError = error || rentalsError?.message || activeError?.message;
@@ -67,6 +72,7 @@ const RentalsPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
+      if (id === undefined || id === null || id === '') return;
       await cancelRental.mutateAsync(id);
       clearError();
     },
@@ -84,9 +90,13 @@ const RentalsPage: React.FC = () => {
     }
     try {
       clearError();
+      const carIdRaw = String(formDialog.formData.carId).trim();
+      const carId: number | string = /^\d+$/.test(carIdRaw) ? parseInt(carIdRaw, 10) : carIdRaw;
+      const renterUserId = String(formDialog.formData.clientId).trim();
       await createRental.mutateAsync({
-        clientId: parseInt(formDialog.formData.clientId),
-        carId: parseInt(formDialog.formData.carId),
+        clientId: renterUserId || undefined,
+        carId,
+        renterUserId: renterUserId || undefined,
         startDate: new Date(formDialog.formData.startDate).toISOString(),
         expectedEndDate: new Date(formDialog.formData.expectedEndDate).toISOString(),
       });
@@ -96,7 +106,7 @@ const RentalsPage: React.FC = () => {
     }
   };
 
-  const handleComplete = async (id: number) => {
+  const handleComplete = async (id: number | string) => {
     try {
       clearError();
       await completeRental.mutateAsync({ id });
@@ -148,9 +158,7 @@ const RentalsPage: React.FC = () => {
               {rentals.map((rental: Rental) => (
                 <TableRow key={rental.id} hover>
                   <TableCell>{rental.id}</TableCell>
-                  <TableCell>
-                    {rental.client?.fullName || (rental.clientId ? `Клієнт #${rental.clientId}` : 'Невідомо')}
-                  </TableCell>
+                  <TableCell>{getRenterDisplayName(rental, clientNamesByUserId)}</TableCell>
                   <TableCell>
                     {rental.car
                       ? `${rental.car.brand} ${rental.car.model}`
@@ -260,9 +268,9 @@ const RentalsPage: React.FC = () => {
             label="Клієнт"
             onChange={(e) => formDialog.updateFormData({ clientId: e.target.value })}
           >
-            {clients.map((client: Client) => (
-              <MenuItem key={client.id} value={client.id.toString()}>
-                {client.fullName} ({client.phone})
+            {customers.map((customer: Client) => (
+              <MenuItem key={customer.id} value={customer.id.toString()}>
+                {customer.fullName} ({customer.phone})
               </MenuItem>
             ))}
           </Select>

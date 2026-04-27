@@ -1,5 +1,8 @@
 import React from 'react';
 import {
+  Button,
+  Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -7,20 +10,25 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Button,
-  Paper,
 } from '@mui/material';
-import { Cancel } from '@mui/icons-material';
-import { Rental } from '../../interfaces';
+import { Cancel, Edit, RateReview } from '@mui/icons-material';
+import { Rental, ReviewableBooking } from '../../interfaces';
 import { formatRentalDate } from '../../utils/dateHelpers';
 import { StatusChip } from '../common';
 
 interface MyRentalsTableProps {
   rentals: Rental[];
-  onCancelClick: (id: number) => void;
+  onCancelClick: (id: number | string) => void;
+  reviewableByRentalId?: Map<string, ReviewableBooking>;
+  onReviewClick?: (booking: ReviewableBooking) => void;
 }
 
-export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCancelClick }) => {
+export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
+  rentals,
+  onCancelClick,
+  reviewableByRentalId,
+  onReviewClick,
+}) => {
   if (rentals.length === 0) {
     return (
       <TableContainer component={Paper}>
@@ -30,7 +38,7 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
               <TableCell>ID</TableCell>
               <TableCell>Автомобіль</TableCell>
               <TableCell>Початок</TableCell>
-              <TableCell>Очікуваний кінець</TableCell>
+              <TableCell>Очікуване повернення</TableCell>
               <TableCell>Вартість</TableCell>
               <TableCell>Залог</TableCell>
               <TableCell>Повернення</TableCell>
@@ -60,7 +68,7 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
             <TableCell>ID</TableCell>
             <TableCell>Автомобіль</TableCell>
             <TableCell>Початок</TableCell>
-            <TableCell>Очікуваний кінець</TableCell>
+            <TableCell>Очікуване повернення</TableCell>
             <TableCell>Вартість</TableCell>
             <TableCell>Залог</TableCell>
             <TableCell>Повернення</TableCell>
@@ -71,7 +79,10 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
         <TableBody>
           {rentals.map((rental) => {
             const refund = Math.max(0, rental.depositAmount - rental.penaltyAmount);
-            const isCompletedOrCancelled = rental.status === 'cancelled' || rental.status === 'completed';
+            const isCompletedOrCancelled =
+              rental.status === 'cancelled' || rental.status === 'completed';
+            const reviewable = reviewableByRentalId?.get(String(rental.id));
+            const isEditMode = Boolean(reviewable?.myReviewSubmitted);
 
             return (
               <TableRow key={rental.id} hover>
@@ -80,8 +91,8 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
                   {rental.car
                     ? `${rental.car.brand} ${rental.car.model}`
                     : rental.carId
-                    ? `Автомобіль #${rental.carId}`
-                    : 'Невідомо'}
+                      ? `Автомобіль #${rental.carId}`
+                      : 'Невідомо'}
                 </TableCell>
                 <TableCell>{formatRentalDate(rental.startDate)}</TableCell>
                 <TableCell>
@@ -94,17 +105,17 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontWeight={600}>
-                    {rental.totalCost.toLocaleString()} ₴
+                    {rental.totalCost.toLocaleString()} грн
                   </Typography>
                   {rental.penaltyAmount > 0 && (
                     <Typography variant="caption" color="error" display="block">
-                      Штраф: +{rental.penaltyAmount.toLocaleString()} ₴
+                      Штраф: +{rental.penaltyAmount.toLocaleString()} грн
                     </Typography>
                   )}
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" color="warning.main">
-                    {rental.depositAmount.toLocaleString()} ₴
+                    {rental.depositAmount.toLocaleString()} грн
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -114,11 +125,11 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
                       color={refund > 0 ? 'success.main' : 'text.secondary'}
                       fontWeight={refund > 0 ? 600 : 400}
                     >
-                      {refund.toLocaleString()} ₴
+                      {refund.toLocaleString()} грн
                     </Typography>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      {rental.depositAmount.toLocaleString()} ₴
+                      {rental.depositAmount.toLocaleString()} грн
                       <Typography variant="caption" display="block" color="text.secondary">
                         (очікується)
                       </Typography>
@@ -129,16 +140,49 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
                   <StatusChip status={rental.status} />
                 </TableCell>
                 <TableCell align="right">
-                  {rental.status === 'active' && (
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={<Cancel />}
-                      onClick={() => onCancelClick(rental.id)}
-                    >
-                      Скасувати
-                    </Button>
-                  )}
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    {rental.status === 'active' && (
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<Cancel />}
+                        onClick={() => onCancelClick(rental.id)}
+                      >
+                        Скасувати
+                      </Button>
+                    )}
+
+                    {rental.status === 'completed' && reviewable && onReviewClick && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={isEditMode ? <Edit /> : <RateReview />}
+                        onClick={() => onReviewClick(reviewable)}
+                      >
+                        {isEditMode ? 'Редагувати відгук' : 'Залишити відгук'}
+                      </Button>
+                    )}
+
+                    {rental.status === 'completed' &&
+                      !reviewable &&
+                      rental.reviewStatus === 'partial' && (
+                        <Typography variant="caption" color="text.secondary">
+                          Ваш відгук надіслано
+                        </Typography>
+                      )}
+
+                    {rental.status === 'completed' && rental.reviewStatus === 'published' && (
+                      <Typography variant="caption" color="success.main">
+                        Відгуки опубліковано
+                      </Typography>
+                    )}
+
+                    {rental.status === 'completed' && rental.reviewStatus === 'expired' && (
+                      <Typography variant="caption" color="text.secondary">
+                        Вікно відгуку завершено
+                      </Typography>
+                    )}
+                  </Stack>
                 </TableCell>
               </TableRow>
             );
@@ -148,4 +192,3 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({ rentals, onCance
     </TableContainer>
   );
 };
-

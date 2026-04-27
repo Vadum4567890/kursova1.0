@@ -18,7 +18,7 @@ export function usePenaltyCreate(options: UsePenaltyCreateOptions = {}) {
       try {
         clearError();
         await createPenalty.mutateAsync({
-          rentalId: parseInt(formData.rentalId),
+          rentalId: formData.rentalId,
           amount: parseFloat(formData.amount),
           reason: formData.reason,
         });

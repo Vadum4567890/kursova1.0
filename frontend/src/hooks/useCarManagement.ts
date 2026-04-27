@@ -28,7 +28,13 @@ export function useCarManagement(options: UseCarManagementOptions = {}) {
         imageUpload.reset();
         onSuccess?.();
       } catch (err: any) {
-        const errorMessage = err.response?.data?.error || err.message || 'Помилка створення автомобіля';
+        const d = err.response?.data;
+        const msg =
+          (typeof d?.error === 'object' && d?.error?.message) ||
+          (typeof d?.error === 'string' ? d.error : null) ||
+          d?.message ||
+          err.message;
+        const errorMessage = msg || 'Помилка створення автомобіля';
         handleError(err, errorMessage);
         onError?.(errorMessage);
         throw err;
@@ -38,7 +44,7 @@ export function useCarManagement(options: UseCarManagementOptions = {}) {
   );
 
   const update = useCallback(
-    async (id: number, formData: Partial<Car>, finalImageUrl?: string, finalImageUrls?: string[]) => {
+    async (id: number | string, formData: Partial<Car>, finalImageUrl?: string, finalImageUrls?: string[]) => {
       try {
         clearError();
         const dataToSubmit = prepareCarDataForSubmit(formData, finalImageUrl, finalImageUrls);
@@ -47,7 +53,13 @@ export function useCarManagement(options: UseCarManagementOptions = {}) {
         onSuccess?.();
         return updatedCar;
       } catch (err: any) {
-        const errorMessage = err.response?.data?.error || err.message || 'Помилка оновлення автомобіля';
+        const d = err.response?.data;
+        const msg =
+          (typeof d?.error === 'object' && d?.error?.message) ||
+          (typeof d?.error === 'string' ? d.error : null) ||
+          d?.message ||
+          err.message;
+        const errorMessage = msg || 'Помилка оновлення автомобіля';
         handleError(err, errorMessage);
         onError?.(errorMessage);
         throw err;
@@ -57,13 +69,19 @@ export function useCarManagement(options: UseCarManagementOptions = {}) {
   );
 
   const remove = useCallback(
-    async (id: number) => {
+    async (id: number | string) => {
       try {
         clearError();
         await deleteCar.mutateAsync(id);
         onSuccess?.();
       } catch (err: any) {
-        const errorMessage = err.response?.data?.error || err.message || 'Помилка видалення';
+        const d = err.response?.data;
+        const msg =
+          (typeof d?.error === 'object' && d?.error?.message) ||
+          (typeof d?.error === 'string' ? d.error : null) ||
+          d?.message ||
+          err.message;
+        const errorMessage = msg || 'Помилка видалення';
         handleError(err, errorMessage);
         onError?.(errorMessage);
         throw err;

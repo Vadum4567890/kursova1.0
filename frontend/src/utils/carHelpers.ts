@@ -50,6 +50,8 @@ export function getInitialCarFormData(): Partial<Car> {
     mileage: undefined,
     color: '',
     features: '',
+    instantBook: false,
+    unavailableDates: [],
   };
 }
 

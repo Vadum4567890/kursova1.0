@@ -33,7 +33,7 @@ const TopClientsTable: React.FC<TopClientsTableProps> = ({ clients }) => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <People sx={{ mr: 1, color: 'primary.main' }} />
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Топ клієнти
+          Топ орендарі
         </Typography>
       </Box>
       <TableContainer>
@@ -45,7 +45,7 @@ const TopClientsTable: React.FC<TopClientsTableProps> = ({ clients }) => {
                   theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
               }}
             >
-              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Клієнт</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Орендар</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Всього отримано
               </TableCell>

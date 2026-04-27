@@ -33,20 +33,10 @@ const OccupancyReportTab: React.FC<OccupancyReportTabProps> = ({ onGenerate, loa
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatCard
-              title="Доступні"
-              value={report?.availableCars ?? 0}
-              color="success"
-              variant="h5"
-            />
+            <StatCard title="Доступні" value={report?.availableCars ?? 0} color="success" variant="h5" />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatCard
-              title="В прокаті"
-              value={report?.rentedCars ?? 0}
-              color="warning"
-              variant="h5"
-            />
+            <StatCard title="У прокаті" value={report?.rentedCars ?? 0} color="warning" variant="h5" />
           </Grid>
         </Grid>
       )}
@@ -55,4 +45,3 @@ const OccupancyReportTab: React.FC<OccupancyReportTabProps> = ({ onGenerate, loa
 };
 
 export default OccupancyReportTab;
-

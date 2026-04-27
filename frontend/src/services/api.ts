@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { queryClient } from '../lib/queryClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -8,7 +9,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 seconds timeout
+  timeout: 30000, // multipart / повільний proxy можуть перевищувати 10s
 });
 
 // Request interceptor - add token to requests
@@ -44,7 +45,8 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
+      // Unauthorized — скинути кеш React Query (інакше «Мої авто» показує дані попереднього юзера)
+      queryClient.clear();
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

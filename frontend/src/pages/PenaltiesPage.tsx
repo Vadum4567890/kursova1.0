@@ -35,11 +35,19 @@ import {
   getRentalStatusLabel,
 } from '../utils/rentalHelpers';
 import { formatDate, formatRentalDate } from '../utils/dateHelpers';
+import { getRenterDisplayName } from '../utils/rentalDisplay';
+import { useCustomers } from '../hooks/queries/useCustomers';
+import { Client, Rental } from '../interfaces';
 
 const PenaltiesPage: React.FC = () => {
   const { user } = useAuth();
   const { data: penalties = [], isLoading: loadingPenalties, error: penaltiesError } = usePenalties();
   const { data: rentals = [], isLoading: loadingRentals } = useRentals();
+  const { data: customers = [] } = useCustomers();
+  const clientNamesByUserId = useMemo(
+    () => new Map(customers.map((c: Client) => [String(c.id), c.fullName])),
+    [customers]
+  );
   const deletePenalty = useDeletePenalty();
   
   const penaltyCreate = usePenaltyCreate({
@@ -60,7 +68,8 @@ const PenaltiesPage: React.FC = () => {
 
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
-      await deletePenalty.mutateAsync(id);
+      if (!id) return;
+      await deletePenalty.mutateAsync(id as string | number);
       penaltyCreate.clearError();
     },
   });
@@ -132,7 +141,9 @@ const PenaltiesPage: React.FC = () => {
                     #{penalty.rental?.id || penalty.rentalId || 'Невідомо'}
                   </TableCell>
                   <TableCell>
-                    {penalty.rental?.client?.fullName || 'Невідомо'}
+                    {penalty.rental
+                      ? getRenterDisplayName(penalty.rental as Rental, clientNamesByUserId)
+                      : 'Невідомо'}
                   </TableCell>
                   <TableCell>
                     {penalty.rental?.car
@@ -212,7 +223,8 @@ const PenaltiesPage: React.FC = () => {
               <MenuItem key={rental.id} value={rental.id.toString()}>
                 <Box>
                   <Typography variant="body2" fontWeight={600}>
-                    #{rental.id} - {rental.client?.fullName || 'Невідомо'} | {rental.car?.brand} {rental.car?.model}
+                    #{rental.id} - {getRenterDisplayName(rental, clientNamesByUserId)} | {rental.car?.brand}{' '}
+                    {rental.car?.model}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {startDate && endDate ? `${startDate} - ${endDate}` : startDate || 'Дата не вказана'} | {statusLabel}

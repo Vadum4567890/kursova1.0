@@ -43,17 +43,26 @@ const CarsPage: React.FC = () => {
   // Delete confirmation
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
+      if (id === undefined || id === null || id === '') return;
       await carManagement.remove(id);
       carManagement.clearError();
     },
   });
 
   // Booking
-  const [carIdForBooking, setCarIdForBooking] = useState<number | undefined>(undefined);
+  const [carIdForBooking, setCarIdForBooking] = useState<number | string | undefined>(undefined);
   const { data: bookedDates = [], isLoading: loadingBookedDates } = useBookedDates(carIdForBooking);
+  const carForBooking = useMemo(
+    () => cars.find((car: Car) => String(car.id) === String(carIdForBooking)) || null,
+    [carIdForBooking, cars]
+  );
+  const effectiveBookedDates = useMemo(() => {
+    const blocked = (carForBooking?.unavailableDates || []).map((date) => ({ startDate: date, endDate: date }));
+    return [...bookedDates, ...blocked];
+  }, [bookedDates, carForBooking?.unavailableDates]);
 
   const booking = useBooking({
-    bookedDates,
+    bookedDates: effectiveBookedDates,
     onCreateBooking: async (data) => {
       await createBooking.mutateAsync(data);
     },
@@ -82,7 +91,7 @@ const CarsPage: React.FC = () => {
 
   // Role checks
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
-  const isUser = user?.role === 'user';
+  const isUser = user?.role === 'user' || user?.role === 'renter';
   const isAdmin = user?.role === 'admin';
 
   // Handlers
@@ -129,9 +138,10 @@ const CarsPage: React.FC = () => {
         finalImageUrls = [...finalImageUrls, ...urls];
       }
 
-      if (formDialog.isEditing && formDialog.editingItem && formDialog.editingItem.id) {
+      if (formDialog.isEditing && formDialog.editingItem && formDialog.editingItem.id !== undefined) {
+        const editId = formDialog.editingItem.id;
         await carManagement.update(
-          formDialog.editingItem.id,
+          editId,
           formDialog.formData,
           finalImageUrl,
           finalImageUrls
@@ -166,7 +176,14 @@ const CarsPage: React.FC = () => {
     }
   };
 
-  const displayError = carManagement.error || carsError?.message;
+  const displayError =
+    carManagement.error ||
+    (carsError as Error & { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+      ?.message ||
+    (carsError as Error)?.message;
+
+  const emptyCatalog = !loading && cars.length === 0;
+  const emptyAfterFilters = !loading && cars.length > 0 && filteredCars.length === 0;
 
   return (
     <PageContainer>
@@ -194,8 +211,13 @@ const CarsPage: React.FC = () => {
 
       {loading ? (
         <LoadingSpinner />
-      ) : filteredCars.length === 0 ? (
-        <Alert severity="info">Автомобілі не знайдено</Alert>
+      ) : emptyCatalog ? (
+        <Alert severity="info">
+          Немає автомобілів у каталозі. Якщо ви адміністратор або менеджер — додайте перше авто кнопкою «Додати
+          автомобіль».
+        </Alert>
+      ) : emptyAfterFilters ? (
+        <Alert severity="info">За обраними фільтрами нічого не знайдено. Спробуйте змінити умови пошуку.</Alert>
       ) : (
         <Grid container spacing={3}>
           {filteredCars.map((car: Car) => (
@@ -233,7 +255,7 @@ const CarsPage: React.FC = () => {
         open={booking.open}
         onClose={booking.closeBooking}
         car={carToBook}
-        bookedDates={bookedDates}
+        bookedDates={effectiveBookedDates}
         loadingBookedDates={loadingBookedDates}
         bookingData={booking.bookingData}
         onStartDateChange={handleStartDateChange}

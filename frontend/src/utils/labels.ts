@@ -2,6 +2,25 @@
  * Utility functions for translating labels
  */
 
+/** Статус авто на картці / для орендаря з активним броню (майбутній старт). */
+export const getCarListingLabel = (
+  carStatus: string,
+  viewerRental?: { status: string } | null
+): string => {
+  if (viewerRental?.status === 'pending') return 'В очікуванні';
+  if (viewerRental?.status === 'active') return 'В прокаті';
+  return getStatusLabel(carStatus);
+};
+
+export const getCarListingColor = (
+  carStatus: string,
+  viewerRental?: { status: string } | null
+): 'success' | 'warning' | 'error' | 'default' | 'info' => {
+  if (viewerRental?.status === 'pending') return 'info';
+  if (viewerRental?.status === 'active') return 'warning';
+  return getStatusColor(carStatus);
+};
+
 export const getStatusLabel = (status: string): string => {
   switch (status) {
     case 'available':
@@ -42,9 +61,14 @@ export const getTypeLabel = (type: string): string => {
     case 'economy':
       return 'Економ';
     case 'business':
+    case 'comfort':
       return 'Бізнес';
     case 'premium':
       return 'Преміум';
+    case 'suv':
+      return 'SUV';
+    case 'luxury':
+      return 'Люкс';
     default:
       return type;
   }
@@ -104,6 +128,12 @@ export const getRoleLabel = (role: string): string => {
       return 'Співробітник';
     case 'user':
       return 'Користувач';
+    case 'renter':
+      return 'Орендар';
+    case 'owner':
+      return 'Орендодавець';
+    case 'both':
+      return 'Орендар і орендодавець';
     default:
       return role;
   }
@@ -119,6 +149,10 @@ export const getRoleColor = (role: string): 'error' | 'warning' | 'default' | 'i
       return 'default';
     case 'user':
       return 'info';
+    case 'renter':
+    case 'owner':
+    case 'both':
+      return 'default';
     default:
       return 'default';
   }

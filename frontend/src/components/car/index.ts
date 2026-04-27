@@ -9,4 +9,4 @@ export { default as CarPriceCard } from './CarPriceCard';
 export { default as DurationSelector } from './DurationSelector';
 export { default as CarDetailsTabs } from './CarDetailsTabs';
 export { default as BookingDialog } from './BookingDialog';
-
+export { default as LandlordContactChat } from './LandlordContactChat';

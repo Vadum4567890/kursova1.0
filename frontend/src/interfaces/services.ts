@@ -18,7 +18,7 @@ export interface CreateCarData {
   brand: string;
   model: string;
   year: number;
-  type: 'economy' | 'business' | 'premium';
+  type: 'economy' | 'business' | 'premium' | 'suv' | 'luxury';
   pricePerDay: number;
   deposit: number;
   description?: string;
@@ -39,8 +39,9 @@ export interface UpdateCarData extends Partial<CreateCarData> {
 
 // Rental service DTOs
 export interface CreateRentalData {
-  clientId: number;
-  carId: number;
+  clientId?: number | string;
+  carId: number | string;
+  renterUserId?: string;
   startDate: string;
   expectedEndDate: string;
 }
@@ -49,6 +50,17 @@ export interface UpdateRentalData {
   actualEndDate?: string;
   status?: 'active' | 'completed' | 'cancelled';
   penaltyAmount?: number;
+}
+
+export interface SubmitReviewData {
+  bookingId: string;
+  comment?: string;
+  scores: Record<string, number>;
+}
+
+export interface UpdateReviewData {
+  comment?: string;
+  scores: Record<string, number>;
 }
 
 // User service DTOs
@@ -87,7 +99,7 @@ export interface UpdateClientData {
 
 // Penalty service DTOs
 export interface CreatePenaltyData {
-  rentalId: number;
+  rentalId: string;
   amount: number;
   reason: string;
 }
@@ -102,6 +114,7 @@ export interface RegisterData {
   username: string;
   email: string;
   password: string;
+  role?: 'renter' | 'owner';
   fullName?: string;
   address?: string;
   phone?: string;
@@ -138,7 +151,7 @@ export interface DashboardStats {
 
 export interface PopularCar {
   car: {
-    id: number;
+    id: number | string;
     brand: string;
     model: string;
   };
@@ -148,7 +161,7 @@ export interface PopularCar {
 
 export interface TopClient {
   client: {
-    id: number;
+    id: number | string;
     fullName: string;
     phone: string;
   };
@@ -176,7 +189,11 @@ export interface FinancialReport {
   totalRevenue: number;
   totalPenalties: number;
   totalDeposits: number;
+  depositLiability?: number;
   netRevenue: number;
+  projectedRevenue?: number;
+  averageCompletedTicket?: number;
+  averagePenaltyPerCompletedRental?: number;
   period: {
     startDate: string;
     endDate: string;
@@ -187,6 +204,33 @@ export interface FinancialReport {
     active: number;
     cancelled: number;
   };
+  statusBreakdown?: Array<{
+    status: string;
+    count: number;
+    revenue: number;
+  }>;
+  transactions?: Array<{
+    rentalId: string | number;
+    renterUserId: string;
+    renterDisplayName?: string | null;
+    carId: string | number;
+    status: string;
+    startDate: string;
+    expectedEndDate: string;
+    actualEndDate?: string | null;
+    durationDays: number;
+    totalCost: number;
+    penaltyAmount: number;
+    depositAmount: number;
+    depositToReturn: number;
+    recognizedRevenue: number;
+  }>;
+  revenueTimeline?: Array<{
+    period: string;
+    recognizedRevenue: number;
+    penalties: number;
+    rentalsCompleted: number;
+  }>;
   debug?: {
     completedRentalsCount: number;
     activeRentalsCount: number;
@@ -301,10 +345,9 @@ export interface CarSearchParams {
 }
 
 export interface RentalSearchParams {
-  clientId?: number;
-  carId?: number;
+  clientId?: number | string;
+  carId?: number | string;
   status?: 'active' | 'completed' | 'cancelled';
   startDate?: string;
   endDate?: string;
 }
-

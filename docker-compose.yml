@@ -1,0 +1,208 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: car-rental-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: user_service_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d user_service_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: car-rental-api-gateway
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+      ENABLE_DEV_AUTH: "true"
+      DATA_DIR: /app/data
+      CORS_ORIGIN: http://localhost:3001
+      JWT_SECRET: dev-gateway-secret-change-me
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      SERVICE_API_KEY: internal-service-key
+      USER_SERVICE_URL: http://user-service:3002
+      CAR_SERVICE_URL: http://car-service:3003
+      RENTAL_SERVICE_URL: http://rental-service:3004
+      REPORTING_SERVICE_URL: http://reporting-service:3009
+      MEDIA_SERVICE_URL: http://media-service:3006
+    ports:
+      - "3000:3000"
+    volumes:
+      - gateway_data:/app/data
+    depends_on:
+      user-service:
+        condition: service_healthy
+      car-service:
+        condition: service_healthy
+      rental-service:
+        condition: service_healthy
+      reporting-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: car-rental-user-service
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: 1234
+      DB_DATABASE: user_service_db
+      JWT_SECRET: dev-user-service-secret
+      JWT_EXPIRES_IN: 24h
+      SERVICE_API_KEY: internal-service-key
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  car-service:
+    build:
+      context: ./services/car-service
+      dockerfile: Dockerfile
+    container_name: car-rental-car-service
+    environment:
+      PORT: 3003
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: 1234
+      DB_DATABASE: car_service_db
+      USER_SERVICE_URL: http://user-service:3002
+      SERVICE_API_KEY: internal-service-key
+      JWT_SECRET: dev-user-service-secret
+      JWT_EXPIRES_IN: 24h
+      KAFKA_BROKERS: ""
+    ports:
+      - "3003:3003"
+    depends_on:
+      - postgres
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rental-service:
+    build:
+      context: ./services/rental-service
+      dockerfile: Dockerfile
+    container_name: car-rental-rental-service
+    environment:
+      PORT: 3004
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: 1234
+      DB_DATABASE: rental_service_db
+      CAR_SERVICE_URL: http://car-service:3003
+      USER_SERVICE_URL: http://user-service:3002
+      GATEWAY_URL: http://api-gateway:3000
+      SERVICE_API_KEY: internal-service-key
+      JWT_SECRET: dev-gateway-secret-change-me
+      ALLOW_INSECURE_JWT_DECODE: "true"
+      KAFKA_BROKERS: ""
+    ports:
+      - "3004:3004"
+    depends_on:
+      - postgres
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  reporting-service:
+    build:
+      context: ./services/reporting-service
+      dockerfile: Dockerfile
+    container_name: car-rental-reporting-service
+    environment:
+      PORT: 3009
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: 1234
+      DB_DATABASE: rental_service_db
+      USER_SERVICE_URL: http://user-service:3002
+      CAR_SERVICE_URL: http://car-service:3003
+      SERVICE_API_KEY: internal-service-key
+      JWT_SECRET: dev-gateway-secret-change-me
+    ports:
+      - "3009:3009"
+    depends_on:
+      - postgres
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3009/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  media-service:
+    build:
+      context: ./services/media-service
+      dockerfile: Dockerfile
+    container_name: car-rental-media-service
+    environment:
+      PORT: 3006
+      NODE_ENV: development
+      UPLOAD_DIR: /app/data/uploads
+      PUBLIC_BASE_URL: http://localhost:3000
+    ports:
+      - "3006:3006"
+    volumes:
+      - media_uploads:/app/data/uploads
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  media_uploads:
+  gateway_data:
+
+networks:
+  car-rental-network:
+    driver: bridge

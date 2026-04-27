@@ -3,7 +3,7 @@ import { create } from 'zustand';
 interface UIState {
   // Dialog states
   deleteDialogOpen: boolean;
-  deleteDialogItemId: number | null;
+  deleteDialogItemId: number | string | null;
   deleteDialogType: 'car' | 'client' | 'rental' | 'penalty' | 'user' | null;
   
   // Form states
@@ -26,7 +26,7 @@ interface UIState {
   };
   
   // Actions
-  openDeleteDialog: (id: number, type: 'car' | 'client' | 'rental' | 'penalty' | 'user') => void;
+  openDeleteDialog: (id: number | string, type: 'car' | 'client' | 'rental' | 'penalty' | 'user') => void;
   closeDeleteDialog: () => void;
   setCarFormOpen: (open: boolean) => void;
   setClientFormOpen: (open: boolean) => void;

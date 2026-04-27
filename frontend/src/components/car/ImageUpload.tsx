@@ -2,6 +2,20 @@ import React, { useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { uploadService } from '../../services/uploadService';
 
+function formatUploadError(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null && 'response' in err) {
+    const data = (err as { response?: { data?: { error?: unknown } } }).response?.data;
+    const raw = data?.error;
+    if (typeof raw === 'string') return raw;
+    if (raw && typeof raw === 'object' && 'message' in raw) {
+      const o = raw as { message: string; detail?: string };
+      return o.detail ? `${o.message}: ${o.detail}` : String(o.message);
+    }
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 interface ImageUploadProps {
   mainImageUrl?: string;
   additionalImageUrls?: string[];
@@ -48,8 +62,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       setUploading(true);
       const response = await uploadService.uploadImage(file);
       onMainImageChange(response.url);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження зображення');
+    } catch (err: unknown) {
+      setError(formatUploadError(err, 'Помилка завантаження зображення'));
       setImagePreview(null);
     } finally {
       setUploading(false);
@@ -85,15 +99,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       const responses = await uploadService.uploadImages(files);
       const urls = responses.map(r => r.url);
       onAdditionalImagesChange([...additionalImageUrls, ...urls]);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка завантаження зображень');
+    } catch (err: unknown) {
+      setError(formatUploadError(err, 'Помилка завантаження зображень'));
     } finally {
       setUploading(false);
     }
   };
 
   const getImageUrl = (url: string): string => {
-    if (url.startsWith('http')) return url;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
     return `${window.location.protocol}//${window.location.hostname}:3000${url}`;
   };
 
@@ -102,8 +116,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         Підтримувані формати: JPEG, PNG, GIF, WebP (макс. 5MB)
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-        <Box sx={{ flex: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          alignItems: 'flex-start',
+          width: '100%',
+          minWidth: 0,
+          overflowX: 'hidden',
+        }}
+      >
+        <Box sx={{ flex: 1, width: '100%', minWidth: 0 }}>
           <Button
             variant="outlined"
             component="label"
@@ -142,7 +166,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            width: { xs: '100%', md: 'auto' },
+            maxWidth: '100%',
+          }}
+        >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Головне фото:
           </Typography>
@@ -226,7 +258,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
                 Інші фото ({additionalImageUrls.length}):
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxWidth: 300 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxWidth: '100%' }}>
                 {additionalImageUrls.map((url, index) => (
                   <Box
                     key={index}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, TextField, Button } from '@mui/material';
+import { reportDateFieldPlainSx } from '../reports/reportDateFieldSx';
 
 interface DateRangeFilterProps {
   startDate: string;
@@ -31,6 +32,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         onChange={(e) => onStartDateChange(e.target.value)}
         InputLabelProps={{ shrink: true }}
         size="small"
+        sx={reportDateFieldPlainSx}
       />
       <TextField
         label="Дата кінця"
@@ -39,6 +41,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         onChange={(e) => onEndDateChange(e.target.value)}
         InputLabelProps={{ shrink: true }}
         size="small"
+        sx={reportDateFieldPlainSx}
       />
       <Button variant="contained" onClick={onApply} disabled={loading}>
         Застосувати фільтр

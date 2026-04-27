@@ -17,7 +17,7 @@ import { useAppTheme } from '../../context/ThemeContext';
 interface PopularCarsData {
   name: string;
   Прокатів: number;
-  Дохід: number;
+  'Вартість прокату': number;
 }
 
 interface PopularCarsChartProps {
@@ -115,7 +115,7 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
             stroke={theme.palette.mode === 'dark' ? '#10b981' : '#059669'}
             tick={{ fill: theme.palette.mode === 'dark' ? '#10b981' : '#059669' }}
             label={{
-              value: 'Дохід (₴)',
+              value: 'Вартість прокату (\u20B4)',
               angle: 90,
               position: 'insideRight',
               style: { fill: theme.palette.mode === 'dark' ? '#10b981' : '#059669' },
@@ -145,8 +145,8 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
               marginBottom: '8px',
             }}
             formatter={(value: any, name: string) => {
-              if (name === 'Дохід') {
-                return [`${value.toLocaleString('uk-UA')} ₴`, name];
+              if (name === 'Вартість прокату (без штрафів)' || name === 'Вартість прокату') {
+                return [`${value.toLocaleString('uk-UA')} \u20B4`, name];
               }
               return [value, name];
             }}
@@ -168,12 +168,12 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
           <Line
             yAxisId="right"
             type="monotone"
-            dataKey="Дохід"
+            dataKey="Вартість прокату"
             stroke="url(#lineGradient)"
             strokeWidth={3}
             dot={{ fill: '#10b981', r: 5, strokeWidth: 2, stroke: '#ffffff' }}
             activeDot={{ r: 7, strokeWidth: 2 }}
-            name="Дохід"
+            name="Вартість прокату (без штрафів)"
           />
           <defs>
             <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
@@ -192,4 +192,3 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
 };
 
 export default PopularCarsChart;
-
