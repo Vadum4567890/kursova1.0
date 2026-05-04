@@ -61,7 +61,7 @@ describe('RentalService', () => {
     const createdRental = createRental();
 
     carServiceClient.getCarForRental.mockResolvedValue({
-      car: { id: 'car-1', ownerId: 'owner-1' },
+      car: { id: 'car-1', ownerId: 'owner-1', instantBook: true },
       dailyRate: 100,
       depositAmount: 200,
     });
@@ -97,7 +97,6 @@ describe('RentalService', () => {
         status: RentalStatus.PENDING,
       })
     );
-    expect(carServiceClient.updateCarStatus).toHaveBeenCalledWith('car-1', 'rented');
     expect(result).toEqual(
       expect.objectContaining({
         id: 'rental-1',

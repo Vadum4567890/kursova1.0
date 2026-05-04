@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec car-rental-postgres *)",
+      "Bash(curl -s \"http://localhost:3000/api/search/rentals\" -X POST -H \"Content-Type: application/json\" -d '{\"searchQuery\":\"вадим\"}')",
+      "Bash(curl -s \"http://localhost:3000/api/rentals\")",
+      "Bash(curl -s \"http://localhost:3004/api/rentals\")",
+      "Bash(curl -s \"http://localhost:3000/api/search/rentals\" -X POST -H \"Content-Type: application/json\" -d '{\"searchQuery\":\"bmw\"}')",
+      "Bash(docker-compose restart *)",
+      "Bash(curl -s \"http://localhost:3000/api/search/rentals\" -H \"Content-Type: application/json\" -d '{\"searchQuery\":\"вадим\"}')",
+      "Bash(docker-compose logs *)",
+      "Bash(curl *)",
+      "Bash(docker-compose exec *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose ps *)",
+      "Bash(docker-compose down *)",
+      "Bash(npx typeorm *)",
+      "Bash(npm test *)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && ls -la {}')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

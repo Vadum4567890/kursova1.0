@@ -4,9 +4,13 @@ import { Rental } from '../entities/Rental.entity';
 import { Penalty } from '../entities/Penalty.entity';
 
 const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
-const synchronize = process.env.DB_SYNCHRONIZE ? process.env.DB_SYNCHRONIZE === 'true' : isDevelopment;
+const synchronize = false;
 const logging = process.env.DB_LOGGING ? process.env.DB_LOGGING === 'true' : isDevelopment;
 
+// IMPORTANT: reporting-service shares rental_service_db in READ-ONLY mode
+// This service does NOT own the schema - rental-service owns it
+// Policy: read-only access to rentals and penalties tables
+// Future: consider read replica or materialized views for heavy reports
 export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -17,6 +21,6 @@ export const AppDataSource = new DataSource({
   synchronize,
   logging,
   entities: [Rental, Penalty],
-  migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
+  migrations: [],
   subscribers: [],
 });

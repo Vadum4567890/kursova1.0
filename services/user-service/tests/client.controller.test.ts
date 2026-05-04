@@ -19,7 +19,11 @@ describe('user-service client compatibility controller', () => {
     await controller.listClients({ query: { q: 'Alice' } } as any, res, next);
 
     expect(listClients).toHaveBeenCalledWith('Alice');
-    expect(res.json).toHaveBeenCalledWith([{ id: 'u-1', fullName: 'Alice', phone: '+3801' }]);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: [{ id: 'u-1', fullName: 'Alice', phone: '+3801' }],
+      count: 1,
+    });
   });
 
   it('returns existing client in registerOrGet with 200', async () => {

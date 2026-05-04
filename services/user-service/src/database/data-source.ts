@@ -6,7 +6,7 @@ import { UserDocument } from '../entities/UserDocument.entity';
 import { UserRating } from '../entities/UserRating.entity';
 
 const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
-const synchronize = process.env.DB_SYNCHRONIZE ? process.env.DB_SYNCHRONIZE === 'true' : isDevelopment;
+const synchronize = false;
 const logging = process.env.DB_LOGGING ? process.env.DB_LOGGING === 'true' : isDevelopment;
 
 export const AppDataSource = new DataSource({
