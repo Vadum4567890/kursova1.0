@@ -30,7 +30,7 @@ const SERVICE_URLS = {
   media: process.env.MEDIA_SERVICE_URL || 'http://localhost:3006',
 } as const;
 
-type Role = 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner';
+type Role = 'admin' | 'manager' | 'employee' | 'user' | 'renter' | 'owner' | 'both';
 
 interface DevUser {
   id: number;
@@ -216,9 +216,20 @@ export function mapCarSearchBody(body: Record<string, unknown>): Record<string, 
 
   const brand = String(body.brand || '').trim();
   const model = String(body.model || '').trim();
-  const parts = [brand, model].filter(Boolean);
-  if (parts.length) {
-    params.set('searchQuery', parts.join(' '));
+  const searchQuery = [brand, model].filter(Boolean).join(' ').trim();
+  if (searchQuery) {
+    params.set('searchQuery', searchQuery);
+  }
+
+  const page = body.page;
+  const limit = body.limit;
+  if (page !== undefined && page !== '') {
+    const p = Math.max(1, Math.floor(Number(page)));
+    if (Number.isFinite(p)) params.set('page', String(p));
+  }
+  if (limit !== undefined && limit !== '') {
+    const l = Math.min(100, Math.max(1, Math.floor(Number(limit))));
+    if (Number.isFinite(l)) params.set('limit', String(l));
   }
 
   return Object.fromEntries(params.entries());
@@ -661,17 +672,30 @@ interface ServiceClientRecord {
   phone: string;
   email: string | null;
   registrationDate: string;
+  role?: 'renter' | 'owner' | 'both';
 }
 
-async function fetchClientsFromUserService(): Promise<ServiceClientRecord[]> {
+async function fetchClientsFromUserService(searchQuery?: string): Promise<ServiceClientRecord[]> {
   try {
-    const { status, body } = await fetchServiceJson<unknown>(`${SERVICE_URLS.users}/api/users/clients`);
+    const qs =
+      searchQuery !== undefined && searchQuery !== ''
+        ? `?q=${encodeURIComponent(searchQuery)}`
+        : '';
+    const { status, body } = await fetchServiceJson<unknown>(
+      `${SERVICE_URLS.users}/api/users/clients${qs}`
+    );
     if (status >= 400) return [];
-    if (Array.isArray(body)) return body as ServiceClientRecord[];
-    return [];
+    const rows = extractArrayPayload(body);
+    return rows as unknown as ServiceClientRecord[];
   } catch {
     return [];
   }
+}
+
+function mapServiceClientRoleToGatewayRole(role?: ServiceClientRecord['role']): Role {
+  if (role === 'owner') return 'owner';
+  if (role === 'both') return 'both';
+  return 'renter';
 }
 
 function clientRecordToAdminUser(c: ServiceClientRecord) {
@@ -687,13 +711,67 @@ function clientRecordToAdminUser(c: ServiceClientRecord) {
       String(c.phone || '').replace(/\D/g, '') ||
       `renter-${String(c.id).slice(0, 8)}`,
     email: fallbackEmail,
-    role: 'renter' as Role,
+    role: mapServiceClientRoleToGatewayRole(c.role),
     fullName: c.fullName,
     address: c.address,
     phone: c.phone,
     isActive: true,
     createdAt: c.registrationDate,
   };
+}
+
+function isDevCustomerUser(user: DevUser): boolean {
+  return user.role === 'renter' || user.role === 'owner' || user.role === 'user';
+}
+
+function devUserToServiceClientRecord(user: DevUser): ServiceClientRecord {
+  const role: ServiceClientRecord['role'] =
+    user.role === 'owner' ? 'owner' : user.role === 'user' ? 'renter' : 'renter';
+  return {
+    id: String(user.id),
+    fullName: user.fullName || user.username,
+    address: user.address || '',
+    phone: user.phone || '',
+    email: user.email,
+    registrationDate: new Date().toISOString(),
+    role,
+  };
+}
+
+function matchesClientSearchTokens(row: ServiceClientRecord, tokens: string[]): boolean {
+  if (tokens.length === 0) return true;
+  const fields = [
+    String(row.id ?? ''),
+    row.fullName ?? '',
+    row.phone ?? '',
+    row.email ?? '',
+    row.address ?? '',
+  ].map((v) => String(v).toLowerCase());
+  const phoneDigits = String(row.phone ?? '').replace(/\D/g, '');
+  return tokens.every((token) => {
+    if (fields.some((f) => f.includes(token))) return true;
+    const td = token.replace(/\D/g, '');
+    if (td.length >= 2 && phoneDigits.includes(td)) return true;
+    return false;
+  });
+}
+
+function mergeSearchClientLists(
+  fromService: ServiceClientRecord[],
+  fromDev: ServiceClientRecord[]
+): ServiceClientRecord[] {
+  const map = new Map<string, ServiceClientRecord>();
+  for (const d of fromDev) {
+    const em = String(d.email || '').trim().toLowerCase();
+    const key = em ? `e:${em}` : `id:${d.id}`;
+    map.set(key, d);
+  }
+  for (const s of fromService) {
+    const em = String(s.email || '').trim().toLowerCase();
+    const key = em ? `e:${em}` : `id:${s.id}`;
+    map.set(key, s);
+  }
+  return [...map.values()];
 }
 
 function mergeDevUsersWithServiceClients(
@@ -883,34 +961,57 @@ app.post('/api/search/cars', express.json(), async (req: Request, res: Response)
       `${SERVICE_URLS.cars}/api/cars/search${params.toString() ? `?${params.toString()}` : ''}`
     );
     const list = extractArrayPayload(body);
-    res.status(status < 500 ? status : 200).json({ data: list });
+    const b = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const total = typeof b.total === 'number' ? b.total : list.length;
+    const page = typeof b.page === 'number' ? b.page : 1;
+    const limit =
+      typeof b.limit === 'number' ? b.limit : list.length > 0 ? list.length : 12;
+    const totalPages =
+      typeof b.totalPages === 'number'
+        ? b.totalPages
+        : Math.max(1, Math.ceil(total / (limit || 1)));
+    res.status(status < 500 ? status : 200).json({
+      data: list,
+      total,
+      page,
+      limit,
+      totalPages,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(502).json({
       success: false,
       error: { message: 'Car search failed', detail: message },
       data: [],
+      total: 0,
+      page: 1,
+      limit: 12,
+      totalPages: 1,
     });
   }
 });
 
 app.get('/api/search/clients', async (req: Request, res: Response) => {
-  const q = String(req.query.q || '').trim().toLowerCase();
+  const q = String(req.query.q || '').trim();
+  const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
 
   try {
-    const { status, body } = await fetchServiceJson<unknown>(`${SERVICE_URLS.users}/api/users/clients`);
-    const list = extractArrayPayload(body);
-    const filtered = !q
-      ? list
-      : list.filter((client) => {
-          const name = String(client.fullName ?? '').toLowerCase();
-          const phone = String(client.phone ?? '').toLowerCase();
-          const email = String(client.email ?? '').toLowerCase();
-          return name.includes(q) || phone.includes(q) || email.includes(q);
-        });
-    res.status(status < 500 ? status : 200).json({ data: filtered });
-  } catch {
-    res.json({ data: [] });
+    const fromService = await fetchClientsFromUserService(q);
+    const devCandidates = getAllDevUsers()
+      .filter(isDevCustomerUser)
+      .map(devUserToServiceClientRecord)
+      .filter((row) => matchesClientSearchTokens(row, tokens));
+
+    const merged = mergeSearchClientLists(fromService, devCandidates);
+    res.json({ data: merged });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[api/search/clients]', message);
+    res.status(502).json({
+      success: false,
+      error: { message: 'Client search failed', detail: message },
+      data: [],
+    });
   }
 });
 
@@ -922,13 +1023,36 @@ app.post('/api/search/rentals', express.json(), async (req: Request, res: Respon
     const requestedStatus = filters.status ? String(filters.status) : undefined;
     const carId = filters.carId != null ? String(filters.carId) : undefined;
     const clientId = filters.clientId != null ? String(filters.clientId) : undefined;
+    const searchQuery = filters.searchQuery ? String(filters.searchQuery).toLowerCase().trim() : undefined;
     const startDate = filters.startDate ? new Date(String(filters.startDate)).getTime() : undefined;
     const endDate = filters.endDate ? new Date(String(filters.endDate)).getTime() : undefined;
 
     const filtered = rows.filter((row) => {
       if (requestedStatus && String(row.status) !== requestedStatus) return false;
       if (carId && String(row.carId) !== carId) return false;
-      if (clientId && String(row.renterUserId ?? row.clientId ?? '') !== clientId) return false;
+      if (clientId) {
+        const rowClientId = String(row.renterUserId ?? row.clientId ?? '');
+        if (rowClientId !== clientId && !rowClientId.includes(clientId)) return false;
+      }
+
+      // Пошук за ім'ям орендаря або маркою авто
+      if (searchQuery) {
+        const renter = row.renter as { fullName?: string; email?: string } | undefined;
+        const car = row.car as { brand?: string; model?: string } | undefined;
+
+        const renterName = String(renter?.fullName ?? renter?.email ?? '').toLowerCase();
+        const carBrand = String(car?.brand ?? '').toLowerCase();
+        const carModel = String(car?.model ?? '').toLowerCase();
+        const carFullName = `${carBrand} ${carModel}`.trim();
+
+        if (!renterName.includes(searchQuery) &&
+            !carBrand.includes(searchQuery) &&
+            !carModel.includes(searchQuery) &&
+            !carFullName.includes(searchQuery)) {
+          return false;
+        }
+      }
+
       if (startDate != null && row.startDate && new Date(String(row.startDate)).getTime() < startDate) return false;
       if (endDate != null && row.expectedEndDate && new Date(String(row.expectedEndDate)).getTime() > endDate) return false;
       return true;

@@ -22,6 +22,7 @@ router.put('/:id', requireJwtUser, carController.updateCar);
 router.patch('/:id/status', carController.updateCarStatus);
 router.delete('/:id', requireJwtUser, carController.deleteCar);
 router.post('/:id/images', requireJwtUser, carController.addImage);
+router.put('/:id/images', requireJwtUser, carController.syncImages);
 router.put('/:id/images/:imageId/primary', requireJwtUser, carController.setPrimaryImage);
 router.post('/:id/pricing', requireJwtUser, carController.updatePricing);
 router.put('/:id/pricing', requireJwtUser, carController.updatePricing);

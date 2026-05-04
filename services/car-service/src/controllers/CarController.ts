@@ -11,12 +11,19 @@ const ALLOWED_STATUS_UPDATE = [CarStatus.ACTIVE, CarStatus.RENTED, CarStatus.MAI
 
 /** Query string дає рядки; після validate + implicit conversion — page/limit → offset */
 function searchDtoToFindAllFilters(dto: SearchCarsDto) {
-  const { page, limit, offset: dtoOffset, ...criteria } = dto;
+  const { page, limit, offset: dtoOffset, brand, model, ...criteria } = dto;
   let offset = dtoOffset;
   if (page != null && limit != null) {
     offset = (page - 1) * limit;
   }
-  return { ...criteria, limit, offset };
+  return { ...criteria, brand, model, limit, offset };
+}
+
+function resolvePageMeta(dto: SearchCarsDto, total: number) {
+  const page = dto.page ?? 1;
+  const limit = dto.limit ?? total ?? 1;
+  const totalPages = limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
+  return { page, limit, totalPages };
 }
 
 export interface AuthRequest extends Request {
@@ -29,6 +36,10 @@ export class CarController {
 
   constructor() {
     this.carService = new CarService();
+  }
+
+  private canManageCar(req: AuthRequest, ownerId: string): boolean {
+    return req.userRole === 'admin' || ownerId === req.userId;
   }
 
   createCar = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -113,12 +124,17 @@ export class CarController {
   getAllCars = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const dto = await validateDto(SearchCarsDto, req.query);
-      const cars = await this.carService.getAllCars(searchDtoToFindAllFilters(dto));
+      const result = await this.carService.getAllCars(searchDtoToFindAllFilters(dto));
+      const meta = resolvePageMeta(dto, result.total);
 
       res.json({
         success: true,
-        data: cars,
-        count: cars.length,
+        data: result.items,
+        count: result.items.length,
+        total: result.total,
+        page: meta.page,
+        limit: meta.limit,
+        totalPages: meta.totalPages,
       });
     } catch (error) {
       next(error);
@@ -154,7 +170,7 @@ export class CarController {
         return;
       }
 
-      if (car.ownerId !== req.userId) {
+      if (!this.canManageCar(req, car.ownerId)) {
         res.status(403).json({
           success: false,
           error: { message: 'Forbidden: You can only update your own cars' },
@@ -187,7 +203,7 @@ export class CarController {
         return;
       }
 
-      if (car.ownerId !== req.userId) {
+      if (!this.canManageCar(req, car.ownerId)) {
         res.status(403).json({
           success: false,
           error: { message: 'Forbidden: You can only delete your own cars' },
@@ -229,7 +245,7 @@ export class CarController {
         return;
       }
 
-      if (car.ownerId !== req.userId) {
+      if (!this.canManageCar(req, car.ownerId)) {
         res.status(403).json({
           success: false,
           error: { message: 'Forbidden' },
@@ -246,6 +262,40 @@ export class CarController {
       res.status(201).json({
         success: true,
         data: image,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  syncImages = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const images = Array.isArray(req.body?.images) ? req.body.images : [];
+
+      const car = await this.carService.getCarById(id);
+      if (!car) {
+        res.status(404).json({
+          success: false,
+          error: { message: 'Car not found' },
+        });
+        return;
+      }
+
+      if (!this.canManageCar(req, car.ownerId)) {
+        res.status(403).json({
+          success: false,
+          error: { message: 'Forbidden' },
+        });
+        return;
+      }
+
+      const synced = await this.carService.syncImages(id, images);
+
+      res.json({
+        success: true,
+        data: synced,
+        count: synced.length,
       });
     } catch (error) {
       next(error);
@@ -329,7 +379,7 @@ export class CarController {
         return;
       }
 
-      if (car.ownerId !== req.userId) {
+      if (!this.canManageCar(req, car.ownerId)) {
         res.status(403).json({
           success: false,
           error: { message: 'Forbidden' },
@@ -363,7 +413,7 @@ export class CarController {
         return;
       }
 
-      if (car.ownerId !== req.userId) {
+      if (!this.canManageCar(req, car.ownerId)) {
         res.status(403).json({
           success: false,
           error: { message: 'Forbidden' },
@@ -407,7 +457,7 @@ export class CarController {
       }
 
       const isInternalCall = serviceKey && serviceKey === process.env.SERVICE_API_KEY;
-      const isOwner = req.userId && car.ownerId === req.userId;
+      const isOwner = req.userId && this.canManageCar(req, car.ownerId);
       if (!isInternalCall && !isOwner) {
         res.status(403).json({
           success: false,
@@ -430,14 +480,19 @@ export class CarController {
   getAvailableCars = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const dto = await validateDto(SearchCarsDto, req.query);
-      const cars = await this.carService.getAllCars({
+      const result = await this.carService.getAllCars({
         ...searchDtoToFindAllFilters(dto),
         status: CarStatus.ACTIVE,
       });
+      const meta = resolvePageMeta(dto, result.total);
       res.json({
         success: true,
-        data: cars,
-        count: cars.length,
+        data: result.items,
+        count: result.items.length,
+        total: result.total,
+        page: meta.page,
+        limit: meta.limit,
+        totalPages: meta.totalPages,
       });
     } catch (error) {
       next(error);
@@ -456,14 +511,19 @@ export class CarController {
         return;
       }
       const dto = await validateDto(SearchCarsDto, req.query);
-      const cars = await this.carService.getAllCars({
+      const result = await this.carService.getAllCars({
         ...searchDtoToFindAllFilters(dto),
         category: mapped,
       });
+      const meta = resolvePageMeta(dto, result.total);
       res.json({
         success: true,
-        data: cars,
-        count: cars.length,
+        data: result.items,
+        count: result.items.length,
+        total: result.total,
+        page: meta.page,
+        limit: meta.limit,
+        totalPages: meta.totalPages,
       });
     } catch (error) {
       next(error);
@@ -522,12 +582,17 @@ export class CarController {
       }
 
       // Otherwise use regular search
-      const cars = await this.carService.getAllCars(searchDtoToFindAllFilters(searchParams));
+      const result = await this.carService.getAllCars(searchDtoToFindAllFilters(searchParams));
+      const meta = resolvePageMeta(searchParams, result.total);
 
       res.json({
         success: true,
-        data: cars,
-        count: cars.length,
+        data: result.items,
+        count: result.items.length,
+        total: result.total,
+        page: meta.page,
+        limit: meta.limit,
+        totalPages: meta.totalPages,
       });
     } catch (error) {
       next(error);

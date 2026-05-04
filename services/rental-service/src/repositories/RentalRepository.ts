@@ -2,6 +2,7 @@ import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { Rental } from '../entities/Rental.entity';
 import { RentalStatus } from '../entities/Rental.entity';
+import { RentalOwnerApprovalStatus } from '../entities/Rental.entity';
 
 export class RentalRepository {
   private repository: Repository<Rental>;
@@ -78,7 +79,11 @@ export class RentalRepository {
   /** Майбутній старт вже настав — переводимо pending → active */
   async promoteDuePendingRentals(now: Date = new Date()): Promise<void> {
     await this.repository.update(
-      { status: RentalStatus.PENDING, startDate: LessThanOrEqual(now) },
+      {
+        status: RentalStatus.PENDING,
+        ownerApprovalStatus: RentalOwnerApprovalStatus.APPROVED,
+        startDate: LessThanOrEqual(now),
+      },
       { status: RentalStatus.ACTIVE }
     );
   }

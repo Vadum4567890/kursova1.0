@@ -83,6 +83,12 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
               rental.status === 'cancelled' || rental.status === 'completed';
             const reviewable = reviewableByRentalId?.get(String(rental.id));
             const isEditMode = Boolean(reviewable?.myReviewSubmitted);
+            const pendingHint =
+              rental.status === 'pending'
+                ? rental.ownerApprovalStatus === 'approved'
+                  ? 'Підтверджено, очікує старту'
+                  : 'Очікує підтвердження орендодавця'
+                : null;
 
             return (
               <TableRow key={rental.id} hover>
@@ -138,6 +144,11 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <StatusChip status={rental.status} />
+                  {pendingHint && (
+                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {pendingHint}
+                    </Typography>
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">

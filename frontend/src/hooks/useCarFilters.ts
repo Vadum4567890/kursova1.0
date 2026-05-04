@@ -47,4 +47,3 @@ export function useCarFilters(options: UseCarFiltersOptions = {}) {
     filterCars,
   };
 }
-

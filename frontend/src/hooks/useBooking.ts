@@ -3,6 +3,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { useErrorHandler } from './useErrorHandler';
+import { Rental } from '../interfaces';
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
@@ -14,8 +15,8 @@ interface BookingPeriod {
 
 interface UseBookingOptions {
   bookedDates?: BookingPeriod[];
-  onCreateBooking: (data: { carId: number | string; startDate: string; expectedEndDate: string }) => Promise<void>;
-  onSuccess?: () => void;
+  onCreateBooking: (data: { carId: number | string; startDate: string; expectedEndDate: string }) => Promise<Rental>;
+  onSuccess?: (rental: Rental) => void;
 }
 
 export function useBooking(options: UseBookingOptions) {
@@ -90,14 +91,14 @@ export function useBooking(options: UseBookingOptions) {
       const startDateStr = bookingData.startDate.format('YYYY-MM-DD');
       const expectedEndDateStr = bookingData.expectedEndDate.format('YYYY-MM-DD');
       
-      await onCreateBooking({
+      const rental = await onCreateBooking({
         carId,
         startDate: startDateStr,
         expectedEndDate: expectedEndDateStr,
       });
       
       closeBooking();
-      onSuccess?.();
+      onSuccess?.(rental);
     } catch (err: any) {
       handleError(err, 'Помилка бронювання');
     }
@@ -120,4 +121,3 @@ export function useBooking(options: UseBookingOptions) {
     isDateRangeValid,
   };
 }
-

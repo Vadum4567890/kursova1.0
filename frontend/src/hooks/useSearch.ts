@@ -8,8 +8,8 @@ export function useSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Car search
-  const [carParams, setCarParams] = useState<CarSearchParams>({});
+  // Car search (page/limit — серверна пагінація через api-gateway /search/cars)
+  const [carParams, setCarParams] = useState<CarSearchParams>({ page: 1, limit: 12 });
 
   // Client search
   const [clientQuery, setClientQuery] = useState('');

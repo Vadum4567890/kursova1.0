@@ -1,17 +1,33 @@
 import React from 'react';
-import { Grid, Card, CardContent, CardMedia, Typography } from '@mui/material';
+import { Grid, Card, CardContent, CardMedia, Typography, Box, Chip, Stack } from '@mui/material';
 import { Car } from '../../interfaces';
+import { resolveCarImageUrlForDisplay, DEFAULT_CAR_IMAGE_PLACEHOLDER } from '../../utils/carHelpers';
+import { getTypeLabel, getStatusLabel } from '../../utils/labels';
 
 interface CarSearchResultsProps {
   cars: Car[];
 }
 
-const DEFAULT_IMAGE =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+const transmissionLabel = (t?: string) => {
+  const m: Record<string, string> = { manual: 'Механіка', automatic: 'Автомат', cvt: 'Варіатор' };
+  return m[String(t || '').toLowerCase()] || t || '—';
+};
+
+const fuelLabel = (f?: string) => {
+  const x = String(f || '').toLowerCase();
+  const m: Record<string, string> = {
+    petrol: 'Бензин',
+    gasoline: 'Бензин',
+    diesel: 'Дизель',
+    electric: 'Електро',
+    hybrid: 'Гібрид',
+  };
+  return m[x] || f || '—';
+};
 
 export const CarSearchResults: React.FC<CarSearchResultsProps> = ({ cars }) => {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.src = DEFAULT_IMAGE;
+    e.currentTarget.src = DEFAULT_CAR_IMAGE_PLACEHOLDER;
   };
 
   return (
@@ -22,27 +38,42 @@ export const CarSearchResults: React.FC<CarSearchResultsProps> = ({ cars }) => {
             <CardMedia
               component="img"
               height="150"
-              image={
-                car.imageUrl
-                  ? car.imageUrl.startsWith('http') || car.imageUrl.startsWith('data:')
-                    ? car.imageUrl
-                    : `${window.location.protocol}//${window.location.hostname}:3000${car.imageUrl}`
-                  : DEFAULT_IMAGE
-              }
+              image={resolveCarImageUrlForDisplay(car)}
               alt={`${car.brand} ${car.model}`}
-              sx={{ backgroundColor: '#f0f0f0' }}
+              sx={{ backgroundColor: '#f0f0f0', objectFit: 'cover' }}
               onError={handleImageError}
             />
             <CardContent>
-              <Typography variant="h6">
+              <Typography variant="h6" component="div" noWrap title={`${car.brand} ${car.model}`}>
                 {car.brand} {car.model}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {car.year} • {car.type}
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 0.5, mb: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {car.year} р. • {getTypeLabel(car.type)}
+                </Typography>
+                <Chip size="small" label={getStatusLabel(car.status)} color="success" variant="outlined" />
+              </Stack>
+              <Typography variant="h6" color="primary" sx={{ mb: 1 }}>
+                {Number(car.pricePerDay ?? 0).toLocaleString('uk-UA')} ₴/день
               </Typography>
-              <Typography variant="h6" color="primary">
-                {car.pricePerDay} ₴/день
-              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {transmissionLabel(car.transmission)} · {fuelLabel(car.fuelType)}
+                  {car.seats != null ? ` · ${car.seats} місць` : ''}
+                </Typography>
+                {(car.mileage != null && car.mileage > 0) || car.color ? (
+                  <Typography variant="caption" color="text.secondary">
+                    {(car.mileage != null && car.mileage > 0) ? `Пробіг: ${car.mileage.toLocaleString('uk-UA')} км` : ''}
+                    {(car.mileage != null && car.mileage > 0) && car.color ? ' · ' : ''}
+                    {car.color ? `Колір: ${car.color}` : ''}
+                  </Typography>
+                ) : null}
+                {car.description ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }} noWrap title={car.description}>
+                    {car.description.length > 120 ? `${car.description.slice(0, 117)}…` : car.description}
+                  </Typography>
+                ) : null}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -50,4 +81,3 @@ export const CarSearchResults: React.FC<CarSearchResultsProps> = ({ cars }) => {
     </Grid>
   );
 };
-

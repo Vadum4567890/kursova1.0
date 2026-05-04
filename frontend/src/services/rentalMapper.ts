@@ -79,6 +79,9 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
     status: (['pending', 'active', 'completed', 'cancelled'].includes(String(raw.status))
       ? raw.status
       : 'active') as Rental['status'],
+    ownerApprovalStatus: ['pending', 'approved', 'rejected'].includes(String(raw.ownerApprovalStatus))
+      ? (String(raw.ownerApprovalStatus) as Rental['ownerApprovalStatus'])
+      : undefined,
     ownerUserId: raw.ownerUserId !== undefined && raw.ownerUserId !== null ? String(raw.ownerUserId) : undefined,
     reviewStatus: ['not_available', 'waiting', 'partial', 'published', 'expired'].includes(String(raw.reviewStatus))
       ? (String(raw.reviewStatus) as Rental['reviewStatus'])

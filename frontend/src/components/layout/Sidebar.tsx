@@ -100,6 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
   const isUser = user?.role === 'user' || user?.role === 'renter';
   const isOwner = user?.role === 'owner' || user?.role === 'both';
+  const showOwnerGarageAsPrimary = isAuthenticated && isOwner && !isStaff;
   const showChats =
     isAuthenticated &&
     !isStaff &&
@@ -117,10 +118,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   }> = [
     { label: 'Головна', path: isStaff ? '/dashboard' : '/home', icon: Dashboard, show: true },
     {
-      label: 'Автомобілі',
+      label: showOwnerGarageAsPrimary ? 'Мої авто' : 'Автомобілі',
+      path: showOwnerGarageAsPrimary ? '/my-cars' : '/cars',
+      icon: showOwnerGarageAsPrimary ? Garage : DirectionsCar,
+      show: true,
+      isActive: (p) =>
+        showOwnerGarageAsPrimary ? p === '/my-cars' : p.startsWith('/cars') && !p.includes('/chat'),
+    },
+    {
+      label: 'Каталог авто',
       path: '/cars',
       icon: DirectionsCar,
-      show: true,
+      show: showOwnerGarageAsPrimary,
       isActive: (p) => p.startsWith('/cars') && !p.includes('/chat'),
     },
     {
@@ -129,13 +138,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       icon: Chat,
       show: showChats,
       isActive: (p) => p === '/chats' || (p.includes('/cars/') && p.includes('/chat')),
-    },
-    {
-      label: 'Мої авто',
-      path: '/my-cars',
-      icon: Garage,
-      show: isAuthenticated && isOwner,
-      isActive: (p) => p === '/my-cars',
     },
     { label: 'Орендарі', path: '/customers', icon: People, show: isAuthenticated && isStaff },
     { label: 'Прокати', path: '/rentals', icon: Assignment, show: isAuthenticated && isStaff },
@@ -559,4 +561,3 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 };
 
 export default Sidebar;
-

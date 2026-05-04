@@ -98,7 +98,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       setUploading(true);
       const responses = await uploadService.uploadImages(files);
       const urls = responses.map(r => r.url);
-      onAdditionalImagesChange([...additionalImageUrls, ...urls]);
+      onAdditionalImagesChange(
+        [...additionalImageUrls, ...urls].filter((url, index, arr) => arr.indexOf(url) === index)
+      );
     } catch (err: unknown) {
       setError(formatUploadError(err, 'Помилка завантаження зображень'));
     } finally {

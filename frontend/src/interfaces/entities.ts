@@ -16,6 +16,7 @@ export interface Car {
   description?: string;
   imageUrl?: string;
   imageUrls?: string[]; // Multiple images
+  images?: Array<{ imageUrl: string; isPrimary?: boolean }>; // Images from backend
   // Additional specifications
   bodyType?: string;
   driveType?: string;
@@ -45,6 +46,7 @@ export interface Rental {
   totalCost: number;
   penaltyAmount: number;
   status: 'pending' | 'active' | 'completed' | 'cancelled';
+  ownerApprovalStatus?: 'pending' | 'approved' | 'rejected';
   ownerUserId?: string | null;
   reviewStatus?: 'not_available' | 'waiting' | 'partial' | 'published' | 'expired';
   reviewWindowClosesAt?: string;
@@ -158,6 +160,8 @@ export interface Client {
   address: string;
   phone: string;
   email?: string;
+  /** З user-service: орендар / орендодавець / обидві ролі */
+  role?: 'renter' | 'owner' | 'both';
   registrationDate: string;
   createdAt?: string;
   updatedAt?: string;

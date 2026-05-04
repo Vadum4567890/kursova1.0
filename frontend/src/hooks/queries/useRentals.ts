@@ -149,6 +149,7 @@ export const useCreateBooking = () => {
       rentalService.createBooking(carId, startDate, expectedEndDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.my() });
       queryClient.invalidateQueries({ queryKey: ['cars'] });
     },
   });

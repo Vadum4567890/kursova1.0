@@ -16,6 +16,12 @@ export enum RentalStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum RentalOwnerApprovalStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 export enum RentalReviewStatus {
   NOT_AVAILABLE = 'not_available',
   WAITING = 'waiting',
@@ -62,6 +68,14 @@ export class Rental {
     default: RentalStatus.ACTIVE,
   })
   status: RentalStatus;
+
+  @Column({
+    type: 'enum',
+    enum: RentalOwnerApprovalStatus,
+    name: 'owner_approval_status',
+    default: RentalOwnerApprovalStatus.PENDING,
+  })
+  ownerApprovalStatus: RentalOwnerApprovalStatus;
 
   @Column({
     type: 'enum',

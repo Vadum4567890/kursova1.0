@@ -1,7 +1,6 @@
 import React from 'react';
-import { Box, Paper, TextField, Button } from '@mui/material';
+import { Box, Paper, TextField, Button, Typography, Pagination, CircularProgress, Alert } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
-import { CircularProgress } from '@mui/material';
 import { CarSearchParams, Car } from '../../interfaces';
 import { CarSearchResults } from './CarSearchResults';
 
@@ -11,6 +10,10 @@ interface CarSearchTabProps {
   onSearch: () => void;
   loading: boolean;
   results: Car[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+  onPageChange: (_event: React.ChangeEvent<unknown>, page: number) => void;
 }
 
 const CarSearchTab: React.FC<CarSearchTabProps> = ({
@@ -19,7 +22,16 @@ const CarSearchTab: React.FC<CarSearchTabProps> = ({
   onSearch,
   loading,
   results,
+  totalCount,
+  page,
+  totalPages,
+  onPageChange,
 }) => {
+  const limit = params.limit ?? 12;
+  const shownFrom = totalCount === 0 || results.length === 0 ? 0 : (page - 1) * limit + 1;
+  const shownTo =
+    totalCount === 0 || results.length === 0 ? 0 : Math.min(totalCount, (page - 1) * limit + results.length);
+
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
@@ -37,7 +49,7 @@ const CarSearchTab: React.FC<CarSearchTabProps> = ({
           select
           label="Тип"
           value={params.type || ''}
-          onChange={(e) => onParamsChange({ type: (e.target.value as any) || undefined })}
+          onChange={(e) => onParamsChange({ type: (e.target.value as CarSearchParams['type']) || undefined })}
           sx={{ minWidth: 120 }}
           SelectProps={{
             native: true,
@@ -74,10 +86,46 @@ const CarSearchTab: React.FC<CarSearchTabProps> = ({
         </Button>
       </Box>
 
-      {results && results.length > 0 && <CarSearchResults cars={results} />}
+      {loading && results.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : null}
+
+      {!loading && results.length === 0 ? (
+        <Alert severity="info">За заданими умовами авто не знайдено.</Alert>
+      ) : null}
+
+      {results.length > 0 ? <CarSearchResults cars={results} /> : null}
+
+      {!loading && totalCount > 0 ? (
+        <Box
+          sx={{
+            mt: 3,
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Показано {shownFrom}–{shownTo} з {totalCount} авто
+          </Typography>
+          {totalPages > 1 ? (
+            <Pagination
+              page={page}
+              count={totalPages}
+              color="primary"
+              onChange={onPageChange}
+              showFirstButton
+              showLastButton
+            />
+          ) : null}
+        </Box>
+      ) : null}
     </Paper>
   );
 };
 
 export default CarSearchTab;
-

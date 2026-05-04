@@ -121,11 +121,14 @@ export class CarService {
     status?: CarStatus;
     transmission?: TransmissionType;
     fuelType?: FuelType;
+    searchQuery?: string;
+    brand?: string;
+    model?: string;
     minPrice?: number;
     maxPrice?: number;
     limit?: number;
     offset?: number;
-  }): Promise<Car[]> {
+  }): Promise<{ items: Car[]; total: number }> {
     try {
       return await this.carRepository.findAll(filters);
     } catch (error) {
@@ -222,6 +225,96 @@ export class CarService {
       logger.info('Primary image set', { carId, imageId });
     } catch (error) {
       logger.error('Error setting primary image', { carId, imageId, error });
+      throw error;
+    }
+  }
+
+  async syncImages(
+    carId: string,
+    desiredImages: Array<{ imageUrl: string; isPrimary?: boolean; displayOrder?: number }>
+  ): Promise<CarImage[]> {
+    try {
+      const normalized = desiredImages
+        .map((image, index) => ({
+          imageUrl: String(image.imageUrl || '').trim(),
+          isPrimary: Boolean(image.isPrimary),
+          displayOrder: image.displayOrder ?? index,
+        }))
+        .filter((image) => image.imageUrl);
+
+      const uniqueImages = normalized.filter(
+        (image, index, arr) => arr.findIndex((item) => item.imageUrl === image.imageUrl) === index
+      );
+
+      if (uniqueImages.length > 0 && !uniqueImages.some((image) => image.isPrimary)) {
+        uniqueImages[0].isPrimary = true;
+      }
+
+      if (uniqueImages.length > 1) {
+        let foundPrimary = false;
+        uniqueImages.forEach((image) => {
+          if (image.isPrimary && !foundPrimary) {
+            foundPrimary = true;
+            return;
+          }
+          image.isPrimary = false;
+        });
+      }
+
+      const existing = await this.imageRepository.findByCarId(carId);
+      const desiredUrls = new Set(uniqueImages.map((image) => image.imageUrl));
+
+      for (const image of existing) {
+        if (!desiredUrls.has(image.imageUrl)) {
+          await this.imageRepository.delete(image.id);
+        }
+      }
+
+      const byUrl = new Map<string, CarImage[]>();
+      const refreshed = await this.imageRepository.findByCarId(carId);
+      refreshed.forEach((image) => {
+        const current = byUrl.get(image.imageUrl) || [];
+        current.push(image);
+        byUrl.set(image.imageUrl, current);
+      });
+
+      for (const [url, duplicates] of byUrl.entries()) {
+        if (duplicates.length <= 1) continue;
+        const [keeper, ...extra] = duplicates;
+        for (const duplicate of extra) {
+          await this.imageRepository.delete(duplicate.id);
+        }
+        byUrl.set(url, [keeper]);
+      }
+
+      for (const image of uniqueImages) {
+        const current = byUrl.get(image.imageUrl)?.[0];
+        if (current) {
+          await this.imageRepository.update(current.id, {
+            isPrimary: image.isPrimary,
+            displayOrder: image.displayOrder,
+          });
+          continue;
+        }
+
+        const created = await this.imageRepository.create({
+          carId,
+          imageUrl: image.imageUrl,
+          isPrimary: image.isPrimary,
+          displayOrder: image.displayOrder,
+        });
+        byUrl.set(image.imageUrl, [created]);
+      }
+
+      const finalImages = await this.imageRepository.findByCarId(carId);
+      const primaryImage = finalImages.find((image) => image.isPrimary);
+      if (!primaryImage && finalImages.length > 0) {
+        await this.imageRepository.setPrimary(carId, finalImages[0].id);
+      }
+
+      return this.imageRepository.findByCarId(carId);
+    } catch (error) {
+      logger.error('Error syncing car images', { carId, error });
       throw error;
     }
   }
