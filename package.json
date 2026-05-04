@@ -3,7 +3,6 @@
   "private": true,
   "scripts": {
     "verify:backend": "powershell -ExecutionPolicy Bypass -File ./scripts/verify-backend.ps1",
-    "verify:legacy": "powershell -ExecutionPolicy Bypass -File ./scripts/verify-legacy-services.ps1",
     "verify:frontend": "npm --prefix frontend run build",
     "verify:all": "powershell -ExecutionPolicy Bypass -File ./scripts/verify-all.ps1",
     "migrate:clients": "ts-node backend/scripts/migrate-clients.ts"

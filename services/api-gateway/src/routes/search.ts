@@ -181,7 +181,11 @@ export function createSearchRouter(devUserHelpers: {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(502).json({
         success: false,
-        error: { message: 'Car search failed', detail: message },
+        error: {
+          code: 'UPSTREAM_ERROR',
+          message: 'Car search failed',
+          details: message,
+        },
         data: [],
         total: 0,
         page: 1,
@@ -210,7 +214,11 @@ export function createSearchRouter(devUserHelpers: {
       console.error('[api/search/clients]', message);
       res.status(502).json({
         success: false,
-        error: { message: 'Client search failed', detail: message },
+        error: {
+          code: 'UPSTREAM_ERROR',
+          message: 'Client search failed',
+          details: message,
+        },
         data: [],
       });
     }
@@ -263,7 +271,11 @@ export function createSearchRouter(devUserHelpers: {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(502).json({
         success: false,
-        error: { message: 'Rental search failed', detail: message },
+        error: {
+          code: 'UPSTREAM_ERROR',
+          message: 'Rental search failed',
+          details: message,
+        },
         data: [],
       });
     }

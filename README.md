@@ -14,15 +14,10 @@ Primary runtime topology:
 - `reporting-service` on `3009`
 - `frontend` on `3001`
 
-Deprecated but still present in the repo:
+Legacy `client-service` and `search-service` were **removed** from the repository. Compatibility is handled as follows:
 
-- `client-service`
-- `search-service`
-
-Those two services are no longer required in the main request path:
-
-- client compatibility is handled by `user-service`
-- aggregated search compatibility is handled by `api-gateway`
+- **Clients**: `user-service` (`/api/users/clients`); gateway rewrites `/api/clients/*` when needed.
+- **Search**: `api-gateway` implements `/api/search/*` (cars, clients, rentals) by calling `car-service`, `user-service`, and `rental-service`.
 
 ## Responsibilities
 
@@ -63,12 +58,6 @@ Active runtime verification:
 npm run verify:backend
 ```
 
-Legacy service verification:
-
-```powershell
-npm run verify:legacy
-```
-
 Full workspace verification:
 
 ```powershell
@@ -82,7 +71,7 @@ Note: in the current restricted environment the frontend build may fail with `sp
 To migrate legacy `client_service_db` rows into `user_service_db`:
 
 ```powershell
-npm --prefix services/user-service run migrate:clients
+npm run migrate:clients
 ```
 
 Optional source overrides:
@@ -111,7 +100,8 @@ The frontend reports page exposes both export actions once a financial report ha
 - `car-service` -> `car_service_db`
 - `rental-service` -> `rental_service_db`
 - `reporting-service` -> `rental_service_db`
-- `client-service` -> `client_service_db` `(legacy)`
+
+Legacy `client_service_db` existed for the old client-service; data should be migrated into `user_service_db` via `migrate:clients`.
 
 Database bootstrap scripts live in `database/init`.
 
@@ -127,6 +117,5 @@ Start with:
 ## Next Cleanup Steps
 
 1. Run the client migration on real environment data and validate renter records in `user-service`.
-2. Remove `client-service` and `search-service` from the repo entirely after data cutover.
-3. Expand `reporting-service` with branded templates and more detailed BI metrics.
-4. Replace temporary gateway auth with service-owned auth only.
+2. Expand `reporting-service` with branded templates and more detailed BI metrics.
+3. Replace temporary gateway auth with service-owned auth only.

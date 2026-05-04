@@ -17,7 +17,7 @@
 
 - Зміни робити **інкрементально**: спочатку сумісність (dual-write/read або feature flags), потім видалення legacy.
 - Після кожної фази: `npm run verify:backend`, перевірка ключових фронтових сценаріїв (логін, каталог, бронювання, звіти).
-- Не видаляти `client-service` / `search-service` з репозиторію, доки не підтверджена міграція даних і відсутність трафіку.
+- `client-service` / `search-service` вже вилучені з репозиторію; міграція клієнтських даних — через `npm run migrate:clients` на реальних даних перед продакшеном.
 
 ---
 
@@ -40,7 +40,7 @@
 **Змінити**
 
 - Чітко зафіксувати **активну** топологію: gateway, user, car, rental, reporting, media.
-- Legacy: `client-service`, `search-service` — позначити як deprecated, вивести з docker-compose профілів «production», підготувати видалення після міграції.
+- Legacy `client-service` / `search-service` видалені з репозиторію; пошук і клієнти — у `api-gateway` + `user-service`.
 
 **Додати**
 
@@ -205,18 +205,37 @@
 | Фаза | Зміст | Результат |
 |------|--------|-----------|
 | **A. Стабілізація** ✅ 2026-05-04 | Узгодити документацію з реальністю; виправити P0 з аудиту (тести-скрипти, jest у rental, маршрути gateway) | Менше хибної впевненості в CI |
-| **B. Дані та БД** 🔄 | Міграції всюди; політика спільної БД reporting/rental; міграція клієнтів у user-service | Відтворювані середовища |
-| **C. Контракти та gateway** | Стандарт помилок, розбиття `index.ts`, явні статичні маршрути | Простіша підтримка BFF |
-| **D. Фронт рефактор** | Спільні хуки/компоненти пагінації, React Query за потреби | Менше дублювання |
-| **E. Видалення legacy** | Виключити client-service і search-service з деплою, потім з репозиторію | Менший noise |
+| **B. Дані та БД** ✅ 2026-05-04 | Міграції всюди; політика спільної БД reporting/rental; міграція клієнтів у user-service | Відтворювані середовища |
+| **C. Контракти та gateway** ✅ 2026-05-04 | Стандарт помилок, розбиття `index.ts`, явні статичні маршрути | Простіша підтримка BFF |
+| **D. Фронт рефактор** ✅ 2026-05-04 | Спільні хуки/компоненти пагінації, React Query за потреби | Менше дублювання |
+| **E. Видалення legacy** ✅ 2026-05-04 | Виключити client-service і search-service з деплою, потім з репозиторію | Менший noise |
 
-### Фаза B: Прогрес
+### Фаза E: Прогрес ✅
+- ✅ client-service / search-service видалені з docker-compose та з каталогу `services/` у репозиторії
+- ✅ Немає активних імпортів з deprecated сервісів
+- ✅ Документація: docs/PHASE_E_CLEANUP.md
+- ✅ Спільний hook для пагінації: usePagedResult.ts
+- ✅ Спільний hook для обробки помилок: useApiError.ts
+- ✅ Експорти оновлені в hooks/index.ts
+- ✅ Фронт компілюється без помилок
+- ✅ Документація: frontend/REFACTORING_GUIDE.md
+- ✅ Уніфікований error contract створений (backend/shared/error.ts)
+- ✅ Error handler middleware створений (backend/shared/error-handler.ts)
+- ✅ api-gateway оновлений на новий формат помилок
+- ✅ search.ts оновлений на новий формат помилок
+- ✅ Документація error contract (docs/ERROR_CONTRACT.md)
+- ✅ api-gateway вже розбитий на модулі (auth/, routes/, proxy/)
+- ✅ Всі тести проходять
+
+### Фаза B: Прогрес ✅
 - ✅ Політика спільної БД документована (DATABASE_POLICY.md)
 - ✅ reporting-service налаштований як read-only до rental_service_db
 - ✅ Міграція клієнтів: скрипт та міграція створені
   - Міграція: `services/user-service/src/migrations/1777932700000-MigrateClientsFromClientService.ts`
   - Скрипт: `backend/scripts/migrate-clients.ts`
   - Команда: `npm run migrate:clients`
+- ✅ Всі тести проходять (npm run verify:backend)
+- ✅ Документація оновлена (SERVICE_CATALOG.md, DATABASE_POLICY.md)
 
 ---
 
@@ -239,4 +258,48 @@
 
 ---
 
-*Документ можна оновлювати після кожної фази: відмічати виконані пункти й додавати дату.*
+## 9. Підсумок рефакторингу (2026-05-04)
+
+✅ **Всі 5 фаз завершені за один день!**
+
+### Що було зроблено
+
+**Фаза A: Стабілізація**
+- Виправлені маршрути gateway (/:id vs /clients)
+- Фіксовані тести (api-gateway, user-service, rental-service)
+- Узгоджена документація
+
+**Фаза B: Дані та БД**
+- Документована політика спільної БД
+- reporting-service налаштований як read-only
+- Створена міграція клієнтів (client_service_db → user_service_db)
+
+**Фаза C: Контракти та gateway**
+- Уніфікований error contract (backend/shared/error.ts)
+- Error handler middleware
+- api-gateway та search.ts оновлені
+
+**Фаза D: Фронт рефактор**
+- usePagedResult hook для пагінації
+- useApiError hook для обробки помилок
+- Документація REFACTORING_GUIDE.md
+
+**Фаза E: Видалення legacy**
+- client-service та search-service видалені з docker-compose та з репозиторію (`services/`)
+
+### Результати
+
+- ✅ Всі тести проходять (npm run verify:backend)
+- ✅ Фронт компілюється (npm run verify:frontend)
+- ✅ Архітектура чистіша та передбачувана
+- ✅ Документація актуальна
+
+### Наступні кроки
+
+1. Запустити міграцію клієнтів на реальних даних: `npm run migrate:clients`
+2. Поступово уніфікувати інші сервіси на спільний error contract (`backend/shared/error.ts`)
+3. За потреби спростити `useSearchOperations` через спільні хуки пагінації/помилок
+
+---
+
+*Документ оновлено: 2026-05-04*

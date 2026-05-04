@@ -190,7 +190,13 @@ app.use('/api/rentals', rentalsProxy);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
-  res.status(500).json({ success: false, error: { message: err.message } });
+  res.status(500).json({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: err.message || 'Internal server error',
+    },
+  });
 });
 
 if (require.main === module) {

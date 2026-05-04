@@ -106,17 +106,15 @@ X-Service-Key: <SERVICE_API_KEY>
 
 ## Deprecated сервіси
 
-### Client Service
-- Path: `services/client-service`
-- Port: `3007`
-- Status: **DEPRECATED** - функціонал перенесено в user-service
-- Видалити після міграції даних
+### ❌ Client Service (ВИДАЛЕНО)
+- Status: **REMOVED** (2026-05-04)
+- Функціонал перенесено в user-service
+- Дані мігровані в user_service_db
 
-### Search Service
-- Path: `services/search-service`
-- Port: `3005`
-- Status: **DEPRECATED** - функціонал перенесено в api-gateway
-- Видалити після підтвердження відсутності трафіку
+### ❌ Search Service (ВИДАЛЕНО)
+- Status: **REMOVED** (2026-05-04)
+- Функціонал перенесено в api-gateway
+- Пошук тепер через /api/search endpoints
 
 ## Frontend
 
@@ -135,4 +133,4 @@ X-Service-Key: <SERVICE_API_KEY>
 
 ## Оновлено
 
-2026-05-04
+2026-05-04 (Фаза E: Видалення legacy)

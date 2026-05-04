@@ -28,18 +28,14 @@
 - `reporting-service` (порт `3009`);
 - `frontend` (порт `3001`).
 
-### Перехідні/legacy сервіси
+### Legacy-сервіси (видалені з репозиторію)
 
-У репозиторії присутні, але для основного request path більше не обов'язкові:
+Раніше існували окремі `client-service` та `search-service`. Зараз:
 
-- `client-service` (порт `3007`) - legacy-сумісність по клієнтах;
-- `search-service` (порт `3005`) - legacy-агрегація пошуку.
+- дані клієнтів/орендарів — у **`user-service`** (міграція з `client_service_db` через `npm run migrate:clients`);
+- агрегований пошук **`/api/search/*`** — у **`api-gateway`** (виклики до car / user / rental сервісів).
 
-Причина збереження цих сервісів у репозиторії - контрольований перехід:
-
-- функції `client-service` уже частково поглинуті `user-service`;
-- сумісний агрегований пошук перенесений у `api-gateway`;
-- фізичне видалення планується після завершення міграцій даних і перевірок.
+Окремі процеси на портах `3005` / `3007` для пошуку та клієнтів **не запускаються**.
 
 ## 3. Детальна роль кожного сервісу
 
@@ -57,7 +53,7 @@
 - Обслуговує дані профілю, документи, рейтинги.
 - Є новою ціллю для legacy-клієнтських сутностей.
 - Містить міграційний скрипт перенесення даних із `client_service_db`:
-  - `npm --prefix services/user-service run migrate:clients`.
+  - `npm run migrate:clients` (з кореня репозиторію).
 - Має ключові маршрути: `/api/users/*`, `/api-docs`, `/health`.
 
 ## `car-service`
@@ -107,7 +103,7 @@
 - `car-service` -> `car_service_db`;
 - `rental-service` -> `rental_service_db`;
 - `reporting-service` -> `rental_service_db` (спільне використання);
-- `client-service` -> `client_service_db` (legacy).
+- колишній `client_service_db` (legacy) — дані переносяться в `user_service_db` через `npm run migrate:clients`.
 
 Ініціалізаційні SQL-скрипти розміщені в `database/init`.
 
@@ -140,7 +136,6 @@ npm run dev
 У корені workspace визначені скрипти:
 
 - `npm run verify:backend` - перевірка активних backend-сервісів;
-- `npm run verify:legacy` - перевірка legacy-компонентів;
 - `npm run verify:all` - повна перевірка workspace;
 - `npm run verify:frontend` - build фронтенду.
 
@@ -199,11 +194,10 @@ npm run dev
 ## 10. Рекомендовані наступні кроки
 
 1. Завершити міграцію клієнтських даних у `user-service` і підтвердити консистентність.
-2. Прибрати `client-service` і `search-service` з активного контуру та згодом із репозиторію.
-3. Впровадити migration-first підхід у всіх сервісах.
-4. Уніфікувати startup-патерни: env validation, logging, error format, graceful shutdown.
-5. Підсилити тестову піраміду: smoke + contract + ключові інтеграційні сценарії.
-6. Оновити всі документи так, щоб вони відображали лише актуальний стан системи.
+2. Впровадити migration-first підхід у всіх сервісах.
+3. Уніфікувати startup-патерни: env validation, logging, error format, graceful shutdown.
+4. Підсилити тестову піраміду: smoke + contract + ключові інтеграційні сценарії.
+5. Оновити всі документи так, щоб вони відображали лише актуальний стан системи.
 
 ## 11. Проєкт з боку користувача (user perspective)
 
