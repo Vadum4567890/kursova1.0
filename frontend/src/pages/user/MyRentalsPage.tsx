@@ -1,11 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Snackbar,
-  Zoom,
-} from '@mui/material';
-import { CheckCircle } from '@mui/icons-material';
-import { keyframes } from '@mui/system';
 import { useMyRentals, useCancelRental } from '../../hooks/queries/useRentals';
 import {
   useEligibleReviews,
@@ -15,29 +8,15 @@ import {
 import { useDeleteConfirm, useErrorHandler } from '../../hooks';
 import {
   PageHeader,
-  ErrorAlert,
-  LoadingSpinner,
+  PageAsyncSection,
   ConfirmDialog,
   PageContainer,
+  SuccessSnackbar,
 } from '../../components/common';
 import { MyRentalsTable, StatusFilter } from '../../components/user';
 import { filterRentalsByStatus } from '../../utils/rentalHelpers';
 import { ReviewableBooking } from '../../interfaces';
 import ReviewDialog from '../../components/reviews/ReviewDialog';
-
-const popIn = keyframes`
-  0% {
-    transform: scale(0.85);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-`;
 
 type SuccessState = {
   open: boolean;
@@ -127,18 +106,14 @@ const MyRentalsPage: React.FC = () => {
         <StatusFilter value={statusFilter} onChange={setStatusFilter} />
       </PageHeader>
 
-      {displayError && <ErrorAlert message={displayError} onClose={clearError} />}
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
+      <PageAsyncSection error={displayError} onCloseError={clearError} loading={loading}>
         <MyRentalsTable
           rentals={filteredRentals}
           onCancelClick={(id) => deleteConfirm.handleDeleteClick(id, 'rental')}
           reviewableByRentalId={reviewableByRentalId}
           onReviewClick={setSelectedBooking}
         />
-      )}
+      </PageAsyncSection>
 
       <ConfirmDialog
         open={deleteConfirm.deleteDialogOpen}
@@ -158,36 +133,13 @@ const MyRentalsPage: React.FC = () => {
         onSubmit={handleReviewSubmit}
       />
 
-      <Snackbar
+      <SuccessSnackbar
         open={successState.open}
-        autoHideDuration={2800}
+        title={successState.title}
+        message={successState.message}
         onClose={() => setSuccessState((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        TransitionComponent={Zoom}
-      >
-        <Alert
-          severity="success"
-          variant="filled"
-          icon={
-            <CheckCircle
-              sx={{
-                animation: `${popIn} 360ms ease-out`,
-              }}
-            />
-          }
-          sx={{
-            minWidth: 320,
-            boxShadow: 6,
-            '& .MuiAlert-message': {
-              display: 'grid',
-              gap: 0.5,
-            },
-          }}
-        >
-          <strong>{successState.title}</strong>
-          <span>{successState.message}</span>
-        </Alert>
-      </Snackbar>
+        autoHideDuration={2800}
+      />
     </PageContainer>
   );
 };

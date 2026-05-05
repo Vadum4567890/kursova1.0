@@ -140,6 +140,11 @@ export function isDevCustomerUser(user: DevUser): boolean {
 }
 
 export function createDevAuthRouter(): Router {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('createDevAuthRouter must not be used in production');
+  }
+
+  console.warn('[dev-auth] Development authentication router is enabled. Do not use in production.');
   const router = Router();
 
   router.post('/login', (req: Request, res: Response) => {

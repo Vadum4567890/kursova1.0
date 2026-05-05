@@ -5,6 +5,8 @@ import { v5 as uuidv5 } from 'uuid';
 export interface AuthUser {
   id: string;
   email?: string;
+  /** Нормалізована роль з JWT (`role` або перший елемент `roles`) */
+  role?: string;
 }
 
 export interface AuthRequest extends Request {
@@ -16,6 +18,19 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const ALLOW_INSECURE_JWT_DECODE =
   (process.env.ALLOW_INSECURE_JWT_DECODE || (NODE_ENV === 'production' ? 'false' : 'true')) === 'true';
 
+/** Кілька секретів через кому: gateway dev-auth + user-service тощо */
+function jwtVerifySecrets(): string[] {
+  const multi = process.env.JWT_VERIFY_SECRETS || process.env.JWT_SECRETS;
+  if (multi) {
+    return multi
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  const single = process.env.JWT_SECRET;
+  return single ? [single] : [];
+}
+
 function isUuidLike(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -23,39 +38,48 @@ function isNumericLike(value: string): boolean {
   return /^\d+$/.test(value);
 }
 
-function readJwtPayload(token: string): Record<string, unknown> | null {
-  const secret = process.env.JWT_SECRET;
-
-  if (secret) {
+function verifyJwtPayload(token: string): Record<string, unknown> | null {
+  const secrets = jwtVerifySecrets();
+  for (const secret of secrets) {
     try {
       return jwt.verify(token, secret) as Record<string, unknown>;
     } catch {
-      if (!ALLOW_INSECURE_JWT_DECODE) {
-        return null;
-      }
+      /* next secret */
     }
-  } else if (!ALLOW_INSECURE_JWT_DECODE) {
+  }
+  if (!ALLOW_INSECURE_JWT_DECODE) {
     return null;
   }
-
   return (jwt.decode(token) as Record<string, unknown> | null) ?? null;
 }
 
-export function auth(req: AuthRequest, res: Response, next: NextFunction) {
+function extractRole(decoded: Record<string, unknown>): string | undefined {
+  const direct = decoded.role;
+  if (typeof direct === 'string') return direct.toLowerCase();
+  const roles = decoded.roles as unknown;
+  if (Array.isArray(roles) && typeof roles[0] === 'string') return roles[0].toLowerCase();
+  const ra = decoded.realm_access as { roles?: string[] } | undefined;
+  if (ra?.roles?.length && typeof ra.roles[0] === 'string') return ra.roles[0].toLowerCase();
+  return undefined;
+}
+
+export function auth(req: AuthRequest, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, error: { message: 'No token provided' } });
+    res.status(401).json({ success: false, error: { message: 'No token provided' } });
+    return;
   }
 
   const token = header.substring(7);
 
   try {
-    const decoded = readJwtPayload(token);
+    const decoded = verifyJwtPayload(token);
     const nestedUser = decoded?.user as { id?: unknown } | undefined;
     const id = decoded?.sub ?? decoded?.id ?? decoded?.userId ?? nestedUser?.id;
 
-    if (!decoded || !id) {
-      return res.status(401).json({ success: false, error: { message: 'Invalid token' } });
+    if (!decoded || id == null || id === '') {
+      res.status(401).json({ success: false, error: { message: 'Invalid token' } });
+      return;
     }
 
     const rawId = String(id);
@@ -70,10 +94,32 @@ export function auth(req: AuthRequest, res: Response, next: NextFunction) {
           : typeof decoded.preferred_username === 'string'
             ? decoded.preferred_username
             : undefined,
+      role: extractRole(decoded),
     };
 
     next();
   } catch {
-    return res.status(401).json({ success: false, error: { message: 'Invalid token' } });
+    res.status(401).json({ success: false, error: { message: 'Invalid token' } });
   }
+}
+
+const STAFF_ROLES = new Set(['admin', 'manager', 'employee']);
+const ADMIN_MANAGER_ROLES = new Set(['admin', 'manager']);
+
+export function requireStaff(req: AuthRequest, res: Response, next: NextFunction): void {
+  const role = req.user?.role;
+  if (!role || !STAFF_ROLES.has(role)) {
+    res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+    return;
+  }
+  next();
+}
+
+export function requireAdminOrManager(req: AuthRequest, res: Response, next: NextFunction): void {
+  const role = req.user?.role;
+  if (!role || !ADMIN_MANAGER_ROLES.has(role)) {
+    res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+    return;
+  }
+  next();
 }

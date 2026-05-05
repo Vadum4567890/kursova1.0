@@ -5,7 +5,7 @@ import { useUsers } from '../../hooks/queries/useUsers';
 import { useUserManagement } from '../../hooks/useUserManagement';
 import { useFormDialog } from '../../hooks/useFormDialog';
 import { useDeleteConfirm } from '../../hooks/useDeleteConfirm';
-import { PageHeader, LoadingSpinner, ErrorAlert, ConfirmDialog, PageContainer } from '../../components/common';
+import { PageHeader, PageAsyncSection, ConfirmDialog, PageContainer } from '../../components/common';
 import { UsersTable, RoleUpdateDialog, CreateUserDialog, RoleTabs } from '../../components/admin';
 
 const AdminPage: React.FC = () => {
@@ -95,18 +95,18 @@ const AdminPage: React.FC = () => {
 
       <RoleTabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} />
 
-      {error && <ErrorAlert message={error} onClose={() => userManagement.clearError()} />}
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
+      <PageAsyncSection
+        error={error}
+        onCloseError={() => userManagement.clearError()}
+        loading={loading}
+      >
         <UsersTable
           users={users}
           onEditRole={handleEditRole}
           onToggleStatus={handleToggleStatus}
           onDelete={deleteConfirm.handleDeleteClick}
         />
-      )}
+      </PageAsyncSection>
 
       <RoleUpdateDialog
         open={roleDialogOpen}

@@ -21,9 +21,14 @@ export interface UserProfile {
  */
 export class UserServiceClient {
   private baseUrl: string;
+  private serviceApiKey: string;
 
   constructor() {
     this.baseUrl = process.env.USER_SERVICE_URL || 'http://user-service:3002';
+    this.serviceApiKey =
+      process.env.NODE_ENV === 'production'
+        ? process.env.SERVICE_API_KEY || ''
+        : process.env.SERVICE_API_KEY || 'internal-service-key';
   }
 
   /**
@@ -34,7 +39,7 @@ export class UserServiceClient {
       const response = await axios.get(`${this.baseUrl}/api/users/${userId}`, {
         timeout: 5000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey,
         },
       });
 
@@ -67,7 +72,7 @@ export class UserServiceClient {
         {
           timeout: 5000,
           headers: {
-            'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+            'X-Service-Key': this.serviceApiKey,
           },
         }
       );

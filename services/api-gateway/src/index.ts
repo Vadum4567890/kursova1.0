@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import http from 'http';
+import type { Duplex } from 'stream';
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -17,7 +18,12 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const ENABLE_DEV_AUTH = (process.env.ENABLE_DEV_AUTH || (NODE_ENV === 'production' ? 'false' : 'true')) === 'true';
+const REQUESTED_DEV_AUTH = (process.env.ENABLE_DEV_AUTH || (NODE_ENV === 'production' ? 'false' : 'true')) === 'true';
+const ENABLE_DEV_AUTH = NODE_ENV !== 'production' && REQUESTED_DEV_AUTH;
+
+if (NODE_ENV === 'production' && REQUESTED_DEV_AUTH) {
+  console.warn('ENABLE_DEV_AUTH=true was requested but ignored in production mode.');
+}
 
 const SERVICE_URLS = {
   users: process.env.USER_SERVICE_URL || 'http://localhost:3002',
@@ -48,11 +54,14 @@ interface ServiceClientRecord {
   role?: 'renter' | 'owner' | 'both';
 }
 
-const BUILTIN: DevUser[] = [
-  { id: 1, username: 'admin', email: 'admin@local.test', role: 'admin', fullName: 'Admin', password: 'admin123' },
-  { id: 2, username: 'manager', email: 'manager@local.test', role: 'manager', fullName: 'Manager', password: 'manager123' },
-  { id: 3, username: 'employee', email: 'employee@local.test', role: 'employee', fullName: 'Employee', password: 'employee123' },
-];
+const BUILTIN: DevUser[] =
+  NODE_ENV === 'production'
+    ? []
+    : [
+        { id: 1, username: 'admin', email: 'admin@local.test', role: 'admin', fullName: 'Admin', password: 'admin123' },
+        { id: 2, username: 'manager', email: 'manager@local.test', role: 'manager', fullName: 'Manager', password: 'manager123' },
+        { id: 3, username: 'employee', email: 'employee@local.test', role: 'employee', fullName: 'Employee', password: 'employee123' },
+      ];
 
 const extraUsers = new Map<string, DevUser>();
 
@@ -188,23 +197,28 @@ app.use('/api/cars', createServiceProxy(SERVICE_URLS.cars));
 const rentalsProxy = createServiceProxy(SERVICE_URLS.rentals, { ws: true });
 app.use('/api/rentals', rentalsProxy);
 
+const isProd = NODE_ENV === 'production';
+
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Internal server error',
+      message: isProd ? 'Internal server error' : err.message || 'Internal server error',
     },
   });
 });
 
 if (require.main === module) {
   const server = http.createServer(app);
+  type ProxyWithUpgrade = {
+    upgrade?: (req: http.IncomingMessage, socket: Duplex, head: Buffer) => void;
+  };
   server.on('upgrade', (req, socket, head) => {
     const pathOnly = (req.url || '').split('?')[0] || '';
     if (pathOnly.startsWith('/api/rentals')) {
-      (rentalsProxy as any).upgrade(req, socket, head);
+      (rentalsProxy as ProxyWithUpgrade).upgrade?.(req, socket, head);
     }
   });
   server.listen(PORT, () => {

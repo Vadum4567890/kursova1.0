@@ -85,14 +85,14 @@ function MyComponent() {
 
 ## Міграція існуючого коду
 
-### Старий патерн (useSearchOperations)
+### Поточний патерн пошуку (`useSearch` + `useSearchOperations`)
 
 ```typescript
-const { carResults, carPagination, searchCars } = useSearchOperations();
-const { loading, setLoading, error, setError } = useSearch();
+const searchOps = useSearchOperations(); // всередині вже використовує useApiError для текстів помилок
+const search = useSearch();
 
-const handleSearch = async (params) => {
-  await searchCars(params, setLoading, setError);
+const handleSearchCars = () => {
+  searchOps.searchCars({ ...search.carParams, page: 1 }, search.setLoading, search.setError);
 };
 ```
 
@@ -120,10 +120,9 @@ const handleSearch = async (params) => {
 ## Статус міграції
 
 - ✅ usePagedResult створений
-- ✅ useApiError створений
-- 🔄 useSearchOperations — рефакторинг
-- 🔄 Компоненти пошуку — оновлення
-- 🔄 Інші компоненти з пагінацією
+- ✅ useApiError створений і підключений у `useSearchOperations`
+- ✅ Клієнтська пагінація вкладок «Клієнти» / «Прокати» винесена в `usePagedSlice` (спільний slice + сторінка)
+- 🔄 Інші екрани з пагінацією — поступово на спільні хуки
 
 ## Best Practices
 
@@ -134,4 +133,5 @@ const handleSearch = async (params) => {
 5. **Обробляй** loading та error стани
 
 ## Оновлено
+- 2026-05-05: `usePagedSlice` + чистка barrel (`search/`, `DataTable`, `WelcomeSection`); раніше — `useApiError` у `useSearchOperations`, видалено `FinancialReportDebug`
 - 2026-05-04: Фаза D, frontend refactoring guide

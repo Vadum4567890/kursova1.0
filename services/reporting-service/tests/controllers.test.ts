@@ -57,6 +57,10 @@ describe('reporting-service controllers', () => {
       new Date('2026-01-31')
     );
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="financial-report.pdf"'
+    );
     expect(res.send).toHaveBeenCalledWith(Buffer.from('file'));
   });
 
@@ -76,6 +80,10 @@ describe('reporting-service controllers', () => {
     await controller.exportOccupancyReport({ query: { format: 'xlsx' } } as any, res, next);
 
     expect(reportService.exportOccupancyReport).toHaveBeenCalledWith('xlsx');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="occupancy-report.xlsx"'
+    );
     expect(res.send).toHaveBeenCalledWith(Buffer.from('xlsx'));
   });
 
@@ -103,11 +111,17 @@ describe('reporting-service controllers', () => {
       new Date('2026-01-01'),
       new Date('2026-01-31')
     );
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="car-report.pdf"'
+    );
   });
 
-  it('returns 404 when penalty is missing', async () => {
+  const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
+  it('returns 404 for penalty id that is not a valid UUID (does not hit DB)', async () => {
     const penaltyService = {
-      getPenaltyById: jest.fn().mockResolvedValue(null),
+      getPenaltyById: jest.fn(),
     };
     const controller = new PenaltyController(penaltyService as any);
     const res = createResponse();
@@ -115,8 +129,30 @@ describe('reporting-service controllers', () => {
 
     await controller.getPenaltyById({ params: { id: 'missing' } } as any, res, next);
 
+    expect(penaltyService.getPenaltyById).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Penalty not found' });
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: { message: 'Penalty not found' },
+    });
+  });
+
+  it('returns 404 when penalty UUID is valid but not found in DB', async () => {
+    const penaltyService = {
+      getPenaltyById: jest.fn().mockResolvedValue(null),
+    };
+    const controller = new PenaltyController(penaltyService as any);
+    const res = createResponse();
+    const next = jest.fn();
+
+    await controller.getPenaltyById({ params: { id: VALID_UUID } } as any, res, next);
+
+    expect(penaltyService.getPenaltyById).toHaveBeenCalledWith(VALID_UUID);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: { message: 'Penalty not found' },
+    });
   });
 
   it('uses default limit for popular cars analytics', async () => {

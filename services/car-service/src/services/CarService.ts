@@ -20,6 +20,9 @@ import {
 } from '../entities/Car.entity';
 import { CarRating } from '../entities/CarRating.entity';
 
+/** DTO-поле, якого немає в сутності Car, але воно приходить з CreateCarDto / оновлення. */
+type CarWritePayload = Partial<Car> & { unavailableDates?: string[] };
+
 export class CarService {
   private carRepository: CarRepository;
   private pricingRepository: CarPricingRepository;
@@ -48,16 +51,12 @@ export class CarService {
     });
   }
 
-  async createCar(carData: Partial<Car>, pricingData?: Partial<CarPricing>): Promise<Car> {
+  async createCar(carData: CarWritePayload, pricingData?: Partial<CarPricing>): Promise<Car> {
     try {
       // Тимчасово створюємо технічного власника, щоб не блокувати створення авто
       const ownerId = carData.ownerId || uuidv4();
-      const unavailableDates = Array.isArray((carData as any).unavailableDates)
-        ? (carData as any).unavailableDates
-        : [];
-      const { unavailableDates: _unused, ...carPersistFields } = carData as Partial<Car> & {
-        unavailableDates?: string[];
-      };
+      const unavailableDates = Array.isArray(carData.unavailableDates) ? carData.unavailableDates : [];
+      const { unavailableDates: _unused, ...carPersistFields } = carData;
 
       const car = await this.carRepository.create({
         ...carPersistFields,
@@ -137,18 +136,14 @@ export class CarService {
     }
   }
 
-  async updateCar(carId: string, carData: Partial<Car>): Promise<Car> {
+  async updateCar(carId: string, carData: CarWritePayload): Promise<Car> {
     try {
-      const unavailableDates = Array.isArray((carData as any).unavailableDates)
-        ? (carData as any).unavailableDates
-        : undefined;
+      const unavailableDates = Array.isArray(carData.unavailableDates) ? carData.unavailableDates : undefined;
       const existing = await this.carRepository.findById(carId);
       if (!existing) {
         throw new Error('Car not found');
       }
-      const { unavailableDates: _unused, ...carPersistFields } = carData as Partial<Car> & {
-        unavailableDates?: string[];
-      };
+      const { unavailableDates: _unused, ...carPersistFields } = carData;
       const normalizedUpdate: Partial<Car> = { ...carPersistFields };
       if (unavailableDates) {
         normalizedUpdate.availability = this.buildBlockedAvailability(

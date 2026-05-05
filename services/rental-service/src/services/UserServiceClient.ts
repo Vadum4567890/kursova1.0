@@ -23,6 +23,12 @@ export class UserServiceClient {
   private baseUrl: string;
   private writeBaseUrl: string;
 
+  private serviceApiKey(): string {
+    return process.env.NODE_ENV === 'production'
+      ? process.env.SERVICE_API_KEY || ''
+      : process.env.SERVICE_API_KEY || 'internal-service-key';
+  }
+
   constructor() {
     // Prefer gateway so it can resolve both dev-auth users (by UUID) and user-service users
     this.baseUrl = process.env.GATEWAY_URL || process.env.USER_SERVICE_URL || 'http://localhost:3002';
@@ -39,7 +45,7 @@ export class UserServiceClient {
       const response = await axios.get(url, {
         timeout: 5000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey(),
         },
       });
 
@@ -82,7 +88,7 @@ export class UserServiceClient {
       {
         timeout: 5000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey(),
         },
       }
     );
@@ -102,7 +108,7 @@ export class UserServiceClient {
       {
         timeout: 5000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey(),
         },
       }
     );

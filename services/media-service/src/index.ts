@@ -7,6 +7,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from './utils/logger';
+import { requireMutationAuth } from './middleware/authMutations';
 
 const PORT = Number(process.env.PORT) || 3006;
 const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), 'data', 'uploads');
@@ -35,8 +37,17 @@ const upload = multer({
 
 export const app = express();
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors());
-app.use(morgan('combined'));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+    credentials: true,
+  })
+);
+app.use(
+  morgan('combined', {
+    stream: { write: (message: string) => logger.info(message.trim()) },
+  })
+);
 
 function fileUrl(filename: string): { url: string; fullUrl: string } {
   const url = `/api/upload/files/${encodeURIComponent(filename)}`;
@@ -59,22 +70,33 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'media-service', ts: new Date().toISOString() });
 });
 
-app.post('/api/upload/image', upload.single('image'), (req: Request, res: Response) => {
+app.post('/api/upload/image', requireMutationAuth, upload.single('image'), (req: Request, res: Response) => {
   if (!req.file) {
-    res.status(400).json({ message: 'Файл image обовʼязковий', data: null });
+    res.status(400).json({
+      success: false,
+      error: { message: 'Файл image обовʼязковий' },
+    });
     return;
   }
-  res.json({ message: 'OK', data: buildPayload(req.file) });
+  res.json({ success: true, data: buildPayload(req.file) });
 });
 
-app.post('/api/upload/images', upload.array('images', 20), (req: Request, res: Response) => {
-  const files = req.files as Express.Multer.File[] | undefined;
-  if (!files?.length) {
-    res.status(400).json({ message: 'Додайте файли images[]', data: [] });
-    return;
+app.post(
+  '/api/upload/images',
+  requireMutationAuth,
+  upload.array('images', 20),
+  (req: Request, res: Response) => {
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files?.length) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Додайте файли images[]' },
+      });
+      return;
+    }
+    res.json({ success: true, data: files.map((f) => buildPayload(f)) });
   }
-  res.json({ message: 'OK', data: files.map((f) => buildPayload(f)) });
-});
+);
 
 app.get('/api/upload/files/:filename', (req: Request, res: Response) => {
   const safe = path.basename(req.params.filename);
@@ -86,7 +108,7 @@ app.get('/api/upload/files/:filename', (req: Request, res: Response) => {
   res.sendFile(full);
 });
 
-app.delete('/api/upload/image/:filename', (req: Request, res: Response) => {
+app.delete('/api/upload/image/:filename', requireMutationAuth, (req: Request, res: Response) => {
   const safe = path.basename(req.params.filename);
   const full = path.join(UPLOAD_ROOT, safe);
   if (!full.startsWith(UPLOAD_ROOT)) {
@@ -102,6 +124,7 @@ app.delete('/api/upload/image/:filename', (req: Request, res: Response) => {
 });
 
 if (require.main === module) {
-  // eslint-disable-next-line no-console
-  app.listen(PORT, () => console.log(`media-service on http://localhost:${PORT} (uploads: ${UPLOAD_ROOT})`));
+  app.listen(PORT, () => {
+    logger.info(`media-service on http://localhost:${PORT}`, { uploads: UPLOAD_ROOT });
+  });
 }

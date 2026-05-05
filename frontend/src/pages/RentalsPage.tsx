@@ -23,18 +23,17 @@ import { Rental, Client, Car } from '../interfaces';
 import { useRentals, useActiveRentals, useCreateRental, useCancelRental, useCompleteRental } from '../hooks/queries/useRentals';
 import { useCustomers } from '../hooks/queries/useCustomers';
 import { useCars } from '../hooks/queries/useCars';
-import { 
-  ErrorAlert, 
-  LoadingSpinner, 
-  PageHeader, 
+import {
+  PageAsyncSection,
+  PageHeader,
   FormDialog,
   ConfirmDialog,
-  PageContainer
+  PageContainer,
+  StatusChip,
 } from '../components/common';
 import { useFormDialog } from '../hooks/useFormDialog';
 import { useDeleteConfirm } from '../hooks/useDeleteConfirm';
 import { useErrorHandler } from '../hooks/useErrorHandler';
-import { StatusChip } from '../components/common';
 import { RentalFormData } from '../interfaces';
 import { formatDate } from '../utils/dateHelpers';
 import { getRenterDisplayName } from '../utils/rentalDisplay';
@@ -133,11 +132,7 @@ const RentalsPage: React.FC = () => {
         </Tabs>
       </Box>
 
-      <ErrorAlert message={displayError || ''} onClose={clearError} />
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
+      <PageAsyncSection error={displayError} onCloseError={clearError} loading={loading}>
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -250,7 +245,7 @@ const RentalsPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-      )}
+      </PageAsyncSection>
 
       <FormDialog
         open={formDialog.open}

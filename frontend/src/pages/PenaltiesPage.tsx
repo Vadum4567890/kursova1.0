@@ -17,13 +17,12 @@ import { Add, Delete } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { usePenalties, useDeletePenalty } from '../hooks/queries/usePenalties';
 import { useRentals } from '../hooks/queries/useRentals';
-import { 
-  ErrorAlert, 
-  LoadingSpinner, 
-  PageHeader, 
+import {
+  PageAsyncSection,
+  PageHeader,
   FormDialog,
   ConfirmDialog,
-  PageContainer
+  PageContainer,
 } from '../components/common';
 import { useFormDialog } from '../hooks/useFormDialog';
 import { useDeleteConfirm } from '../hooks/useDeleteConfirm';
@@ -91,14 +90,6 @@ const PenaltiesPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <PageContainer>
-        <LoadingSpinner />
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer>
       <PageHeader
@@ -110,9 +101,8 @@ const PenaltiesPage: React.FC = () => {
         }}
       />
 
-      <ErrorAlert message={displayError || ''} onClose={penaltyCreate.clearError} />
-
-      <TableContainer component={Paper}>
+      <PageAsyncSection error={displayError} onCloseError={penaltyCreate.clearError} loading={loading}>
+        <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
@@ -176,6 +166,7 @@ const PenaltiesPage: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
+      </PageAsyncSection>
 
       <FormDialog
         open={formDialog.open}

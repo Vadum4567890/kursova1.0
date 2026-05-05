@@ -22,5 +22,6 @@ export { useUserManagement } from './useUserManagement';
 export { useCarManagement } from './useCarManagement';
 export { useCarFilters } from './useCarFilters';
 export { usePagedResult } from './usePagedResult';
+export { usePagedSlice } from './usePagedSlice';
 export { useApiError } from './useApiError';
 

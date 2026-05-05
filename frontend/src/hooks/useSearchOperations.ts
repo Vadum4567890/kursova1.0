@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { searchService } from '../services/searchService';
 import { Car, Client, Rental, CarSearchParams, RentalSearchParams } from '../interfaces';
+import { useApiError } from './useApiError';
 
-/**
- * Hook for performing search operations
- */
+const SEARCH_FAIL = 'Помилка пошуку';
+
 export function useSearchOperations() {
+  const { getErrorMessage } = useApiError();
   const [carResults, setCarResults] = useState<Car[]>([]);
   const [carPagination, setCarPagination] = useState({
     total: 0,
@@ -29,12 +30,7 @@ export function useSearchOperations() {
         totalPages: results.totalPages,
       });
     } catch (err: any) {
-      const e = err.response?.data?.error;
-      const msg =
-        typeof e === 'string'
-          ? e
-          : e?.detail || e?.message || err.response?.data?.message || err.message || 'Помилка пошуку';
-      setError(msg);
+      setError(getErrorMessage(err) || SEARCH_FAIL);
       setCarResults([]);
       setCarPagination({ total: 0, page: 1, limit: 12, totalPages: 1 });
     } finally {
@@ -49,12 +45,7 @@ export function useSearchOperations() {
       const results = await searchService.searchClients(query);
       setClientResults(results);
     } catch (err: any) {
-      const e = err.response?.data?.error;
-      const msg =
-        typeof e === 'string'
-          ? e
-          : e?.detail || e?.message || err.response?.data?.message || err.message || 'Помилка пошуку';
-      setError(msg);
+      setError(getErrorMessage(err) || SEARCH_FAIL);
       setClientResults([]);
     } finally {
       setLoading(false);
@@ -68,7 +59,7 @@ export function useSearchOperations() {
       const results = await searchService.searchRentals(params);
       setRentalResults(results);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка пошуку');
+      setError(getErrorMessage(err) || SEARCH_FAIL);
     } finally {
       setLoading(false);
     }

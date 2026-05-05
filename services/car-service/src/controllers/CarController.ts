@@ -6,6 +6,7 @@ import { SearchCarsDto } from '../dto/SearchCarsDto';
 import { validateDto } from '../middleware/validation';
 import { UserServiceClient } from '../services/UserServiceClient';
 import { CarCategory, CarStatus } from '../entities/Car.entity';
+import { isValidServiceKey } from '../utils/serviceKey';
 
 const ALLOWED_STATUS_UPDATE = [CarStatus.ACTIVE, CarStatus.RENTED, CarStatus.MAINTENANCE];
 
@@ -329,7 +330,7 @@ export class CarController {
   incrementCompletedRentals = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const serviceKey = req.headers['x-service-key'] as string;
-      if (!serviceKey || serviceKey !== process.env.SERVICE_API_KEY) {
+      if (!isValidServiceKey(serviceKey)) {
         res.status(403).json({ success: false, error: { message: 'Forbidden' } });
         return;
       }
@@ -344,7 +345,7 @@ export class CarController {
     try {
       const serviceKey = req.headers['x-service-key'] as string;
       const { overallScore, categories } = req.body || {};
-      if (!serviceKey || serviceKey !== process.env.SERVICE_API_KEY) {
+      if (!isValidServiceKey(serviceKey)) {
         res.status(403).json({ success: false, error: { message: 'Forbidden' } });
         return;
       }
@@ -456,7 +457,7 @@ export class CarController {
         return;
       }
 
-      const isInternalCall = serviceKey && serviceKey === process.env.SERVICE_API_KEY;
+      const isInternalCall = isValidServiceKey(serviceKey);
       const isOwner = req.userId && this.canManageCar(req, car.ownerId);
       if (!isInternalCall && !isOwner) {
         res.status(403).json({

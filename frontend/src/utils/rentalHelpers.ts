@@ -37,9 +37,6 @@ export const sortRentalsForSelection = (rentals: Rental[]): Rental[] => {
   });
 };
 
-// formatRentalDate is now exported from dateHelpers.ts
-// Import it directly: import { formatRentalDate } from '../../utils/dateHelpers';
-
 export const getRentalStatusLabel = (status: string): string => {
   const statusLabels: { [key: string]: string } = {
     'pending': 'В очікуванні',

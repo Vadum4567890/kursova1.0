@@ -7,11 +7,7 @@ export class PenaltyController {
 
   getMyPenalties = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-      const penalties = await this.penaltyService.getPenaltiesForRenter(req.user.id);
+      const penalties = await this.penaltyService.getPenaltiesForRenter(req.user!.id);
       // Плоскі DTO: Decimal/pg-типи та вкладені зв’язки не повинні ламати JSON.stringify.
       res.json(
         penalties.map((p) => ({
@@ -78,12 +74,12 @@ export class PenaltyController {
       const { id } = req.params;
       // Захист від маршруту /:id, якщо колись обробляється "me" — PostgreSQL падає на uuid
       if (!id || id === 'me' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-        res.status(404).json({ error: 'Penalty not found' });
+        res.status(404).json({ success: false, error: { message: 'Penalty not found' } });
         return;
       }
       const penalty = await this.penaltyService.getPenaltyById(id);
       if (!penalty) {
-        res.status(404).json({ error: 'Penalty not found' });
+        res.status(404).json({ success: false, error: { message: 'Penalty not found' } });
         return;
       }
       res.json(penalty);

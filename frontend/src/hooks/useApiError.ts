@@ -6,27 +6,25 @@ export interface ApiError {
   details?: unknown;
 }
 
-/**
- * Shared hook for handling API errors
- * Normalizes error responses from different services
- */
+/** Нормалізує axios/API помилки до одного вигляду. */
 export function useApiError() {
   const extractError = useCallback((error: any): ApiError => {
-    // New unified error format
-    if (error?.response?.data?.error) {
-      const err = error.response.data.error;
-      return {
-        code: err.code || 'UNKNOWN_ERROR',
-        message: err.message || 'Unknown error',
-        details: err.details,
-      };
+    if (error?.response?.data?.error != null) {
+      const e = error.response.data.error;
+      if (typeof e === 'string') {
+        return { message: e };
+      }
+      if (typeof e === 'object') {
+        return {
+          code: e.code || 'UNKNOWN_ERROR',
+          message: e.detail || e.message || 'Unknown error',
+          details: e.details,
+        };
+      }
     }
 
-    // Legacy error formats
     if (error?.response?.data?.message) {
-      return {
-        message: error.response.data.message,
-      };
+      return { message: error.response.data.message };
     }
 
     if (error?.message) {

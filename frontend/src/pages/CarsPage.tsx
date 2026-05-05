@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Grid, Alert, Box, Pagination, Snackbar, Typography, Zoom } from '@mui/material';
-import { Add, CheckCircle } from '@mui/icons-material';
+import { Grid, Alert, Box, Pagination, Typography } from '@mui/material';
+import { Add } from '@mui/icons-material';
 import { Dayjs } from 'dayjs';
-import { keyframes } from '@mui/system';
 import { useAuth } from '../context/AuthContext';
 import { Car } from '../interfaces';
 import { useCars, useBookedDates } from '../hooks/queries/useCars';
@@ -11,24 +10,16 @@ import { useCarManagement, useCarFilters } from '../hooks';
 import { useFormDialog } from '../hooks/useFormDialog';
 import { useDeleteConfirm } from '../hooks/useDeleteConfirm';
 import { useBooking } from '../hooks/useBooking';
-import { ErrorAlert, LoadingSpinner, PageHeader, ConfirmDialog, PageContainer } from '../components/common';
+import {
+  PageAsyncSection,
+  PageHeader,
+  ConfirmDialog,
+  PageContainer,
+  SuccessSnackbar,
+} from '../components/common';
 import { CarCard, CarFiltersBar, CarFormDialog } from '../components/cars';
 import BookingDialog from '../components/car/BookingDialog';
 import { parseImageUrls, getInitialCarFormData } from '../utils/carHelpers';
-
-const popIn = keyframes`
-  0% {
-    transform: scale(0.85);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-`;
 
 const CarsPage: React.FC = () => {
   const { user } = useAuth();
@@ -272,34 +263,36 @@ const CarsPage: React.FC = () => {
         onSearchChange={handleSearchChange}
       />
 
-      {displayError && <ErrorAlert message={displayError} onClose={() => carManagement.clearError()} />}
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : emptyCatalog ? (
-        <Alert severity="info">
-          Немає автомобілів у каталозі. Якщо ви адміністратор або менеджер — додайте перше авто кнопкою «Додати
-          автомобіль».
-        </Alert>
-      ) : emptyAfterFilters ? (
-        <Alert severity="info">За обраними фільтрами нічого не знайдено. Спробуйте змінити умови пошуку.</Alert>
-      ) : (
-        <Grid container spacing={3}>
-          {cars.map((car: Car) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
-              <CarCard
-                car={car}
-                isUser={isUser}
-                isStaff={isStaff}
-                isAdmin={isAdmin}
-                onEdit={handleOpenDialog}
-                onDelete={deleteConfirm.handleDeleteClick}
-                onBook={handleBookClick}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      <PageAsyncSection
+        error={displayError}
+        onCloseError={() => carManagement.clearError()}
+        loading={loading}
+      >
+        {emptyCatalog ? (
+          <Alert severity="info">
+            Немає автомобілів у каталозі. Якщо ви адміністратор або менеджер — додайте перше авто кнопкою «Додати
+            автомобіль».
+          </Alert>
+        ) : emptyAfterFilters ? (
+          <Alert severity="info">За обраними фільтрами нічого не знайдено. Спробуйте змінити умови пошуку.</Alert>
+        ) : (
+          <Grid container spacing={3}>
+            {cars.map((car: Car) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
+                <CarCard
+                  car={car}
+                  isUser={isUser}
+                  isStaff={isStaff}
+                  isAdmin={isAdmin}
+                  onEdit={handleOpenDialog}
+                  onDelete={deleteConfirm.handleDeleteClick}
+                  onBook={handleBookClick}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </PageAsyncSection>
 
       {!loading && totalPages > 1 && (
         <Box
@@ -365,36 +358,13 @@ const CarsPage: React.FC = () => {
         confirmColor="error"
       />
 
-      <Snackbar
+      <SuccessSnackbar
         open={bookingSuccess.open}
-        autoHideDuration={3200}
+        title={bookingSuccess.title}
+        message={bookingSuccess.message}
         onClose={() => setBookingSuccess((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        TransitionComponent={Zoom}
-      >
-        <Alert
-          severity="success"
-          variant="filled"
-          icon={
-            <CheckCircle
-              sx={{
-                animation: `${popIn} 360ms ease-out`,
-              }}
-            />
-          }
-          sx={{
-            minWidth: 320,
-            boxShadow: 6,
-            '& .MuiAlert-message': {
-              display: 'grid',
-              gap: 0.5,
-            },
-          }}
-        >
-          <strong>{bookingSuccess.title}</strong>
-          <span>{bookingSuccess.message}</span>
-        </Alert>
-      </Snackbar>
+        autoHideDuration={3200}
+      />
     </PageContainer>
   );
 };

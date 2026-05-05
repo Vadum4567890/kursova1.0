@@ -31,7 +31,7 @@ export const uploadService = {
     formData.append('image', file);
 
     try {
-      const response = await api.post<{ message: string; data: UploadResponse }>(
+      const response = await api.post<{ success: boolean; data: UploadResponse }>(
         '/upload/image',
         formData,
         {
@@ -54,7 +54,7 @@ export const uploadService = {
     });
 
     try {
-      const response = await api.post<{ message: string; data: UploadResponse[] }>(
+      const response = await api.post<{ success: boolean; data: UploadResponse[] }>(
         '/upload/images',
         formData,
         {

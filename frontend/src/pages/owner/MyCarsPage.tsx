@@ -4,7 +4,7 @@ import { Add } from '@mui/icons-material';
 import { Car } from '../../interfaces';
 import { useMyCars } from '../../hooks/queries/useCars';
 import { useCarManagement, useFormDialog, useDeleteConfirm } from '../../hooks';
-import { ErrorAlert, LoadingSpinner, PageHeader, ConfirmDialog, PageContainer } from '../../components/common';
+import { ErrorAlert, PageAsyncSection, PageHeader, ConfirmDialog, PageContainer } from '../../components/common';
 import { CarCard, CarFormDialog } from '../../components/cars';
 import OwnerBookingRequestsPanel from '../../components/owner/OwnerBookingRequestsPanel';
 import { getInitialCarFormData, parseImageUrls } from '../../utils/carHelpers';
@@ -89,28 +89,28 @@ const MyCarsPage: React.FC = () => {
 
       <OwnerBookingRequestsPanel />
 
-      {loading ? (
-        <LoadingSpinner />
-      ) : cars.length === 0 ? (
-        <Alert severity="info">
-          У вас ще немає оголошень. Додайте перший автомобіль і вкажіть свої ціни — орендарі зможуть його забронювати.
-        </Alert>
-      ) : (
-        <Grid container spacing={3}>
-          {cars.map((car: Car) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
-              <CarCard
-                car={car}
-                isUser={false}
-                isStaff={true}
-                isAdmin={true}
-                onEdit={handleOpenDialog}
-                onDelete={deleteConfirm.handleDeleteClick}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      <PageAsyncSection loading={loading}>
+        {cars.length === 0 ? (
+          <Alert severity="info">
+            У вас ще немає оголошень. Додайте перший автомобіль і вкажіть свої ціни — орендарі зможуть його забронювати.
+          </Alert>
+        ) : (
+          <Grid container spacing={3}>
+            {cars.map((car: Car) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
+                <CarCard
+                  car={car}
+                  isUser={false}
+                  isStaff={true}
+                  isAdmin={true}
+                  onEdit={handleOpenDialog}
+                  onDelete={deleteConfirm.handleDeleteClick}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </PageAsyncSection>
 
       <CarFormDialog
         open={formDialog.open}

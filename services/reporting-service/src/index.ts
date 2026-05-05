@@ -9,15 +9,25 @@ import { errorHandler } from './middleware/errorHandler';
 import penaltyRoutes from './routes/penalty.routes';
 import reportRoutes from './routes/report.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import { logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3009;
 
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('combined'));
+app.use(
+  morgan('combined', {
+    stream: { write: (message: string) => logger.info(message.trim()) },
+  })
+);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'reporting-service', timestamp: new Date().toISOString() });
@@ -32,16 +42,13 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     await AppDataSource.initialize();
-    // eslint-disable-next-line no-console
-    console.log('Reporting-service DB connected');
+    logger.info('Reporting-service DB connected');
 
     app.listen(PORT, () => {
-      // eslint-disable-next-line no-console
-      console.log(`Reporting Service running on port ${PORT}`);
+      logger.info(`Reporting Service running on port ${PORT}`);
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to start reporting-service:', error);
+    logger.error('Failed to start reporting-service', { error });
     process.exit(1);
   }
 };

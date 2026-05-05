@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Box, Paper, TextField, Button, Typography, Pagination, CircularProgress, Alert } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { RentalSearchParams, Rental } from '../../interfaces';
 import { RentalSearchResults } from './RentalSearchResults';
+import { usePagedSlice } from '@/hooks/usePagedSlice';
 
 const PAGE_SIZE = 12;
 
@@ -21,27 +22,15 @@ const RentalSearchTab: React.FC<RentalSearchTabProps> = ({
   loading,
   results,
 }) => {
-  const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
-    setPage((p) => Math.min(p, maxPage));
-  }, [results.length]);
+  const { page, setPage, resetToFirstPage, totalPages, pagedItems, shownFrom, shownTo } = usePagedSlice(
+    results,
+    PAGE_SIZE
+  );
 
   const handleSearchClick = () => {
-    setPage(1);
+    resetToFirstPage();
     onSearch();
   };
-
-  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
-
-  const pagedResults = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return results.slice(start, start + PAGE_SIZE);
-  }, [results, page]);
-
-  const shownFrom = results.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const shownTo = results.length === 0 ? 0 : Math.min(results.length, page * PAGE_SIZE);
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -91,7 +80,7 @@ const RentalSearchTab: React.FC<RentalSearchTabProps> = ({
 
       {!loading && results.length > 0 ? (
         <>
-          <RentalSearchResults rentals={pagedResults} />
+          <RentalSearchResults rentals={pagedItems} />
           <Box
             sx={{
               mt: 3,

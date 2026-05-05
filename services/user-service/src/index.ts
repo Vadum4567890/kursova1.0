@@ -20,8 +20,9 @@ const PORT = process.env.PORT || 3002;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
+  // Фронт Vite зазвичай на 3001; gateway сам на 3000 — для браузера має бути origin фронту.
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+  credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

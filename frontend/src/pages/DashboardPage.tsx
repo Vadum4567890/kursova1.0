@@ -5,11 +5,7 @@ import {
   Box,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
-import { 
-  ErrorAlert,
-  LoadingSpinner,
-  PageContainer
-} from '../components/common';
+import { PageContainer, PageContentGate, StatCard } from '../components/common';
 import {
   RevenueChart,
   CarStatusChart,
@@ -17,7 +13,6 @@ import {
   OccupancyRateCard,
   RentalStatsTable,
 } from '../components/dashboard';
-import { StatCard } from '../components/common';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { formatRevenueData, formatPopularCarsData, formatCarStatusData } from '../utils/chartHelpers';
 import { getStatCardsConfig } from '../constants/dashboard';
@@ -33,35 +28,20 @@ const DashboardPage: React.FC = () => {
 
   const occupancyRate = stats ? ((stats as any).occupancyRate || 0) : 0;
 
-  if (loading) {
-    return (
-      <PageContainer>
-        <LoadingSpinner />
-      </PageContainer>
-    );
-  }
-
-  if (error) {
-    return (
-      <PageContainer>
-        <ErrorAlert message={error} />
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer>
-      <Box sx={{ mb: 4 }}>
+      <PageContentGate loading={loading} error={error || null}>
+        <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
           Панель управління
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Ласкаво просимо, {user?.fullName || user?.username}!
         </Typography>
-      </Box>
+        </Box>
 
-      {/* Stat Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Stat Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
         {statCardsConfig.map((cardConfig, index) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
             <StatCard
@@ -73,11 +53,11 @@ const DashboardPage: React.FC = () => {
             />
           </Grid>
         ))}
-      </Grid>
+        </Grid>
 
-      {/* Charts Section */}
-      {isAdminOrManager && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Charts Section */}
+        {isAdminOrManager && (
+          <Grid container spacing={3} sx={{ mb: 4 }}>
           {/* Revenue Chart */}
           <Grid item xs={12} md={8}>
             <RevenueChart data={revenueData} />
@@ -108,8 +88,9 @@ const DashboardPage: React.FC = () => {
           <Grid item xs={12} md={6}>
             <RentalStatsTable stats={stats || undefined} />
           </Grid>
-        </Grid>
-      )}
+          </Grid>
+        )}
+      </PageContentGate>
     </PageContainer>
   );
 };

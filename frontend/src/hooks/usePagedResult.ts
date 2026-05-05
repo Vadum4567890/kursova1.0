@@ -11,10 +11,7 @@ export interface UsePagedResultOptions {
   initialLimit?: number;
 }
 
-/**
- * Shared hook for paginated search results
- * Handles loading, error, and pagination state
- */
+/** Стан сторінки та даних для пагінованих списків (пошук тощо). */
 export function usePagedResult<T>(options: UsePagedResultOptions = {}) {
   const { initialLimit = 12 } = options;
 

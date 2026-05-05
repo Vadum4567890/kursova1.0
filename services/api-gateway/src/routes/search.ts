@@ -6,7 +6,10 @@ const SERVICE_URLS = {
   rentals: process.env.RENTAL_SERVICE_URL || 'http://localhost:3004',
 } as const;
 
-const SERVICE_API_KEY = process.env.SERVICE_API_KEY || 'internal-service-key';
+const SERVICE_API_KEY =
+  process.env.NODE_ENV === 'production'
+    ? process.env.SERVICE_API_KEY || ''
+    : process.env.SERVICE_API_KEY || 'internal-service-key';
 
 function getInternalHeaders(extra: Record<string, string> = {}): Record<string, string> {
   return {
