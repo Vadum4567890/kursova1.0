@@ -14,6 +14,11 @@ const authController = new AuthController();
 router.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 // Authentication routes (public)
+router.post('/auth/login', authController.login.bind(authController));
+router.post('/auth/register', authController.register.bind(authController));
+router.get('/auth/me', authMiddleware, authController.getMe.bind(authController));
+router.put('/auth/profile', authMiddleware, authController.updateProfile.bind(authController));
+router.put('/auth/password', authMiddleware, authController.changePassword.bind(authController));
 router.post('/auth/google', authController.authenticateWithGoogle.bind(authController));
 router.get('/auth/google/url', authController.getGoogleAuthUrl.bind(authController));
 router.post('/auth/google/callback', authController.handleGoogleCallback.bind(authController));

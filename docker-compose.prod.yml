@@ -81,6 +81,7 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_DATABASE: user_service_db
+      DB_RUN_MIGRATIONS: "true"
       JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
       JWT_EXPIRES_IN: 24h
       SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
@@ -219,4 +220,3 @@ volumes:
 networks:
   car-rental-network:
     driver: bridge
-

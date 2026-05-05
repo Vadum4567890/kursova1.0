@@ -298,6 +298,15 @@ export class UserService {
     }
   }
 
+  async getUserByUsername(username: string): Promise<User | null> {
+    try {
+      return await this.userRepository.findByUsername(username);
+    } catch (error) {
+      logger.error('Error getting user by username:', error);
+      throw error;
+    }
+  }
+
   async createUser(userData: Partial<User>): Promise<User> {
     try {
       const savedUser = await this.userRepository.create(userData);
