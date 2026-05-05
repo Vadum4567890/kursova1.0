@@ -82,6 +82,21 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
     ownerApprovalStatus: ['pending', 'approved', 'rejected'].includes(String(raw.ownerApprovalStatus))
       ? (String(raw.ownerApprovalStatus) as Rental['ownerApprovalStatus'])
       : undefined,
+    lifecycleState: [
+      'awaiting_owner_approval',
+      'awaiting_pickup',
+      'pickup_partially_confirmed',
+      'pickup_disputed',
+      'no_show',
+      'active',
+      'return_due',
+      'return_partially_confirmed',
+      'return_disputed',
+      'completed',
+      'cancelled',
+    ].includes(String(raw.lifecycleState))
+      ? (String(raw.lifecycleState) as Rental['lifecycleState'])
+      : undefined,
     ownerUserId: raw.ownerUserId !== undefined && raw.ownerUserId !== null ? String(raw.ownerUserId) : undefined,
     reviewStatus: ['not_available', 'waiting', 'partial', 'published', 'expired'].includes(String(raw.reviewStatus))
       ? (String(raw.reviewStatus) as Rental['reviewStatus'])
@@ -89,6 +104,19 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
     reviewWindowClosesAt: raw.reviewWindowClosesAt ? iso(raw.reviewWindowClosesAt) : undefined,
     ownerReviewSubmittedAt: raw.ownerReviewSubmittedAt ? iso(raw.ownerReviewSubmittedAt) : undefined,
     renterReviewSubmittedAt: raw.renterReviewSubmittedAt ? iso(raw.renterReviewSubmittedAt) : undefined,
+    pickupConfirmedByOwnerAt: raw.pickupConfirmedByOwnerAt ? iso(raw.pickupConfirmedByOwnerAt) : undefined,
+    pickupConfirmedByRenterAt: raw.pickupConfirmedByRenterAt ? iso(raw.pickupConfirmedByRenterAt) : undefined,
+    returnConfirmedByOwnerAt: raw.returnConfirmedByOwnerAt ? iso(raw.returnConfirmedByOwnerAt) : undefined,
+    returnConfirmedByRenterAt: raw.returnConfirmedByRenterAt ? iso(raw.returnConfirmedByRenterAt) : undefined,
+    adminResolvedAt: raw.adminResolvedAt ? iso(raw.adminResolvedAt) : undefined,
+    adminResolvedByUserId:
+      raw.adminResolvedByUserId !== undefined && raw.adminResolvedByUserId !== null
+        ? String(raw.adminResolvedByUserId)
+        : undefined,
+    adminResolutionNote:
+      raw.adminResolutionNote !== undefined && raw.adminResolutionNote !== null
+        ? String(raw.adminResolutionNote)
+        : undefined,
     client: raw.client as Rental['client'],
     renter,
     car,

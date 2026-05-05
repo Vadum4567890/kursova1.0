@@ -11,7 +11,6 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import CarsPage from './pages/CarsPage';
-import CustomersPage from './pages/CustomersPage';
 import RentalsPage from './pages/RentalsPage';
 import PenaltiesPage from './pages/PenaltiesPage';
 import ReportsPage from './pages/ReportsPage';
@@ -98,14 +97,6 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['owner', 'both', 'admin', 'manager']}>
                     <MyCarsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/customers"
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'manager', 'employee']}>
-                    <CustomersPage />
                   </ProtectedRoute>
                 }
               />

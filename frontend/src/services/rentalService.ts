@@ -119,6 +119,37 @@ export const rentalService = {
     return mapRentalFromApi(raw);
   },
 
+  async confirmPickup(rentalId: number | string): Promise<Rental> {
+    const response = await api.post<unknown>(`/rentals/${rentalId}/pickup-confirm`, {});
+    const raw = unwrapData<Record<string, unknown>>(response.data);
+    return mapRentalFromApi(raw);
+  },
+
+  async confirmReturn(rentalId: number | string): Promise<Rental> {
+    const response = await api.post<unknown>(`/rentals/${rentalId}/return-confirm`, {});
+    const raw = unwrapData<Record<string, unknown>>(response.data);
+    return mapRentalFromApi(raw);
+  },
+
+  async resolveLifecycleByAdmin(
+    rentalId: number | string,
+    action:
+      | 'activate'
+      | 'complete'
+      | 'cancel'
+      | 'mark_no_show'
+      | 'mark_pickup_disputed'
+      | 'mark_return_disputed',
+    note?: string
+  ): Promise<Rental> {
+    const response = await api.post<unknown>(`/rentals/${rentalId}/admin/resolve-lifecycle`, {
+      action,
+      note,
+    });
+    const raw = unwrapData<Record<string, unknown>>(response.data);
+    return mapRentalFromApi(raw);
+  },
+
   async createBooking(carId: number | string, startDate: string, expectedEndDate: string): Promise<Rental> {
     const response = await api.post<unknown>('/rentals/book', {
       carId,

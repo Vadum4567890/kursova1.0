@@ -1,5 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { useMyRentals, useCancelRental } from '../../hooks/queries/useRentals';
+import {
+  useCancelRental,
+  useConfirmRentalPickup,
+  useConfirmRentalReturn,
+  useMyRentals,
+} from '../../hooks/queries/useRentals';
 import {
   useEligibleReviews,
   useSubmitReview,
@@ -25,11 +30,13 @@ type SuccessState = {
 };
 
 const MyRentalsPage: React.FC = () => {
-  const { data: rentals = [], isLoading: loading, error: rentalsError } = useMyRentals();
+  const { data: rentals = [], isLoading: loading, error: rentalsError } = useMyRentals({ refetchInterval: 15_000 });
   const { data: eligibleReviews = [] } = useEligibleReviews();
   const submitReview = useSubmitReview();
   const updateReview = useUpdateReview();
   const cancelRental = useCancelRental();
+  const confirmPickup = useConfirmRentalPickup();
+  const confirmReturn = useConfirmRentalReturn();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedBooking, setSelectedBooking] = useState<ReviewableBooking | null>(null);
   const [successState, setSuccessState] = useState<SuccessState>({
@@ -112,6 +119,17 @@ const MyRentalsPage: React.FC = () => {
           onCancelClick={(id) => deleteConfirm.handleDeleteClick(id, 'rental')}
           reviewableByRentalId={reviewableByRentalId}
           onReviewClick={setSelectedBooking}
+          onConfirmPickup={(id) => {
+            void confirmPickup.mutateAsync(id).catch((err) => {
+              handleError(err, err?.message || 'Не вдалося підтвердити отримання авто');
+            });
+          }}
+          onConfirmReturn={(id) => {
+            void confirmReturn.mutateAsync(id).catch((err) => {
+              handleError(err, err?.message || 'Не вдалося підтвердити повернення авто');
+            });
+          }}
+          lifecycleActionPending={confirmPickup.isPending || confirmReturn.isPending}
         />
       </PageAsyncSection>
 

@@ -81,6 +81,12 @@ export const RentalChatSocketProvider: React.FC<{ children: React.ReactNode }> =
           }
           void queryClient.invalidateQueries({ queryKey: ['rentals', 'unread-chats'] });
         }
+        if (d.type === 'rental_status_changed') {
+          void queryClient.invalidateQueries({ queryKey: ['rentals'] });
+          void queryClient.invalidateQueries({ queryKey: ['cars'] });
+          void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          void queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       } catch {
         /* ignore */
       }

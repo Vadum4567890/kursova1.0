@@ -59,6 +59,11 @@ const startServer = async () => {
     await AppDataSource.initialize();
     logger.info('Database connected');
 
+    if (process.env.DB_RUN_MIGRATIONS === 'true') {
+      const migrations = await AppDataSource.runMigrations();
+      logger.info(`Database migrations applied: ${migrations.length}`);
+    }
+
     const server = http.createServer(app);
     attachChatWebSocket(server, CHAT_WS_PATH);
 

@@ -5,6 +5,7 @@ import { v5 as uuidv5 } from 'uuid';
 export interface AuthUser {
   id: string;
   email?: string;
+  role?: string;
 }
 
 export interface AuthRequest extends Request {
@@ -82,6 +83,12 @@ export function auth(req: AuthRequest, res: Response, next: NextFunction) {
     req.user = {
       id: normalizedId,
       email: typeof decoded.email === 'string' ? decoded.email : typeof decoded.preferred_username === 'string' ? decoded.preferred_username : undefined,
+      role:
+        typeof decoded.role === 'string'
+          ? decoded.role
+          : typeof (decoded.user as { role?: unknown } | undefined)?.role === 'string'
+            ? String((decoded.user as { role?: unknown }).role)
+            : undefined,
     };
 
     next();

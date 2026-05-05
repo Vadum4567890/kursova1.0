@@ -11,7 +11,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { Cancel, Edit, RateReview } from '@mui/icons-material';
+import { Cancel, DirectionsCar, Edit, KeyboardReturn, RateReview } from '@mui/icons-material';
 import { Rental, ReviewableBooking } from '../../interfaces';
 import { formatRentalDate } from '../../utils/dateHelpers';
 import { StatusChip } from '../common';
@@ -21,6 +21,9 @@ interface MyRentalsTableProps {
   onCancelClick: (id: number | string) => void;
   reviewableByRentalId?: Map<string, ReviewableBooking>;
   onReviewClick?: (booking: ReviewableBooking) => void;
+  onConfirmPickup?: (id: number | string) => void;
+  onConfirmReturn?: (id: number | string) => void;
+  lifecycleActionPending?: boolean;
 }
 
 export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
@@ -28,6 +31,9 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
   onCancelClick,
   reviewableByRentalId,
   onReviewClick,
+  onConfirmPickup,
+  onConfirmReturn,
+  lifecycleActionPending = false,
 }) => {
   if (rentals.length === 0) {
     return (
@@ -89,6 +95,22 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
                   ? 'Підтверджено, очікує старту'
                   : 'Очікує підтвердження орендодавця'
                 : null;
+            const lifecycleHint =
+              rental.status === 'pending' &&
+              rental.ownerApprovalStatus === 'approved' &&
+              rental.pickupConfirmedByRenterAt
+                ? 'Ви підтвердили отримання. Очікується підтвердження орендодавця'
+                : pendingHint;
+            const today = new Date();
+            const startDay = new Date(rental.startDate);
+            startDay.setHours(0, 0, 0, 0);
+            const canConfirmPickup =
+              rental.status === 'pending' &&
+              rental.ownerApprovalStatus === 'approved' &&
+              today >= startDay &&
+              !rental.pickupConfirmedByRenterAt;
+            const canConfirmReturn =
+              rental.status === 'active' && !rental.returnConfirmedByRenterAt;
 
             return (
               <TableRow key={rental.id} hover>
@@ -144,9 +166,9 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <StatusChip status={rental.status} />
-                  {pendingHint && (
+                  {lifecycleHint && (
                     <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {pendingHint}
+                      {lifecycleHint}
                     </Typography>
                   )}
                 </TableCell>
@@ -161,6 +183,37 @@ export const MyRentalsTable: React.FC<MyRentalsTableProps> = ({
                       >
                         Скасувати
                       </Button>
+                    )}
+
+                    {canConfirmPickup && onConfirmPickup && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<DirectionsCar />}
+                        disabled={lifecycleActionPending}
+                        onClick={() => onConfirmPickup(rental.id)}
+                      >
+                        Отримав авто
+                      </Button>
+                    )}
+
+                    {canConfirmReturn && onConfirmReturn && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="success"
+                        startIcon={<KeyboardReturn />}
+                        disabled={lifecycleActionPending}
+                        onClick={() => onConfirmReturn(rental.id)}
+                      >
+                        Повернув авто
+                      </Button>
+                    )}
+
+                    {rental.status === 'active' && rental.returnConfirmedByRenterAt && (
+                      <Typography variant="caption" color="text.secondary">
+                        Очікується підтвердження повернення від орендодавця
+                      </Typography>
                     )}
 
                     {rental.status === 'completed' && reviewable && onReviewClick && (

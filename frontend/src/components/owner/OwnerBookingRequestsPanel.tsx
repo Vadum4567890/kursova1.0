@@ -21,6 +21,8 @@ import { Rental } from '../../interfaces';
 import { formatRentalDate } from '../../utils/dateHelpers';
 import {
   useApproveBookingAsOwner,
+  useConfirmRentalPickup,
+  useConfirmRentalReturn,
   useOwnerBookings,
   useRejectBookingAsOwner,
 } from '../../hooks/queries/useRentals';
@@ -77,12 +79,18 @@ export const OwnerBookingRequestsPanel: React.FC = () => {
   const { data: bookings = [], isLoading, error, refetch } = useOwnerBookings();
   const approve = useApproveBookingAsOwner();
   const reject = useRejectBookingAsOwner();
+  const confirmPickup = useConfirmRentalPickup();
+  const confirmReturn = useConfirmRentalReturn();
   const [successState, setSuccessState] = useState<SuccessState>({
     open: false,
     title: '',
     message: '',
   });
-  const mutationError = (approve.error as Error | null) || (reject.error as Error | null);
+  const mutationError =
+    (approve.error as Error | null) ||
+    (reject.error as Error | null) ||
+    (confirmPickup.error as Error | null) ||
+    (confirmReturn.error as Error | null);
 
   const requests = useMemo(
     () =>
@@ -116,6 +124,30 @@ export const OwnerBookingRequestsPanel: React.FC = () => {
           new Date(rental.startDate).toDateString() === new Date().toDateString()
           ? 'Оренду активовано. Орендар уже бачить, що бронювання погоджено.'
           : 'Орендар побачить, що заявку схвалено, а авто зарезервовано на обраний період.',
+    });
+  };
+
+  const handleConfirmPickup = async (rental: Rental) => {
+    await confirmPickup.mutateAsync(String(rental.id));
+    await refetch();
+    setSuccessState({
+      open: true,
+      title: 'Передачу авто підтверджено',
+      message: rental.pickupConfirmedByRenterAt
+        ? 'Обидві сторони підтвердили передачу. Прокат активовано.'
+        : 'Очікується підтвердження отримання від орендаря.',
+    });
+  };
+
+  const handleConfirmReturn = async (rental: Rental) => {
+    await confirmReturn.mutateAsync(String(rental.id));
+    await refetch();
+    setSuccessState({
+      open: true,
+      title: 'Повернення авто підтверджено',
+      message: rental.returnConfirmedByRenterAt
+        ? 'Обидві сторони підтвердили повернення. Прокат завершено.'
+        : 'Очікується підтвердження повернення від орендаря.',
     });
   };
 
@@ -247,6 +279,66 @@ export const OwnerBookingRequestsPanel: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
+            <Stack spacing={1} sx={{ mt: 2 }}>
+              {other.slice(0, 15).map((rental) => {
+                const startDay = new Date(rental.startDate);
+                startDay.setHours(0, 0, 0, 0);
+                const canConfirmPickup =
+                  rental.status === 'pending' &&
+                  rental.ownerApprovalStatus === 'approved' &&
+                  new Date() >= startDay &&
+                  !rental.pickupConfirmedByOwnerAt;
+                const canConfirmReturn =
+                  rental.status === 'active' && !rental.returnConfirmedByOwnerAt;
+                const lifecyclePending = confirmPickup.isPending || confirmReturn.isPending;
+
+                if (!canConfirmPickup && !canConfirmReturn) {
+                  return null;
+                }
+
+                return (
+                  <Stack
+                    key={`lifecycle-${String(rental.id)}`}
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="space-between"
+                    flexWrap="wrap"
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      {rentalLabel(rental)}
+                    </Typography>
+                    {canConfirmPickup && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<Check />}
+                        disabled={lifecyclePending}
+                        onClick={() => {
+                          void handleConfirmPickup(rental).catch(() => undefined);
+                        }}
+                      >
+                        Передав авто
+                      </Button>
+                    )}
+                    {canConfirmReturn && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="success"
+                        startIcon={<Check />}
+                        disabled={lifecyclePending}
+                        onClick={() => {
+                          void handleConfirmReturn(rental).catch(() => undefined);
+                        }}
+                      >
+                        Прийняв авто
+                      </Button>
+                    )}
+                  </Stack>
+                );
+              })}
+            </Stack>
             {other.length > 15 && (
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
                 Показано 15 з {other.length}
