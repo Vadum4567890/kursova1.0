@@ -1,0 +1,222 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-user_service_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-user_service_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      ENABLE_DEV_AUTH: "false"
+      DATA_DIR: /app/data
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      USER_SERVICE_URL: http://user-service:3002
+      CAR_SERVICE_URL: http://car-service:3003
+      RENTAL_SERVICE_URL: http://rental-service:3004
+      REPORTING_SERVICE_URL: http://reporting-service:3009
+      MEDIA_SERVICE_URL: http://media-service:3006
+      PROXY_TIMEOUT_MS: "60000"
+    volumes:
+      - gateway_data:/app/data
+    depends_on:
+      user-service:
+        condition: service_healthy
+      car-service:
+        condition: service_healthy
+      rental-service:
+        condition: service_healthy
+      reporting-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - car-rental-network
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      DB_DATABASE: user_service_db
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
+      JWT_EXPIRES_IN: 24h
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  car-service:
+    build:
+      context: ./services/car-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      DB_DATABASE: car_service_db
+      USER_SERVICE_URL: http://user-service:3002
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
+      JWT_EXPIRES_IN: 24h
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      KAFKA_BROKERS: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rental-service:
+    build:
+      context: ./services/rental-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      DB_DATABASE: rental_service_db
+      CAR_SERVICE_URL: http://car-service:3003
+      USER_SERVICE_URL: http://user-service:3002
+      GATEWAY_URL: http://api-gateway:3000
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ALLOW_INSECURE_JWT_DECODE: "false"
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      KAFKA_BROKERS: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  reporting-service:
+    build:
+      context: ./services/reporting-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3009
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      DB_DATABASE: rental_service_db
+      USER_SERVICE_URL: http://user-service:3002
+      CAR_SERVICE_URL: http://car-service:3003
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_VERIFY_SECRETS: ${JWT_VERIFY_SECRETS:-${JWT_SECRET},${USER_SERVICE_JWT_SECRET}}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3009/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  media-service:
+    build:
+      context: ./services/media-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3006
+      NODE_ENV: production
+      UPLOAD_DIR: /app/data/uploads
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      JWT_VERIFY_SECRETS: ${JWT_VERIFY_SECRETS:-${JWT_SECRET},${USER_SERVICE_JWT_SECRET}}
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+    volumes:
+      - media_uploads:/app/data/uploads
+    networks:
+      - car-rental-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  media_uploads:
+  gateway_data:
+
+networks:
+  car-rental-network:
+    driver: bridge
+
