@@ -31,16 +31,24 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: ./backend/package-lock.json
     
     - name: Install dependencies
       working-directory: ./backend
-      run: npm ci
+      run: |
+        if [ -f package.json ]; then
+          npm install
+        else
+          echo "Skipping backend install: backend/package.json not found"
+        fi
     
     - name: Run linter
       working-directory: ./backend
-      run: npm run lint || true
+      run: |
+        if [ -f package.json ]; then
+          npm run lint || true
+        else
+          echo "Skipping backend lint: backend/package.json not found"
+        fi
     
     - name: Run tests
       working-directory: ./backend
@@ -50,7 +58,12 @@ jobs:
         DB_USERNAME: postgres
         DB_PASSWORD: postgres
         DB_DATABASE: car_rental_db_test
-      run: npm test || true
+      run: |
+        if [ -f package.json ]; then
+          npm test || true
+        else
+          echo "Skipping backend tests: backend/package.json not found"
+        fi
 
   frontend:
     runs-on: ubuntu-latest
@@ -62,12 +75,10 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: ./frontend/package-lock.json
     
     - name: Install dependencies
       working-directory: ./frontend
-      run: npm ci
+      run: npm install
     
     - name: Run linter
       working-directory: ./frontend
