@@ -49,7 +49,7 @@ export function useUserManagement(options: UseUserManagementOptions = {}) {
   );
 
   const updateRole = useCallback(
-    async (id: number, role: string) => {
+    async (id: number | string, role: string) => {
       try {
         clearError();
         await updateUserRole.mutateAsync({ id, role });
@@ -65,7 +65,7 @@ export function useUserManagement(options: UseUserManagementOptions = {}) {
   );
 
   const updateStatus = useCallback(
-    async (id: number, isActive: boolean) => {
+    async (id: number | string, isActive: boolean) => {
       try {
         clearError();
         await updateUserStatus.mutateAsync({ id, isActive });
@@ -81,7 +81,7 @@ export function useUserManagement(options: UseUserManagementOptions = {}) {
   );
 
   const remove = useCallback(
-    async (id: number) => {
+    async (id: number | string) => {
       try {
         clearError();
         await deleteUser.mutateAsync(id);

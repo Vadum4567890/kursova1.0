@@ -42,9 +42,9 @@ export const RoleUpdateDialog: React.FC<RoleUpdateDialogProps> = ({
           <InputLabel>Роль</InputLabel>
           <Select value={role} label="Роль" onChange={(e) => setRole(e.target.value)}>
             <MenuItem value="admin">Адмін</MenuItem>
-            <MenuItem value="manager">Менеджер</MenuItem>
-            <MenuItem value="employee">Співробітник</MenuItem>
-            <MenuItem value="user">Клієнт</MenuItem>
+            <MenuItem value="renter">Орендар</MenuItem>
+            <MenuItem value="owner">Орендодавець</MenuItem>
+            <MenuItem value="both">Обидві ролі</MenuItem>
           </Select>
         </FormControl>
       </DialogContent>

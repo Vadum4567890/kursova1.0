@@ -32,7 +32,7 @@ const initialFormData: CreateUserData = {
   fullName: '',
   address: '',
   phone: '',
-  role: 'employee',
+  role: 'renter',
 };
 
 export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
@@ -125,9 +125,9 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               onChange={(e) => handleChange('role', e.target.value as any)}
             >
               <MenuItem value="admin">Адмін</MenuItem>
-              <MenuItem value="manager">Менеджер</MenuItem>
-              <MenuItem value="employee">Співробітник</MenuItem>
-              <MenuItem value="user">Клієнт</MenuItem>
+              <MenuItem value="renter">Орендар</MenuItem>
+              <MenuItem value="owner">Орендодавець</MenuItem>
+              <MenuItem value="both">Обидві ролі</MenuItem>
             </Select>
           </FormControl>
         </Box>

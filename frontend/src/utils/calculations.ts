@@ -4,6 +4,7 @@
  */
 
 import { Car } from '../interfaces';
+import { resolvePublicMediaUrl } from './mediaUrls';
 
 /**
  * Calculate rental price based on days and car price per day
@@ -106,7 +107,5 @@ export const calculateDays = (startDate: string | Date, endDate: string | Date):
  * Get image URL (handles both absolute and relative URLs)
  */
 export const getImageUrl = (url: string): string => {
-  if (url.startsWith('http') || url.startsWith('data:')) return url;
-  return `${window.location.protocol}//${window.location.hostname}:3000${url}`;
+  return resolvePublicMediaUrl(url);
 };
-

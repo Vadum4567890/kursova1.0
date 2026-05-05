@@ -63,18 +63,17 @@ export const userService = {
     return response.data.data;
   },
 
-  async updateUserRole(id: number, role: string): Promise<User> {
+  async updateUserRole(id: number | string, role: string): Promise<User> {
     const response = await api.put<{ data: User }>(`/users/${id}/role`, { role });
     return response.data.data;
   },
 
-  async updateUserStatus(id: number, isActive: boolean): Promise<User> {
+  async updateUserStatus(id: number | string, isActive: boolean): Promise<User> {
     const response = await api.put<{ data: User }>(`/users/${id}/status`, { isActive });
     return response.data.data;
   },
 
-  async deleteUser(id: number): Promise<void> {
+  async deleteUser(id: number | string): Promise<void> {
     await api.delete(`/users/${id}`);
   },
 };
-

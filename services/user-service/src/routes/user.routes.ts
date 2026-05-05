@@ -23,6 +23,17 @@ router.post('/auth/google', authController.authenticateWithGoogle.bind(authContr
 router.get('/auth/google/url', authController.getGoogleAuthUrl.bind(authController));
 router.post('/auth/google/callback', authController.handleGoogleCallback.bind(authController));
 
+// Admin user management routes
+router.get('/', internalOrAuth, userController.listUsers.bind(userController));
+router.get('/role/:role', internalOrAuth, (req, _res, next) => {
+  req.query.role = req.params.role;
+  next();
+}, userController.listUsers.bind(userController));
+router.post('/', internalOrAuth, userController.createUser.bind(userController));
+router.put('/:id/role', internalOrAuth, userController.updateUserRole.bind(userController));
+router.put('/:id/status', internalOrAuth, userController.updateUserStatus.bind(userController));
+router.delete('/:id', internalOrAuth, userController.deleteUser.bind(userController));
+
 // Protected routes
 router.get('/me', authMiddleware, userController.getMe.bind(userController));
 router.put('/me', authMiddleware, validateDto(UpdateUserDto), userController.updateMe.bind(userController));

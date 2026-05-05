@@ -68,7 +68,7 @@ export interface CreateUserData {
   username: string;
   email: string;
   password: string;
-  role: 'admin' | 'manager' | 'employee';
+  role: 'admin' | 'manager' | 'employee' | 'renter' | 'owner' | 'both';
   fullName?: string;
   address?: string;
   phone?: string;

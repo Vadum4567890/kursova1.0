@@ -8,6 +8,7 @@ import { UserRepository } from '../repositories/UserRepository';
 import { UserProfileRepository } from '../repositories/UserProfileRepository';
 import { UserDocumentRepository } from '../repositories/UserDocumentRepository';
 import { UserRatingRepository } from '../repositories/UserRatingRepository';
+import crypto from 'crypto';
 
 export interface ClientRecord {
   id: string;
@@ -29,10 +30,45 @@ interface ClientPayload {
   email?: string | null;
 }
 
+export interface AdminUserRecord {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  fullName?: string;
+  address?: string;
+  phone?: string;
+  isActive: boolean;
+  createdAt?: Date;
+}
+
+interface PasswordUserPayload {
+  username?: string;
+  email?: string;
+  password?: string;
+  role?: UserRole | 'user' | 'manager' | 'employee';
+  fullName?: string;
+  address?: string;
+  phone?: string;
+}
+
 function createStatusError(message: string, statusCode: number): Error & { statusCode: number } {
   const error = new Error(message) as Error & { statusCode: number };
   error.statusCode = statusCode;
   return error;
+}
+
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt:${salt}:${hash}`;
+}
+
+function normalizeRole(role?: PasswordUserPayload['role']): UserRole {
+  if (role === UserRole.ADMIN) return UserRole.ADMIN;
+  if (role === UserRole.OWNER) return UserRole.OWNER;
+  if (role === UserRole.BOTH) return UserRole.BOTH;
+  return UserRole.RENTER;
 }
 
 export class UserService {
@@ -97,6 +133,95 @@ export class UserService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  public toAdminUser(user: User): AdminUserRecord {
+    const firstName = user.profile?.firstName?.trim();
+    const lastName = user.profile?.lastName?.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+    return {
+      id: user.id,
+      username: user.username || user.email,
+      email: user.email,
+      role: user.role,
+      fullName: fullName || undefined,
+      address: user.profile?.address || undefined,
+      phone: user.phone || undefined,
+      isActive: true,
+      createdAt: user.createdAt,
+    };
+  }
+
+  async listUsers(role?: string): Promise<AdminUserRecord[]> {
+    const users = await this.userRepository.findAll();
+    return users
+      .map((user) => this.toAdminUser(user))
+      .filter((user) => {
+        if (!role) return true;
+        if (role === 'user' || role === 'renter') {
+          return user.role === UserRole.RENTER || user.role === UserRole.BOTH;
+        }
+        if (role === 'owner') {
+          return user.role === UserRole.OWNER || user.role === UserRole.BOTH;
+        }
+        return user.role === role;
+      });
+  }
+
+  async createPasswordUser(payload: PasswordUserPayload): Promise<AdminUserRecord> {
+    const username = String(payload.username || '').trim().toLowerCase();
+    const email = String(payload.email || '').trim().toLowerCase();
+    const password = String(payload.password || '');
+    const phone = payload.phone ? String(payload.phone).trim() : null;
+
+    if (!username || !email || !password) {
+      throw createStatusError('username, email and password are required', 400);
+    }
+    if (password.length < 6) {
+      throw createStatusError('Password must be at least 6 characters', 400);
+    }
+    if (await this.userRepository.findByEmail(email)) {
+      throw createStatusError('User already exists', 409);
+    }
+    if (await this.userRepository.findByUsername(username)) {
+      throw createStatusError('Username already exists', 409);
+    }
+    if (phone && await this.userRepository.findByPhone(phone)) {
+      throw createStatusError('Phone already exists', 409);
+    }
+
+    const user = await this.createUser({
+      username,
+      email,
+      phone,
+      role: normalizeRole(payload.role),
+      passwordHash: hashPassword(password),
+    });
+
+    if (payload.fullName || payload.address) {
+      const { firstName, lastName } = this.splitFullName(payload.fullName);
+      await this.updateUserProfile(user.id, {
+        firstName,
+        lastName,
+        address: payload.address ? String(payload.address).trim() : null,
+      });
+    }
+
+    const saved = await this.userRepository.findById(user.id);
+    if (!saved) {
+      throw createStatusError('User was created but could not be loaded', 500);
+    }
+    return this.toAdminUser(saved);
+  }
+
+  async updateUserRole(userId: string, role: UserRole): Promise<AdminUserRecord | null> {
+    const updated = await this.updateUser(userId, { role });
+    return updated ? this.toAdminUser(updated) : null;
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    return await this.userRepository.delete(userId);
   }
 
   private buildClientEmail(phone: string, email?: string | null): string {
