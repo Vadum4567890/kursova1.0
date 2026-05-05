@@ -24,9 +24,15 @@ export interface RentalTransactionRow {
   depositAmount: number;
   depositToReturn: number;
   recognizedRevenue: number;
+  systemCommission: number;
+  landlordEarnings: number;
 }
 
 export interface FinancialReportModel {
+  systemCommissionRate: number;
+  totalRentalRevenue: number;
+  systemRevenue: number;
+  landlordRevenue: number;
   totalRevenue: number;
   totalPenalties: number;
   totalDeposits: number;
@@ -86,6 +92,12 @@ function toNumber(value: unknown): number {
   return Number(value || 0);
 }
 
+function getSystemCommissionRate(): number {
+  const raw = Number(process.env.SYSTEM_COMMISSION_RATE ?? 0.05);
+  if (!Number.isFinite(raw) || raw < 0) return 0.05;
+  return raw;
+}
+
 function calculateCalendarDays(startDate: Date, endDate: Date): number {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -133,9 +145,11 @@ function formatGeneratedAtUk(): string {
 
 export class ReportService {
   private rentalRepository: Repository<Rental>;
+  private readonly systemCommissionRate: number;
 
   constructor() {
     this.rentalRepository = AppDataSource.getRepository(Rental);
+    this.systemCommissionRate = getSystemCommissionRate();
   }
 
   private async getAllRentals(): Promise<Rental[]> {
@@ -258,6 +272,8 @@ export class ReportService {
     } else if (cancelled) {
       recognizedRevenue = Math.max(0, totalCost + penaltyAmount - depositToReturn);
     }
+    const systemCommission = roundCurrency(Math.max(0, totalCost) * this.systemCommissionRate);
+    const landlordEarnings = roundCurrency(recognizedRevenue - systemCommission);
 
     return {
       rentalId: rental.id,
@@ -273,6 +289,8 @@ export class ReportService {
       depositAmount: roundCurrency(depositAmount),
       depositToReturn: roundCurrency(depositToReturn),
       recognizedRevenue: roundCurrency(recognizedRevenue),
+      systemCommission,
+      landlordEarnings,
     };
   }
 
@@ -303,6 +321,9 @@ export class ReportService {
     const cancelledTransactions = transactions.filter((row) => row.status === RentalStatus.CANCELLED);
 
     const recognizedRevenue = transactions.reduce((sum, row) => sum + row.recognizedRevenue, 0);
+    const totalRentalRevenue = transactions.reduce((sum, row) => sum + row.totalCost, 0);
+    const systemRevenue = transactions.reduce((sum, row) => sum + row.systemCommission, 0);
+    const landlordRevenue = transactions.reduce((sum, row) => sum + row.landlordEarnings, 0);
     const projectedRevenue = filtered.reduce(
       (sum, rental, index) => sum + this.getProjectedRevenueInRange(rental, transactions[index], start, end),
       0
@@ -310,7 +331,7 @@ export class ReportService {
     const totalPenalties = transactions.reduce((sum, row) => sum + row.penaltyAmount, 0);
     const totalDeposits = transactions.reduce((sum, row) => sum + row.depositAmount, 0);
     const depositLiability = transactions.reduce((sum, row) => sum + this.getOpenDepositLiability(row), 0);
-    const netRevenue = recognizedRevenue;
+    const netRevenue = landlordRevenue;
 
     const penaltiesOnCompleted = completedTransactions.reduce((sum, row) => sum + row.penaltyAmount, 0);
 
@@ -326,6 +347,10 @@ export class ReportService {
 
     const now = new Date();
     return {
+      systemCommissionRate: this.systemCommissionRate,
+      totalRentalRevenue: roundCurrency(totalRentalRevenue),
+      systemRevenue: roundCurrency(systemRevenue),
+      landlordRevenue: roundCurrency(landlordRevenue),
       totalRevenue: roundCurrency(recognizedRevenue + projectedRevenue),
       totalPenalties: roundCurrency(totalPenalties),
       totalDeposits: roundCurrency(totalDeposits),
@@ -355,7 +380,7 @@ export class ReportService {
         {
           status: RentalStatus.COMPLETED,
           count: completedTransactions.length,
-          revenue: roundCurrency(completedTransactions.reduce((sum, row) => sum + row.recognizedRevenue, 0)),
+          revenue: roundCurrency(completedTransactions.reduce((sum, row) => sum + row.landlordEarnings, 0)),
         },
         {
           status: RentalStatus.PENDING,
@@ -382,7 +407,7 @@ export class ReportService {
         {
           status: RentalStatus.CANCELLED,
           count: cancelledTransactions.length,
-          revenue: roundCurrency(cancelledTransactions.reduce((sum, row) => sum + row.recognizedRevenue, 0)),
+          revenue: roundCurrency(cancelledTransactions.reduce((sum, row) => sum + row.landlordEarnings, 0)),
         },
       ],
       transactions,
@@ -500,6 +525,8 @@ export class ReportService {
       );
       const cancelled = rows.filter((row) => row.status === RentalStatus.CANCELLED);
       const totalRevenue = rows.reduce((sum, row) => sum + row.recognizedRevenue, 0);
+      const systemRevenue = rows.reduce((sum, row) => sum + row.systemCommission, 0);
+      const landlordRevenue = rows.reduce((sum, row) => sum + row.landlordEarnings, 0);
       const totalPenalties = rows.reduce((sum, row) => sum + row.penaltyAmount, 0);
       const totalDeposits = rows.reduce((sum, row) => sum + row.depositAmount, 0);
       const recognizedRentalCount = completed.length + cancelled.length;
@@ -549,10 +576,12 @@ export class ReportService {
         },
         financial: {
           totalRevenue: roundCurrency(totalRevenue),
+          systemRevenue: roundCurrency(systemRevenue),
+          landlordRevenue: roundCurrency(landlordRevenue),
           expectedRevenue: roundCurrency(expectedRevenue),
           totalPenalties: roundCurrency(totalPenalties),
           totalDeposits: roundCurrency(totalDeposits),
-          netRevenue: roundCurrency(totalRevenue),
+          netRevenue: roundCurrency(landlordRevenue),
           averageRevenuePerRental: roundCurrency(
             recognizedRentalCount > 0 ? totalRevenue / recognizedRentalCount : 0
           ),
@@ -592,6 +621,8 @@ export class ReportService {
       [],
       ['Metric', 'Value'],
       ['Total revenue', report.totalRevenue],
+      ['System revenue (commission)', report.systemRevenue],
+      ['Landlord revenue', report.landlordRevenue],
       [
         'Note (total revenue)',
         'Recognized from completed/cancelled + projected from active/pending rentals',
@@ -631,6 +662,8 @@ export class ReportService {
         depositAmount: row.depositAmount,
         depositToReturn: row.depositToReturn,
         recognizedRevenue: row.recognizedRevenue,
+        systemCommission: row.systemCommission,
+        landlordEarnings: row.landlordEarnings,
       }))
     );
     transactionsSheet['!cols'] = [
@@ -645,6 +678,8 @@ export class ReportService {
       { wch: 14 },
       { wch: 14 },
       { wch: 14 },
+      { wch: 16 },
+      { wch: 16 },
       { wch: 16 },
       { wch: 16 },
     ];
@@ -754,7 +789,7 @@ export class ReportService {
         .fillColor('#64748b')
         .fontSize(8)
         .text(
-          'Total revenue = recognized (completed/cancelled) + projected (active/pending). Net revenue = recognized revenue only. Deposit liability includes only active/pending deposits still held.',
+          'Total revenue = recognized (completed/cancelled) + projected (active/pending). Landlord and system revenue are split by commission from rental amount (without deposit).',
           40,
           158,
           { width: 515 }
@@ -762,8 +797,8 @@ export class ReportService {
 
       const cards = [
         { label: 'Total revenue', value: `${report.totalRevenue} UAH`, color: '#1d4ed8' },
-        { label: 'Net revenue', value: `${report.netRevenue} UAH`, color: '#047857' },
-        { label: 'Projected', value: `${report.projectedRevenue} UAH`, color: '#7c3aed' },
+        { label: 'Landlord revenue', value: `${report.landlordRevenue} UAH`, color: '#047857' },
+        { label: 'System commission', value: `${report.systemRevenue} UAH`, color: '#7c3aed' },
         { label: 'Penalties', value: `${report.totalPenalties} UAH`, color: '#dc2626' },
       ];
 

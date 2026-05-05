@@ -71,11 +71,18 @@ export function getStatCardsConfig(userRole?: string): StatCardConfig[] {
   return [
     ...baseCards,
     {
-      title: 'Загальний дохід',
+      title: 'Дохід орендодавців',
       icon: <AttachMoney sx={{ fontSize: 40 }} />,
       color: '#2e7d32',
       gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      getValue: (stats) => `${(stats?.totalRevenue || 0).toLocaleString()} ₴`,
+      getValue: (stats) => `${(stats?.landlordRevenue ?? stats?.totalRevenue ?? 0).toLocaleString()} ₴`,
+    },
+    {
+      title: 'Дохід системи (5%)',
+      icon: <AttachMoney sx={{ fontSize: 40 }} />,
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%)',
+      getValue: (stats) => `${(stats?.systemRevenue || 0).toLocaleString()} ₴`,
     },
     {
       title: 'Штрафи',

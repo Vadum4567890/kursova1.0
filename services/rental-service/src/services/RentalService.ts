@@ -81,8 +81,12 @@ export class RentalService {
     return out;
   }
 
-  private daysBetween(start: Date, end: Date): number {
-    return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+  private daysBetweenExclusive(start: Date, end: Date): number {
+    return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
+  private rentalDaysInclusive(start: Date, end: Date): number {
+    return this.daysBetweenExclusive(start, end) + 1;
   }
 
   private doOverlap(
@@ -364,7 +368,7 @@ export class RentalService {
       throw error;
     }
 
-    const days = this.daysBetween(start, end);
+    const days = this.rentalDaysInclusive(start, end);
     const totalCost = Number((carForRental.dailyRate * days).toFixed(2));
     const depositAmount = carForRental.depositAmount;
 
@@ -493,12 +497,12 @@ export class RentalService {
     const carForRental = await this.carServiceClient.getCarForRental(rental.carId);
     const dailyRate = carForRental?.dailyRate ?? 0;
 
-    const actualDays = this.daysBetween(rental.startDate, endDate);
+    const actualDays = this.rentalDaysInclusive(rental.startDate, endDate);
     let actualTotalCost = Number((dailyRate * actualDays).toFixed(2));
     let penaltyAmount = 0;
 
     if (endDate > rental.expectedEndDate) {
-      const daysLate = this.daysBetween(rental.expectedEndDate, endDate);
+      const daysLate = this.daysBetweenExclusive(rental.expectedEndDate, endDate);
       penaltyAmount = Number((dailyRate * daysLate * 0.5).toFixed(2));
     }
 
@@ -562,12 +566,12 @@ export class RentalService {
     } else {
       const carForRental = await this.carServiceClient.getCarForRental(rental.carId);
       const dailyRate = carForRental?.dailyRate ?? 0;
-      const actualDays = this.daysBetween(rental.startDate, cancelDate);
+      const actualDays = this.rentalDaysInclusive(rental.startDate, cancelDate);
       const daysToCharge = Math.max(1, actualDays);
       const actualTotalCost = Number((dailyRate * daysToCharge).toFixed(2));
       let penaltyAmount = 0;
       if (cancelDate > rental.expectedEndDate) {
-        const daysLate = this.daysBetween(rental.expectedEndDate, cancelDate);
+        const daysLate = this.daysBetweenExclusive(rental.expectedEndDate, cancelDate);
         penaltyAmount = Number((dailyRate * daysLate * 0.5).toFixed(2));
       }
       await this.rentalRepository.update(rentalId, {

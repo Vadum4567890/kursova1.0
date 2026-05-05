@@ -88,7 +88,7 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
             </Grid>
             <Grid item xs={12} md={3}>
               <StatCard
-                title="Чистий дохід"
+                title="Дохід орендодавців"
                 value={`${report.summary.totalNetRevenue.toLocaleString()} грн`}
                 color="success"
                 variant="h5"
@@ -121,7 +121,10 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
                     Дохід
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    Чистий дохід
+                    Система (5%)
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    Орендодавцю
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>
                     Штрафи
@@ -171,7 +174,12 @@ const CarReportTab: React.FC<CarReportTabProps> = ({
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
-                        {item.financial.netRevenue.toLocaleString()} грн
+                        {(item.financial.systemRevenue ?? 0).toLocaleString()} грн
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
+                        {(item.financial.landlordRevenue ?? item.financial.netRevenue).toLocaleString()} грн
                       </Typography>
                     </TableCell>
                     <TableCell align="right">

@@ -12,11 +12,23 @@ function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function getSystemCommissionRate(): number {
+  const raw = Number(process.env.SYSTEM_COMMISSION_RATE ?? 0.05);
+  if (!Number.isFinite(raw) || raw < 0) return 0.05;
+  return raw;
+}
+
 export class AnalyticsService {
   private rentalRepository: Repository<Rental>;
+  private readonly systemCommissionRate: number;
 
   constructor() {
     this.rentalRepository = AppDataSource.getRepository(Rental);
+    this.systemCommissionRate = getSystemCommissionRate();
+  }
+
+  private systemCommissionFromRentalCost(rentalCost: number): number {
+    return roundCurrency(Math.max(0, rentalCost) * this.systemCommissionRate);
   }
 
   private async getRentalsInRange(startDate?: Date, endDate?: Date): Promise<Rental[]> {
@@ -35,11 +47,14 @@ export class AnalyticsService {
     const cars = await fetchCarsCatalog();
     const activeCars = new Set(activeRentals.map((rental) => rental.carId));
 
-    const totalRevenue = completedRentals.reduce(
-      (sum, rental) => sum + toNumber(rental.totalCost) + toNumber(rental.penaltyAmount),
+    const totalRentalRevenue = completedRentals.reduce((sum, rental) => sum + toNumber(rental.totalCost), 0);
+    const totalPenalties = completedRentals.reduce((sum, rental) => sum + toNumber(rental.penaltyAmount), 0);
+    const systemRevenue = completedRentals.reduce(
+      (sum, rental) => sum + this.systemCommissionFromRentalCost(toNumber(rental.totalCost)),
       0
     );
-    const totalPenalties = completedRentals.reduce((sum, rental) => sum + toNumber(rental.penaltyAmount), 0);
+    const landlordRevenue = totalRentalRevenue - systemRevenue + totalPenalties;
+    const totalRevenue = totalRentalRevenue + totalPenalties;
     const totalDeposits = filtered.reduce((sum, rental) => sum + toNumber(rental.depositAmount), 0);
     const totalCars = cars.length;
     const rentedCars = activeCars.size;
@@ -52,6 +67,10 @@ export class AnalyticsService {
       totalClients: new Set(filtered.map((rental) => rental.renterUserId)).size,
       activeRentals: activeRentals.length,
       completedRentals: completedRentals.length,
+      systemCommissionRate: this.systemCommissionRate,
+      totalRentalRevenue: roundCurrency(totalRentalRevenue),
+      systemRevenue: roundCurrency(systemRevenue),
+      landlordRevenue: roundCurrency(landlordRevenue),
       totalRevenue: roundCurrency(totalRevenue),
       totalPenalties: roundCurrency(totalPenalties),
       totalDeposits: roundCurrency(totalDeposits),
@@ -68,36 +87,64 @@ export class AnalyticsService {
     const completed = inRange.filter((rental) => rental.status === RentalStatus.COMPLETED);
 
     const revenueByDay = new Map<string, number>();
+    const systemRevenueByDay = new Map<string, number>();
+    const landlordRevenueByDay = new Map<string, number>();
     const penaltiesByDay = new Map<string, number>();
 
     completed.forEach((rental) => {
       const date = rental.actualEndDate || rental.expectedEndDate;
       const key = date.toISOString().split('T')[0];
-      revenueByDay.set(key, (revenueByDay.get(key) || 0) + toNumber(rental.totalCost));
-      penaltiesByDay.set(key, (penaltiesByDay.get(key) || 0) + toNumber(rental.penaltyAmount));
+      const rentalRevenue = toNumber(rental.totalCost);
+      const penalties = toNumber(rental.penaltyAmount);
+      const systemRevenue = this.systemCommissionFromRentalCost(rentalRevenue);
+      const landlordRevenue = rentalRevenue - systemRevenue + penalties;
+      revenueByDay.set(key, (revenueByDay.get(key) || 0) + rentalRevenue);
+      penaltiesByDay.set(key, (penaltiesByDay.get(key) || 0) + penalties);
+      systemRevenueByDay.set(key, (systemRevenueByDay.get(key) || 0) + systemRevenue);
+      landlordRevenueByDay.set(key, (landlordRevenueByDay.get(key) || 0) + landlordRevenue);
     });
 
+    const totalRentalRevenue = completed.reduce((sum, rental) => sum + toNumber(rental.totalCost), 0);
+    const totalPenalties = completed.reduce((sum, rental) => sum + toNumber(rental.penaltyAmount), 0);
+    const systemRevenue = completed.reduce(
+      (sum, rental) => sum + this.systemCommissionFromRentalCost(toNumber(rental.totalCost)),
+      0
+    );
+    const landlordRevenue = totalRentalRevenue - systemRevenue + totalPenalties;
+
     return {
-      totalRevenue: roundCurrency(completed.reduce((sum, rental) => sum + toNumber(rental.totalCost), 0)),
-      totalPenalties: roundCurrency(completed.reduce((sum, rental) => sum + toNumber(rental.penaltyAmount), 0)),
-      recognizedRevenue: roundCurrency(
-        completed.reduce((sum, rental) => sum + toNumber(rental.totalCost) + toNumber(rental.penaltyAmount), 0)
-      ),
+      systemCommissionRate: this.systemCommissionRate,
+      totalRevenue: roundCurrency(totalRentalRevenue),
+      totalRentalRevenue: roundCurrency(totalRentalRevenue),
+      totalPenalties: roundCurrency(totalPenalties),
+      systemRevenue: roundCurrency(systemRevenue),
+      landlordRevenue: roundCurrency(landlordRevenue),
+      recognizedRevenue: roundCurrency(totalRentalRevenue + totalPenalties),
       revenueByDay: Array.from(revenueByDay.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, amount]) => ({
           date,
           amount: roundCurrency(amount),
           penalties: roundCurrency(penaltiesByDay.get(date) || 0),
+          systemRevenue: roundCurrency(systemRevenueByDay.get(date) || 0),
+          landlordRevenue: roundCurrency(landlordRevenueByDay.get(date) || 0),
         })),
       revenueByType: [
         {
           type: 'rentals',
-          amount: roundCurrency(completed.reduce((sum, rental) => sum + toNumber(rental.totalCost), 0)),
+          amount: roundCurrency(totalRentalRevenue),
         },
         {
           type: 'penalties',
-          amount: roundCurrency(completed.reduce((sum, rental) => sum + toNumber(rental.penaltyAmount), 0)),
+          amount: roundCurrency(totalPenalties),
+        },
+        {
+          type: 'system_commission',
+          amount: roundCurrency(systemRevenue),
+        },
+        {
+          type: 'landlord_revenue',
+          amount: roundCurrency(landlordRevenue),
         },
       ],
       period: {

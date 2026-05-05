@@ -19,6 +19,9 @@ export const calculateRentalPrice = (days: number, pricePerDay: number): number 
  */
 export const calculateDeposit = (days: number, baseDeposit: number, pricePerDay: number): number => {
   const base = Number(baseDeposit);
+  if (base <= 0) {
+    return 0;
+  }
   const price = Number(pricePerDay);
   const additionalPerDay = price * 0.15;
   const additionalDays = Math.max(0, days - 1);

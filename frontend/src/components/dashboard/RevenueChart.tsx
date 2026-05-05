@@ -13,7 +13,7 @@ import {
 import { useAppTheme } from '../../context/ThemeContext';
 
 interface RevenueChartProps {
-  data: Array<{ date: string; Дохід: number }>;
+  data: Array<{ date: string; 'Орендодавці': number; 'Система (5%)': number }>;
 }
 
 const RevenueChart: React.FC<RevenueChartProps> = ({ data }) => {
@@ -31,16 +31,20 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ data }) => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <TrendingUp sx={{ mr: 1, color: 'primary.main' }} />
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Дохід за останні 7 днів
+          Дохід за останні 7 днів (орендодавці / система)
         </Typography>
       </Box>
       {data.length > 0 ? (
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data}>
             <defs>
-              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="colorLandlord" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#1976d2" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="colorSystem" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -72,10 +76,17 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ data }) => {
             />
             <Area
               type="monotone"
-              dataKey="Дохід"
+              dataKey="Орендодавці"
               stroke="#1976d2"
               fillOpacity={1}
-              fill="url(#colorRevenue)"
+              fill="url(#colorLandlord)"
+            />
+            <Area
+              type="monotone"
+              dataKey="Система (5%)"
+              stroke="#7c3aed"
+              fillOpacity={1}
+              fill="url(#colorSystem)"
             />
           </AreaChart>
         </ResponsiveContainer>

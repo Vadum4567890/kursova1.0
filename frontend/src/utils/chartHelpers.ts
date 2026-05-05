@@ -6,6 +6,8 @@ import { formatDateShort } from './dateHelpers';
 interface RevenueItem {
   date: string | Date;
   amount: number;
+  systemRevenue?: number;
+  landlordRevenue?: number;
 }
 
 interface PopularCar {
@@ -26,7 +28,8 @@ export function formatRevenueData(revenueStats?: { revenueByDay?: RevenueItem[] 
     .slice(-days)
     .map((item: RevenueItem) => ({
       date: formatDateShort(item.date),
-      Дохід: Math.round(item.amount),
+      'Орендодавці': Math.round(item.landlordRevenue ?? item.amount),
+      'Система (5%)': Math.round(item.systemRevenue ?? 0),
     }));
 }
 

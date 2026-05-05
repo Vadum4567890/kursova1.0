@@ -163,6 +163,8 @@ app.use('/api/users', express.json(), createUsersCompatRouter({
   BUILTIN,
   saveExtraUsers,
 }));
+// Fallback: forward unresolved user routes (e.g. /:id/rating) to user-service.
+app.use('/api/users', createServiceProxy(SERVICE_URLS.users));
 app.use('/api/analytics', createServiceProxy(SERVICE_URLS.reporting));
 app.use('/api/reports', createServiceProxy(SERVICE_URLS.reporting));
 app.use('/api/penalties', createServiceProxy(SERVICE_URLS.reporting));

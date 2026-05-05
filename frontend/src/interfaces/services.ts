@@ -143,6 +143,10 @@ export interface DashboardStats {
   activeRentals: number;
   completedRentals?: number;
   totalRevenue: number;
+  totalRentalRevenue?: number;
+  systemRevenue?: number;
+  landlordRevenue?: number;
+  systemCommissionRate?: number;
   totalPenalties: number;
   averageRentalDuration: number;
   occupancyRate?: number;
@@ -186,6 +190,10 @@ export interface UploadResponse {
 
 // Report service DTOs
 export interface FinancialReport {
+  systemCommissionRate?: number;
+  totalRentalRevenue?: number;
+  systemRevenue?: number;
+  landlordRevenue?: number;
   totalRevenue: number;
   totalPenalties: number;
   totalDeposits: number;
@@ -224,6 +232,8 @@ export interface FinancialReport {
     depositAmount: number;
     depositToReturn: number;
     recognizedRevenue: number;
+    systemCommission?: number;
+    landlordEarnings?: number;
   }>;
   revenueTimeline?: Array<{
     period: string;
@@ -323,6 +333,8 @@ export interface CarReport {
     };
     financial: {
       totalRevenue: number;
+      systemRevenue?: number;
+      landlordRevenue?: number;
       expectedRevenue: number;
       totalPenalties: number;
       totalDeposits: number;

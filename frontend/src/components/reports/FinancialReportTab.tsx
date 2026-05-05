@@ -215,8 +215,16 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
             </Grid>
             <Grid item xs={12} md={3}>
               <StatCard
-                title="Чистий дохід"
-                value={`${(report?.netRevenue ?? 0).toLocaleString()} грн`}
+                title="Дохід системи (5%)"
+                value={`${(report?.systemRevenue ?? 0).toLocaleString()} грн`}
+                color="primary"
+                variant="h5"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <StatCard
+                title="Дохід орендодавців"
+                value={`${(report?.landlordRevenue ?? report?.netRevenue ?? 0).toLocaleString()} грн`}
                 color="success"
                 variant="h5"
               />
@@ -298,6 +306,8 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
                     <TableCell>Орендар</TableCell>
                     <TableCell>Статус</TableCell>
                     <TableCell align="right">Оренда (базова)</TableCell>
+                    <TableCell align="right">Комісія системи</TableCell>
+                    <TableCell align="right">Орендодавцю</TableCell>
                     <TableCell align="right">Штраф</TableCell>
                     <TableCell align="right">Повернути депозит</TableCell>
                   </TableRow>
@@ -308,6 +318,12 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
                       <TableCell>{formatRenterCell(transaction)}</TableCell>
                       <TableCell>{RENTAL_STATUS_UA[transaction.status] ?? transaction.status}</TableCell>
                       <TableCell align="right">{transaction.totalCost.toLocaleString()} грн</TableCell>
+                      <TableCell align="right">
+                        {(transaction.systemCommission ?? 0).toLocaleString()} грн
+                      </TableCell>
+                      <TableCell align="right">
+                        {(transaction.landlordEarnings ?? transaction.recognizedRevenue ?? 0).toLocaleString()} грн
+                      </TableCell>
                       <TableCell align="right">{transaction.penaltyAmount.toLocaleString()} грн</TableCell>
                       <TableCell align="right">{transaction.depositToReturn.toLocaleString()} грн</TableCell>
                     </TableRow>
