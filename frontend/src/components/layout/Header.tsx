@@ -21,7 +21,6 @@ import {
 import {
   Menu as MenuIcon,
   DirectionsCar,
-  People,
   Assignment,
   Dashboard,
   Analytics,
@@ -94,7 +93,6 @@ const Header: React.FC = () => {
   const menuItems = [
     { label: 'Головна', path: '/', icon: <Dashboard />, show: true },
     { label: 'Автомобілі', path: '/cars', icon: <DirectionsCar />, show: true },
-    { label: 'Орендарі', path: '/customers', icon: <People />, show: isAuthenticated && isStaff },
     { label: 'Прокати', path: '/rentals', icon: <Assignment />, show: isAuthenticated && isStaff },
     { label: 'Мої прокати', path: '/my-rentals', icon: <Assignment />, show: isAuthenticated && isUser },
     { label: 'Штрафи', path: '/penalties', icon: <Gavel />, show: isAuthenticated && isStaff },

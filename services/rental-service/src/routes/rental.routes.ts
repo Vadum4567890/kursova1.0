@@ -70,6 +70,15 @@ router.post('/:id/approve', auth, (req: AuthRequest, res, next) =>
 router.post('/:id/reject', auth, (req: AuthRequest, res, next) =>
   rentalController.rejectBookingAsOwner(req, res, next)
 );
+router.post('/:id/pickup-confirm', auth, (req: AuthRequest, res, next) =>
+  rentalController.confirmPickup(req, res, next)
+);
+router.post('/:id/return-confirm', auth, (req: AuthRequest, res, next) =>
+  rentalController.confirmReturn(req, res, next)
+);
+router.post('/:id/admin/resolve-lifecycle', auth, (req: AuthRequest, res, next) =>
+  rentalController.resolveLifecycleByAdmin(req, res, next)
+);
 
 router.get('/:id/messages', auth, (req: AuthRequest, res, next) =>
   rentalController.getRentalMessages(req, res, next)

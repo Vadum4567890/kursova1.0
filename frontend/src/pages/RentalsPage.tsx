@@ -20,7 +20,14 @@ import {
 } from '@mui/material';
 import { Add, CheckCircle, Cancel } from '@mui/icons-material';
 import { Rental, Client, Car } from '../interfaces';
-import { useRentals, useActiveRentals, useCreateRental, useCancelRental, useCompleteRental } from '../hooks/queries/useRentals';
+import {
+  useActiveRentals,
+  useCancelRental,
+  useCompleteRental,
+  useCreateRental,
+  useRentals,
+  useResolveRentalLifecycle,
+} from '../hooks/queries/useRentals';
 import { useCustomers } from '../hooks/queries/useCustomers';
 import { useCars } from '../hooks/queries/useCars';
 import {
@@ -38,6 +45,29 @@ import { RentalFormData } from '../interfaces';
 import { formatDate } from '../utils/dateHelpers';
 import { getRenterDisplayName } from '../utils/rentalDisplay';
 
+function getLifecycleLabel(rental: Rental): string | null {
+  switch (rental.lifecycleState) {
+    case 'awaiting_owner_approval':
+      return 'Очікує рішення орендодавця';
+    case 'awaiting_pickup':
+      return 'Очікує передачі авто';
+    case 'pickup_partially_confirmed':
+      return 'Передачу підтвердила одна сторона';
+    case 'pickup_disputed':
+      return 'Спір щодо передачі';
+    case 'no_show':
+      return 'No-show';
+    case 'return_due':
+      return 'Очікує повернення';
+    case 'return_partially_confirmed':
+      return 'Повернення підтвердила одна сторона';
+    case 'return_disputed':
+      return 'Спір щодо повернення';
+    default:
+      return null;
+  }
+}
+
 const RentalsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   
@@ -47,6 +77,7 @@ const RentalsPage: React.FC = () => {
   const createRental = useCreateRental();
   const cancelRental = useCancelRental();
   const completeRental = useCompleteRental();
+  const resolveLifecycle = useResolveRentalLifecycle();
   
   // Load renter/customer records and cars when dialog opens
   const { data: customers = [] } = useCustomers();
@@ -111,6 +142,24 @@ const RentalsPage: React.FC = () => {
       await completeRental.mutateAsync({ id });
     } catch (err: any) {
       handleError(err, 'Помилка завершення прокату');
+    }
+  };
+
+  const handleResolveLifecycle = async (
+    id: number | string,
+    action:
+      | 'activate'
+      | 'complete'
+      | 'cancel'
+      | 'mark_no_show'
+      | 'mark_pickup_disputed'
+      | 'mark_return_disputed'
+  ) => {
+    try {
+      clearError();
+      await resolveLifecycle.mutateAsync({ id, action });
+    } catch (err: any) {
+      handleError(err, err?.message || 'Не вдалося оновити стан прокату');
     }
   };
 
@@ -218,17 +267,82 @@ const RentalsPage: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <StatusChip status={rental.status} />
+                    {getLifecycleLabel(rental) && (
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {getLifecycleLabel(rental)}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell align="right">
-                    {rental.status === 'active' && (
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    {(rental.status === 'active' ||
+                      rental.status === 'pending' ||
+                      rental.lifecycleState === 'return_due' ||
+                      rental.lifecycleState === 'return_disputed' ||
+                      rental.lifecycleState === 'return_partially_confirmed') && (
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        {rental.status === 'pending' && rental.ownerApprovalStatus === 'approved' && (
+                          <Button
+                            size="small"
+                            disabled={resolveLifecycle.isPending}
+                            onClick={() => handleResolveLifecycle(rental.id, 'activate')}
+                          >
+                            Активувати
+                          </Button>
+                        )}
+                        {rental.status === 'pending' && (
+                          <Button
+                            size="small"
+                            color="error"
+                            disabled={resolveLifecycle.isPending}
+                            onClick={() => handleResolveLifecycle(rental.id, 'mark_no_show')}
+                          >
+                            No-show
+                          </Button>
+                        )}
+                        {(rental.lifecycleState === 'pickup_partially_confirmed' ||
+                          rental.lifecycleState === 'pickup_disputed') && (
+                          <Button
+                            size="small"
+                            color="warning"
+                            disabled={resolveLifecycle.isPending}
+                            onClick={() => handleResolveLifecycle(rental.id, 'mark_pickup_disputed')}
+                          >
+                            Спір передачі
+                          </Button>
+                        )}
                         <Button
                           size="small"
+                          sx={{
+                            display:
+                              rental.status === 'active' ||
+                              rental.lifecycleState === 'return_due' ||
+                              rental.lifecycleState === 'return_partially_confirmed' ||
+                              rental.lifecycleState === 'return_disputed'
+                                ? 'inline-flex'
+                                : 'none',
+                          }}
                           startIcon={<CheckCircle />}
-                          onClick={() => handleComplete(rental.id)}
+                          disabled={completeRental.isPending || resolveLifecycle.isPending}
+                          onClick={() =>
+                            rental.lifecycleState === 'return_due' ||
+                            rental.lifecycleState === 'return_partially_confirmed' ||
+                            rental.lifecycleState === 'return_disputed'
+                              ? handleResolveLifecycle(rental.id, 'complete')
+                              : handleComplete(rental.id)
+                          }
                         >
                           Завершити
                         </Button>
+                        {rental.status === 'active' && (
+                          <Button
+                            size="small"
+                            color="warning"
+                            disabled={resolveLifecycle.isPending}
+                            onClick={() => handleResolveLifecycle(rental.id, 'mark_return_disputed')}
+                          >
+                            Спір повернення
+                          </Button>
+                        )}
                         <Button
                           size="small"
                           color="error"

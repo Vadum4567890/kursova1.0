@@ -2,6 +2,7 @@ import { Rental } from '../entities/Rental.entity';
 import { RentalStatus } from '../entities/Rental.entity';
 import { RentalOwnerApprovalStatus } from '../entities/Rental.entity';
 import { RentalReviewStatus } from '../entities/Rental.entity';
+import { RentalLifecycleState } from '../entities/Rental.entity';
 import { RentalRepository } from '../repositories/RentalRepository';
 import { RentalMessageRepository } from '../repositories/RentalMessageRepository';
 import { CarInquiryMessageRepository } from '../repositories/CarInquiryMessageRepository';
@@ -114,9 +115,17 @@ export class RentalService {
       ownerApprovalStatus: r.ownerApprovalStatus,
       ownerUserId: r.ownerUserId,
       reviewStatus: r.reviewStatus,
+      lifecycleState: r.lifecycleState,
       reviewWindowClosesAt: r.reviewWindowClosesAt,
       ownerReviewSubmittedAt: r.ownerReviewSubmittedAt,
       renterReviewSubmittedAt: r.renterReviewSubmittedAt,
+      pickupConfirmedByOwnerAt: r.pickupConfirmedByOwnerAt,
+      pickupConfirmedByRenterAt: r.pickupConfirmedByRenterAt,
+      returnConfirmedByOwnerAt: r.returnConfirmedByOwnerAt,
+      returnConfirmedByRenterAt: r.returnConfirmedByRenterAt,
+      adminResolvedAt: r.adminResolvedAt,
+      adminResolvedByUserId: r.adminResolvedByUserId,
+      adminResolutionNote: r.adminResolutionNote,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       penalties: r.penalties,
@@ -180,6 +189,178 @@ export class RentalService {
     await this.rentalRepository.update(rental.id, { ownerUserId });
     rental.ownerUserId = ownerUserId;
     return ownerUserId;
+  }
+
+  private async resolveRentalRole(
+    rental: Rental,
+    userId: string
+  ): Promise<'owner' | 'renter'> {
+    const uid = String(userId).toLowerCase();
+    if (String(rental.renterUserId).toLowerCase() === uid) {
+      return 'renter';
+    }
+
+    const ownerUserId = rental.ownerUserId || (await this.ensureOwnerUserId(rental));
+    if (ownerUserId && String(ownerUserId).toLowerCase() === uid) {
+      return 'owner';
+    }
+
+    throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+  }
+
+  private async broadcastRentalLifecycleChange(
+    rental: Rental,
+    action: string
+  ): Promise<void> {
+    const ownerUserId = rental.ownerUserId || (await this.ensureOwnerUserId(rental));
+    const payload = {
+      type: 'rental_status_changed',
+      action,
+      rentalId: rental.id,
+      status: rental.status,
+      lifecycleState: rental.lifecycleState,
+      ownerApprovalStatus: rental.ownerApprovalStatus,
+    };
+    broadcastToUser(String(rental.renterUserId), payload);
+    if (ownerUserId) {
+      broadcastToUser(String(ownerUserId), payload);
+    }
+  }
+
+  private confirmationGraceMs(): number {
+    const hours = Number(process.env.RENTAL_CONFIRMATION_GRACE_HOURS ?? 24);
+    return (Number.isFinite(hours) && hours > 0 ? hours : 24) * 60 * 60 * 1000;
+  }
+
+  private addGrace(date: Date): Date {
+    return new Date(date.getTime() + this.confirmationGraceMs());
+  }
+
+  private resolveLifecycleState(rental: Rental, now = new Date()): RentalLifecycleState {
+    if (rental.status === RentalStatus.COMPLETED) return RentalLifecycleState.COMPLETED;
+    if (rental.status === RentalStatus.CANCELLED) {
+      return rental.lifecycleState === RentalLifecycleState.NO_SHOW
+        ? RentalLifecycleState.NO_SHOW
+        : RentalLifecycleState.CANCELLED;
+    }
+    if (rental.ownerApprovalStatus === RentalOwnerApprovalStatus.REJECTED) return RentalLifecycleState.CANCELLED;
+    if (rental.ownerApprovalStatus !== RentalOwnerApprovalStatus.APPROVED) {
+      return RentalLifecycleState.AWAITING_OWNER_APPROVAL;
+    }
+
+    const pickupOwner = Boolean(rental.pickupConfirmedByOwnerAt);
+    const pickupRenter = Boolean(rental.pickupConfirmedByRenterAt);
+    const returnOwner = Boolean(rental.returnConfirmedByOwnerAt);
+    const returnRenter = Boolean(rental.returnConfirmedByRenterAt);
+
+    if (rental.status === RentalStatus.PENDING) {
+      if (rental.lifecycleState === RentalLifecycleState.PICKUP_DISPUTED) {
+        return RentalLifecycleState.PICKUP_DISPUTED;
+      }
+      if (pickupOwner && pickupRenter) return RentalLifecycleState.ACTIVE;
+      if (pickupOwner || pickupRenter) {
+        const confirmedAt = rental.pickupConfirmedByOwnerAt || rental.pickupConfirmedByRenterAt || rental.startDate;
+        return now > this.addGrace(confirmedAt)
+          ? RentalLifecycleState.PICKUP_DISPUTED
+          : RentalLifecycleState.PICKUP_PARTIALLY_CONFIRMED;
+      }
+      return now > this.addGrace(rental.startDate)
+        ? RentalLifecycleState.NO_SHOW
+        : RentalLifecycleState.AWAITING_PICKUP;
+    }
+
+    if (rental.status === RentalStatus.ACTIVE) {
+      if (rental.lifecycleState === RentalLifecycleState.RETURN_DISPUTED) {
+        return RentalLifecycleState.RETURN_DISPUTED;
+      }
+      if (returnOwner && returnRenter) return RentalLifecycleState.COMPLETED;
+      if (returnOwner || returnRenter) {
+        const confirmedAt = rental.returnConfirmedByOwnerAt || rental.returnConfirmedByRenterAt || rental.expectedEndDate;
+        return now > this.addGrace(confirmedAt)
+          ? RentalLifecycleState.RETURN_DISPUTED
+          : RentalLifecycleState.RETURN_PARTIALLY_CONFIRMED;
+      }
+      return now > this.addGrace(rental.expectedEndDate)
+        ? RentalLifecycleState.RETURN_DUE
+        : RentalLifecycleState.ACTIVE;
+    }
+
+    return rental.lifecycleState;
+  }
+
+  private async syncRentalLifecycleState(rental: Rental): Promise<Rental> {
+    const lifecycleState = this.resolveLifecycleState(rental);
+    if (lifecycleState === rental.lifecycleState) {
+      return rental;
+    }
+    return this.rentalRepository.update(rental.id, { lifecycleState });
+  }
+
+  private async syncRentalLifecycleStates(rentals: Rental[]): Promise<Rental[]> {
+    return Promise.all(rentals.map((rental) => this.syncRentalLifecycleState(rental)));
+  }
+
+  private async finalizeRentalCompletion(rental: Rental, endDate: Date): Promise<Rental> {
+    const startOnly = this.normalizeDateToStartOfDay(rental.startDate);
+    const endOnly = this.normalizeDateToStartOfDay(endDate);
+    if (endOnly < startOnly) {
+      throw Object.assign(new Error('Actual end date cannot be before start date'), { statusCode: 400 });
+    }
+
+    const carForRental = await this.carServiceClient.getCarForRental(rental.carId);
+    const dailyRate = carForRental?.dailyRate ?? 0;
+
+    const actualDays = this.rentalDaysInclusive(rental.startDate, endDate);
+    const actualTotalCost = Number((dailyRate * actualDays).toFixed(2));
+    let penaltyAmount = 0;
+
+    if (endDate > rental.expectedEndDate) {
+      const daysLate = this.daysBetweenExclusive(rental.expectedEndDate, endDate);
+      penaltyAmount = Number((dailyRate * daysLate * 0.5).toFixed(2));
+    }
+
+    await this.rentalRepository.update(rental.id, {
+      status: RentalStatus.COMPLETED,
+      lifecycleState: RentalLifecycleState.COMPLETED,
+      actualEndDate: endDate,
+      totalCost: actualTotalCost,
+      penaltyAmount,
+      reviewStatus: RentalReviewStatus.WAITING,
+      reviewWindowClosesAt: new Date(endDate.getTime() + 14 * 24 * 60 * 60 * 1000),
+    });
+
+    const countUpdates: Promise<unknown>[] = [];
+    if (typeof this.userServiceClient.incrementCompletedRentals === 'function') {
+      countUpdates.push(this.userServiceClient.incrementCompletedRentals(rental.renterUserId));
+      if (rental.ownerUserId) {
+        countUpdates.push(this.userServiceClient.incrementCompletedRentals(rental.ownerUserId));
+      }
+    }
+    if (typeof this.carServiceClient.incrementCompletedRentals === 'function') {
+      countUpdates.push(this.carServiceClient.incrementCompletedRentals(rental.carId));
+    }
+    if (countUpdates.length > 0) {
+      await Promise.allSettled(countUpdates);
+    }
+
+    const otherActive = (await this.rentalRepository.findByCarId(rental.carId)).filter(
+      (r) => r.id !== rental.id && this.isOngoingBookingStatus(r.status)
+    );
+    if (otherActive.length === 0) {
+      await this.carServiceClient.updateCarStatus(rental.carId, 'active');
+    }
+
+    await sendEvent('rental.completed', {
+      rentalId: rental.id,
+      carId: rental.carId,
+      finalCost: actualTotalCost + penaltyAmount,
+      timestamp: new Date().toISOString(),
+    });
+
+    const updated = (await this.rentalRepository.findById(rental.id))!;
+    await this.broadcastRentalLifecycleChange(updated, 'completed');
+    const [withCar] = await this.withCarSummaries([updated]);
+    return withCar as unknown as Rental;
   }
 
   private assertValidScores(scores: Record<string, unknown>, allowedKeys: readonly string[]): Record<string, number> {
@@ -289,8 +470,9 @@ export class RentalService {
 
   /** Batch-load car and renter info for all rentals. */
   private async withCarSummaries(rentals: Rental[]): Promise<Record<string, unknown>[]> {
-    const uniqueCarIds = [...new Set(rentals.map((r) => r.carId))];
-    const uniqueUserIds = [...new Set(rentals.map((r) => r.renterUserId))];
+    const currentRentals = await this.syncRentalLifecycleStates(rentals);
+    const uniqueCarIds = [...new Set(currentRentals.map((r) => r.carId))];
+    const uniqueUserIds = [...new Set(currentRentals.map((r) => r.renterUserId))];
 
     const [carPairs, userPairs] = await Promise.all([
       Promise.all(uniqueCarIds.map(async (id) => [id, await this.carServiceClient.getCarById(id)] as const)),
@@ -300,7 +482,7 @@ export class RentalService {
     const carById = new Map<string, CarInfo | null>(carPairs);
     const userById = new Map<string, UserInfo | null>(userPairs);
 
-    return rentals.map((r) => {
+    return currentRentals.map((r) => {
       const row = this.rentalToJson(r);
       const carInfo = carById.get(r.carId);
       if (carInfo) row.car = this.carSummary(carInfo);
@@ -372,18 +554,11 @@ export class RentalService {
     const totalCost = Number((carForRental.dailyRate * days).toFixed(2));
     const depositAmount = carForRental.depositAmount;
 
-    const startDay = this.normalizeDateToStartOfDay(start);
-    const today = this.normalizeDateToStartOfDay(now);
     const isInstantBook = Boolean(carForRental.car.instantBook);
     const ownerApprovalStatus = isInstantBook
       ? RentalOwnerApprovalStatus.APPROVED
       : RentalOwnerApprovalStatus.PENDING;
-    const bookingStatus =
-      ownerApprovalStatus === RentalOwnerApprovalStatus.APPROVED
-        ? startDay.getTime() > today.getTime()
-          ? RentalStatus.PENDING
-          : RentalStatus.ACTIVE
-        : RentalStatus.PENDING;
+    const bookingStatus = RentalStatus.PENDING;
 
     const rental = await this.rentalRepository.create({
       carId,
@@ -397,14 +572,19 @@ export class RentalService {
       status: bookingStatus,
       ownerApprovalStatus,
       reviewStatus: RentalReviewStatus.NOT_AVAILABLE,
+      lifecycleState:
+        ownerApprovalStatus === RentalOwnerApprovalStatus.APPROVED
+          ? RentalLifecycleState.AWAITING_PICKUP
+          : RentalLifecycleState.AWAITING_OWNER_APPROVAL,
       reviewWindowClosesAt: null,
       ownerReviewSubmittedAt: null,
       renterReviewSubmittedAt: null,
+      pickupConfirmedByOwnerAt: null,
+      pickupConfirmedByRenterAt: null,
+      returnConfirmedByOwnerAt: null,
+      returnConfirmedByRenterAt: null,
     });
 
-    if (isInstantBook && bookingStatus === RentalStatus.ACTIVE) {
-      await this.carServiceClient.updateCarStatus(carId, 'rented');
-    }
     await sendEvent('rental.created', {
       rentalId: rental.id,
       carId,
@@ -438,18 +618,12 @@ export class RentalService {
       throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
     }
 
-    const status =
-      this.normalizeDateToStartOfDay(rental.startDate).getTime() >
-      this.normalizeDateToStartOfDay(new Date()).getTime()
-        ? RentalStatus.PENDING
-        : RentalStatus.ACTIVE;
     const updated = await this.rentalRepository.update(rentalId, {
-      status,
+      status: RentalStatus.PENDING,
       ownerApprovalStatus: RentalOwnerApprovalStatus.APPROVED,
+      lifecycleState: RentalLifecycleState.AWAITING_PICKUP,
     });
-    if (status === RentalStatus.ACTIVE) {
-      await this.carServiceClient.updateCarStatus(rental.carId, 'rented');
-    }
+    await this.broadcastRentalLifecycleChange(updated, 'approved');
     const [withCar] = await this.withCarSummaries([updated]);
     return withCar as unknown as Rental;
   }
@@ -472,12 +646,211 @@ export class RentalService {
     const updated = await this.rentalRepository.update(rentalId, {
       status: RentalStatus.CANCELLED,
       ownerApprovalStatus: RentalOwnerApprovalStatus.REJECTED,
+      lifecycleState: RentalLifecycleState.CANCELLED,
       actualEndDate: new Date(),
       totalCost: 0,
       penaltyAmount: 0,
     });
+    await this.broadcastRentalLifecycleChange(updated, 'rejected');
     const [withCar] = await this.withCarSummaries([updated]);
     return withCar as unknown as Rental;
+  }
+
+  async confirmPickup(rentalId: string, userId: string): Promise<Rental> {
+    await this.promotePendingRentals();
+    const rental = await this.rentalRepository.findById(rentalId);
+    if (!rental) {
+      throw Object.assign(new Error('Rental not found'), { statusCode: 404 });
+    }
+    if (rental.status !== RentalStatus.PENDING) {
+      throw Object.assign(new Error('Only pending rentals can be picked up'), { statusCode: 409 });
+    }
+    if (rental.ownerApprovalStatus !== RentalOwnerApprovalStatus.APPROVED) {
+      throw Object.assign(new Error('Booking must be approved before pickup'), { statusCode: 409 });
+    }
+
+    const now = new Date();
+    if (this.normalizeDateToStartOfDay(now) < this.normalizeDateToStartOfDay(rental.startDate)) {
+      throw Object.assign(new Error('Pickup is not available before the rental start date'), { statusCode: 409 });
+    }
+
+    const role = await this.resolveRentalRole(rental, userId);
+    const patch: Partial<Rental> = {};
+    if (role === 'owner' && !rental.pickupConfirmedByOwnerAt) {
+      patch.pickupConfirmedByOwnerAt = now;
+    }
+    if (role === 'renter' && !rental.pickupConfirmedByRenterAt) {
+      patch.pickupConfirmedByRenterAt = now;
+    }
+
+    const ownerConfirmed = Boolean(patch.pickupConfirmedByOwnerAt || rental.pickupConfirmedByOwnerAt);
+    const renterConfirmed = Boolean(patch.pickupConfirmedByRenterAt || rental.pickupConfirmedByRenterAt);
+    if (ownerConfirmed && renterConfirmed) {
+      patch.status = RentalStatus.ACTIVE;
+    }
+    patch.lifecycleState = ownerConfirmed && renterConfirmed
+      ? RentalLifecycleState.ACTIVE
+      : RentalLifecycleState.PICKUP_PARTIALLY_CONFIRMED;
+
+    const updated = Object.keys(patch).length
+      ? await this.rentalRepository.update(rentalId, patch)
+      : rental;
+
+    if (updated.status === RentalStatus.ACTIVE) {
+      await this.carServiceClient.updateCarStatus(updated.carId, 'rented');
+      await sendEvent('rental.activated', {
+        rentalId,
+        carId: updated.carId,
+        timestamp: now.toISOString(),
+      });
+    }
+
+    await this.broadcastRentalLifecycleChange(updated, updated.status === RentalStatus.ACTIVE ? 'activated' : 'pickup_confirmed');
+    const [withCar] = await this.withCarSummaries([updated]);
+    return withCar as unknown as Rental;
+  }
+
+  async confirmReturn(rentalId: string, userId: string): Promise<Rental> {
+    await this.promotePendingRentals();
+    const rental = await this.rentalRepository.findById(rentalId);
+    if (!rental) {
+      throw Object.assign(new Error('Rental not found'), { statusCode: 404 });
+    }
+    if (rental.status !== RentalStatus.ACTIVE) {
+      throw Object.assign(new Error('Only active rentals can be returned'), { statusCode: 409 });
+    }
+
+    const now = new Date();
+    const role = await this.resolveRentalRole(rental, userId);
+    const patch: Partial<Rental> = {};
+    if (role === 'owner' && !rental.returnConfirmedByOwnerAt) {
+      patch.returnConfirmedByOwnerAt = now;
+    }
+    if (role === 'renter' && !rental.returnConfirmedByRenterAt) {
+      patch.returnConfirmedByRenterAt = now;
+    }
+
+    const ownerConfirmed = Boolean(patch.returnConfirmedByOwnerAt || rental.returnConfirmedByOwnerAt);
+    const renterConfirmed = Boolean(patch.returnConfirmedByRenterAt || rental.returnConfirmedByRenterAt);
+    patch.lifecycleState = ownerConfirmed && renterConfirmed
+      ? RentalLifecycleState.COMPLETED
+      : RentalLifecycleState.RETURN_PARTIALLY_CONFIRMED;
+    const updated = Object.keys(patch).length
+      ? await this.rentalRepository.update(rentalId, patch)
+      : rental;
+
+    if (ownerConfirmed && renterConfirmed) {
+      return this.finalizeRentalCompletion(updated, now);
+    }
+
+    await this.broadcastRentalLifecycleChange(updated, 'return_confirmed');
+    const [withCar] = await this.withCarSummaries([updated]);
+    return withCar as unknown as Rental;
+  }
+
+  async resolveLifecycleByAdmin(
+    rentalId: string,
+    adminUserId: string,
+    adminRole: string | undefined,
+    action: string,
+    note?: string
+  ): Promise<Rental> {
+    if (!['admin', 'manager', 'employee'].includes(adminRole || '')) {
+      throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+    }
+
+    await this.promotePendingRentals();
+    const rental = await this.rentalRepository.findById(rentalId);
+    if (!rental) {
+      throw Object.assign(new Error('Rental not found'), { statusCode: 404 });
+    }
+
+    const now = new Date();
+    const adminPatch: Partial<Rental> = {
+      adminResolvedAt: now,
+      adminResolvedByUserId: adminUserId,
+      adminResolutionNote: note?.trim() || null,
+    };
+
+    if (action === 'activate') {
+      if (rental.status !== RentalStatus.PENDING || rental.ownerApprovalStatus !== RentalOwnerApprovalStatus.APPROVED) {
+        throw Object.assign(new Error('Only approved pending rentals can be activated'), { statusCode: 409 });
+      }
+      const updated = await this.rentalRepository.update(rentalId, {
+        ...adminPatch,
+        status: RentalStatus.ACTIVE,
+        lifecycleState: RentalLifecycleState.ACTIVE,
+        pickupConfirmedByOwnerAt: rental.pickupConfirmedByOwnerAt || now,
+        pickupConfirmedByRenterAt: rental.pickupConfirmedByRenterAt || now,
+      });
+      await this.carServiceClient.updateCarStatus(updated.carId, 'rented');
+      await this.broadcastRentalLifecycleChange(updated, 'admin_activated');
+      const [withCar] = await this.withCarSummaries([updated]);
+      return withCar as unknown as Rental;
+    }
+
+    if (action === 'complete') {
+      if (rental.status !== RentalStatus.ACTIVE) {
+        throw Object.assign(new Error('Only active rentals can be completed'), { statusCode: 409 });
+      }
+      const patched = await this.rentalRepository.update(rentalId, {
+        ...adminPatch,
+        returnConfirmedByOwnerAt: rental.returnConfirmedByOwnerAt || now,
+        returnConfirmedByRenterAt: rental.returnConfirmedByRenterAt || now,
+      });
+      return this.finalizeRentalCompletion(patched, now);
+    }
+
+    if (action === 'mark_no_show') {
+      if (rental.status !== RentalStatus.PENDING) {
+        throw Object.assign(new Error('Only pending rentals can be marked as no-show'), { statusCode: 409 });
+      }
+      const updated = await this.rentalRepository.update(rentalId, {
+        ...adminPatch,
+        status: RentalStatus.CANCELLED,
+        lifecycleState: RentalLifecycleState.NO_SHOW,
+        actualEndDate: now,
+        totalCost: 0,
+        penaltyAmount: Number(rental.depositAmount || 0),
+      });
+      await this.broadcastRentalLifecycleChange(updated, 'admin_no_show');
+      const [withCar] = await this.withCarSummaries([updated]);
+      return withCar as unknown as Rental;
+    }
+
+    if (action === 'mark_pickup_disputed') {
+      if (rental.status !== RentalStatus.PENDING) {
+        throw Object.assign(new Error('Only pending rentals can have pickup disputes'), { statusCode: 409 });
+      }
+      const updated = await this.rentalRepository.update(rentalId, {
+        ...adminPatch,
+        lifecycleState: RentalLifecycleState.PICKUP_DISPUTED,
+      });
+      await this.broadcastRentalLifecycleChange(updated, 'admin_pickup_disputed');
+      const [withCar] = await this.withCarSummaries([updated]);
+      return withCar as unknown as Rental;
+    }
+
+    if (action === 'mark_return_disputed') {
+      if (rental.status !== RentalStatus.ACTIVE) {
+        throw Object.assign(new Error('Only active rentals can have return disputes'), { statusCode: 409 });
+      }
+      const updated = await this.rentalRepository.update(rentalId, {
+        ...adminPatch,
+        lifecycleState: RentalLifecycleState.RETURN_DISPUTED,
+      });
+      await this.broadcastRentalLifecycleChange(updated, 'admin_return_disputed');
+      const [withCar] = await this.withCarSummaries([updated]);
+      return withCar as unknown as Rental;
+    }
+
+    if (action === 'cancel') {
+      const updated = await this.cancelRental(rentalId, now);
+      await this.rentalRepository.update(rentalId, adminPatch);
+      return updated;
+    }
+
+    throw Object.assign(new Error('Invalid lifecycle resolution action'), { statusCode: 400 });
   }
 
   async completeRental(rentalId: string, actualEndDate?: Date): Promise<Rental> {
@@ -490,62 +863,7 @@ export class RentalService {
     if (rental.status !== RentalStatus.ACTIVE) throw new Error('Rental is not active');
 
     const endDate = actualEndDate || new Date();
-    const startOnly = this.normalizeDateToStartOfDay(rental.startDate);
-    const endOnly = this.normalizeDateToStartOfDay(endDate);
-    if (endOnly < startOnly) throw new Error('Actual end date cannot be before start date');
-
-    const carForRental = await this.carServiceClient.getCarForRental(rental.carId);
-    const dailyRate = carForRental?.dailyRate ?? 0;
-
-    const actualDays = this.rentalDaysInclusive(rental.startDate, endDate);
-    let actualTotalCost = Number((dailyRate * actualDays).toFixed(2));
-    let penaltyAmount = 0;
-
-    if (endDate > rental.expectedEndDate) {
-      const daysLate = this.daysBetweenExclusive(rental.expectedEndDate, endDate);
-      penaltyAmount = Number((dailyRate * daysLate * 0.5).toFixed(2));
-    }
-
-    await this.rentalRepository.update(rentalId, {
-      status: RentalStatus.COMPLETED,
-      actualEndDate: endDate,
-      totalCost: actualTotalCost,
-      penaltyAmount,
-      reviewStatus: RentalReviewStatus.WAITING,
-      reviewWindowClosesAt: new Date(endDate.getTime() + 14 * 24 * 60 * 60 * 1000),
-    });
-
-    const countUpdates: Promise<unknown>[] = [];
-    if (typeof this.userServiceClient.incrementCompletedRentals === 'function') {
-      countUpdates.push(this.userServiceClient.incrementCompletedRentals(rental.renterUserId));
-      if (rental.ownerUserId) {
-        countUpdates.push(this.userServiceClient.incrementCompletedRentals(rental.ownerUserId));
-      }
-    }
-    if (typeof this.carServiceClient.incrementCompletedRentals === 'function') {
-      countUpdates.push(this.carServiceClient.incrementCompletedRentals(rental.carId));
-    }
-    if (countUpdates.length > 0) {
-      await Promise.allSettled(countUpdates);
-    }
-
-    const otherActive = (await this.rentalRepository.findByCarId(rental.carId)).filter(
-      (r) => r.id !== rentalId && this.isOngoingBookingStatus(r.status)
-    );
-    if (otherActive.length === 0) {
-      await this.carServiceClient.updateCarStatus(rental.carId, 'active');
-    }
-
-    await sendEvent('rental.completed', {
-      rentalId,
-      carId: rental.carId,
-      finalCost: actualTotalCost + penaltyAmount,
-      timestamp: new Date().toISOString(),
-    });
-
-    const updated = (await this.rentalRepository.findById(rentalId))!;
-    const [withCar] = await this.withCarSummaries([updated]);
-    return withCar as unknown as Rental;
+    return this.finalizeRentalCompletion(rental, endDate);
   }
 
   async cancelRental(rentalId: string, cancellationDate?: Date): Promise<Rental> {
@@ -559,6 +877,7 @@ export class RentalService {
     if (cancelDate < rental.startDate) {
       await this.rentalRepository.update(rentalId, {
         status: RentalStatus.CANCELLED,
+        lifecycleState: RentalLifecycleState.CANCELLED,
         actualEndDate: cancelDate,
         totalCost: 0,
         penaltyAmount: 0,
@@ -576,6 +895,7 @@ export class RentalService {
       }
       await this.rentalRepository.update(rentalId, {
         status: RentalStatus.CANCELLED,
+        lifecycleState: RentalLifecycleState.CANCELLED,
         actualEndDate: cancelDate,
         totalCost: actualTotalCost,
         penaltyAmount,

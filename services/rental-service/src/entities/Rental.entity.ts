@@ -30,6 +30,20 @@ export enum RentalReviewStatus {
   EXPIRED = 'expired',
 }
 
+export enum RentalLifecycleState {
+  AWAITING_OWNER_APPROVAL = 'awaiting_owner_approval',
+  AWAITING_PICKUP = 'awaiting_pickup',
+  PICKUP_PARTIALLY_CONFIRMED = 'pickup_partially_confirmed',
+  PICKUP_DISPUTED = 'pickup_disputed',
+  NO_SHOW = 'no_show',
+  ACTIVE = 'active',
+  RETURN_DUE = 'return_due',
+  RETURN_PARTIALLY_CONFIRMED = 'return_partially_confirmed',
+  RETURN_DISPUTED = 'return_disputed',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
 @Entity('rentals')
 export class Rental {
   @PrimaryGeneratedColumn('uuid')
@@ -65,7 +79,7 @@ export class Rental {
   @Column({
     type: 'enum',
     enum: RentalStatus,
-    default: RentalStatus.ACTIVE,
+    default: RentalStatus.PENDING,
   })
   status: RentalStatus;
 
@@ -85,6 +99,14 @@ export class Rental {
   })
   reviewStatus: RentalReviewStatus;
 
+  @Column({
+    type: 'enum',
+    enum: RentalLifecycleState,
+    name: 'lifecycle_state',
+    default: RentalLifecycleState.AWAITING_OWNER_APPROVAL,
+  })
+  lifecycleState: RentalLifecycleState;
+
   @Column({ type: 'timestamp', nullable: true, name: 'review_window_closes_at' })
   reviewWindowClosesAt: Date | null;
 
@@ -93,6 +115,27 @@ export class Rental {
 
   @Column({ type: 'timestamp', nullable: true, name: 'renter_review_submitted_at' })
   renterReviewSubmittedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'pickup_confirmed_by_owner_at' })
+  pickupConfirmedByOwnerAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'pickup_confirmed_by_renter_at' })
+  pickupConfirmedByRenterAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'return_confirmed_by_owner_at' })
+  returnConfirmedByOwnerAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'return_confirmed_by_renter_at' })
+  returnConfirmedByRenterAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'admin_resolved_at' })
+  adminResolvedAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true, name: 'admin_resolved_by_user_id' })
+  adminResolvedByUserId: string | null;
+
+  @Column({ type: 'varchar', length: 1000, nullable: true, name: 'admin_resolution_note' })
+  adminResolutionNote: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

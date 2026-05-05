@@ -47,11 +47,30 @@ export interface Rental {
   penaltyAmount: number;
   status: 'pending' | 'active' | 'completed' | 'cancelled';
   ownerApprovalStatus?: 'pending' | 'approved' | 'rejected';
+  lifecycleState?:
+    | 'awaiting_owner_approval'
+    | 'awaiting_pickup'
+    | 'pickup_partially_confirmed'
+    | 'pickup_disputed'
+    | 'no_show'
+    | 'active'
+    | 'return_due'
+    | 'return_partially_confirmed'
+    | 'return_disputed'
+    | 'completed'
+    | 'cancelled';
   ownerUserId?: string | null;
   reviewStatus?: 'not_available' | 'waiting' | 'partial' | 'published' | 'expired';
   reviewWindowClosesAt?: string;
   ownerReviewSubmittedAt?: string;
   renterReviewSubmittedAt?: string;
+  pickupConfirmedByOwnerAt?: string;
+  pickupConfirmedByRenterAt?: string;
+  returnConfirmedByOwnerAt?: string;
+  returnConfirmedByRenterAt?: string;
+  adminResolvedAt?: string;
+  adminResolvedByUserId?: string | null;
+  adminResolutionNote?: string | null;
   client?: {
     id: number;
     fullName: string;

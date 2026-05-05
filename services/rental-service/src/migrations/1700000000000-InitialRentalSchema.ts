@@ -16,6 +16,9 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE TYPE "public"."rentals_review_status_enum" AS ENUM('not_available','waiting','partial','published','expired')`
     );
+    await queryRunner.query(
+      `CREATE TYPE "public"."rentals_lifecycle_state_enum" AS ENUM('awaiting_owner_approval','awaiting_pickup','pickup_partially_confirmed','pickup_disputed','no_show','active','return_due','return_partially_confirmed','return_disputed','completed','cancelled')`
+    );
 
     await queryRunner.query(`
       CREATE TABLE "rentals" (
@@ -32,9 +35,17 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
         "status" "public"."rentals_status_enum" NOT NULL DEFAULT 'active',
         "owner_approval_status" "public"."rentals_owner_approval_status_enum" NOT NULL DEFAULT 'pending',
         "review_status" "public"."rentals_review_status_enum" NOT NULL DEFAULT 'not_available',
+        "lifecycle_state" "public"."rentals_lifecycle_state_enum" NOT NULL DEFAULT 'awaiting_owner_approval',
         "review_window_closes_at" TIMESTAMP,
         "owner_review_submitted_at" TIMESTAMP,
         "renter_review_submitted_at" TIMESTAMP,
+        "pickup_confirmed_by_owner_at" TIMESTAMP,
+        "pickup_confirmed_by_renter_at" TIMESTAMP,
+        "return_confirmed_by_owner_at" TIMESTAMP,
+        "return_confirmed_by_renter_at" TIMESTAMP,
+        "admin_resolved_at" TIMESTAMP,
+        "admin_resolved_by_user_id" uuid,
+        "admin_resolution_note" character varying(1000),
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_rentals" PRIMARY KEY ("id")
@@ -145,6 +156,7 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "rental_messages"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "penalties"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "rentals"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "public"."rentals_lifecycle_state_enum"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "public"."rentals_review_status_enum"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "public"."rentals_owner_approval_status_enum"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "public"."rentals_status_enum"`);

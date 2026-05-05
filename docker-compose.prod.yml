@@ -140,12 +140,14 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_DATABASE: rental_service_db
+      DB_RUN_MIGRATIONS: "true"
       CAR_SERVICE_URL: http://car-service:3003
       USER_SERVICE_URL: http://user-service:3002
       GATEWAY_URL: http://api-gateway:3000
       SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
       JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
       ALLOW_INSECURE_JWT_DECODE: "false"
+      RENTAL_CONFIRMATION_GRACE_HOURS: ${RENTAL_CONFIRMATION_GRACE_HOURS:-24}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
       KAFKA_BROKERS: ""
     depends_on:

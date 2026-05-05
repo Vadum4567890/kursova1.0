@@ -480,4 +480,51 @@ export class RentalController {
       next(error);
     }
   };
+
+  confirmPickup = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
+        return;
+      }
+      const rental = await this.rentalService.confirmPickup(req.params.id, req.user.id);
+      res.json({ success: true, data: rental });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  confirmReturn = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
+        return;
+      }
+      const rental = await this.rentalService.confirmReturn(req.params.id, req.user.id);
+      res.json({ success: true, data: rental });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resolveLifecycleByAdmin = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
+        return;
+      }
+      const action = typeof req.body?.action === 'string' ? req.body.action : '';
+      const note = typeof req.body?.note === 'string' ? req.body.note : undefined;
+      const rental = await this.rentalService.resolveLifecycleByAdmin(
+        req.params.id,
+        req.user.id,
+        req.user.role,
+        action,
+        note
+      );
+      res.json({ success: true, data: rental });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

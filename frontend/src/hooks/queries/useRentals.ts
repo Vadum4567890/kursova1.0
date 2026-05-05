@@ -23,6 +23,8 @@ export const useRentals = () => {
   return useQuery({
     queryKey: QUERY_KEYS.list(),
     queryFn: () => rentalService.getAllRentals(),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 };
 
@@ -33,6 +35,8 @@ export const useActiveRentals = () => {
   return useQuery({
     queryKey: QUERY_KEYS.active(),
     queryFn: () => rentalService.getActiveRentals(),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 };
 
@@ -71,6 +75,8 @@ export const useOwnerBookings = () => {
     queryFn: () => rentalService.getOwnerBookings(),
     enabled: !!token && !!user && !isLoading,
     staleTime: 15_000,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 };
 
@@ -98,6 +104,57 @@ export const useRejectBookingAsOwner = () => {
       if (user?.id != null) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ownerBookings(user.id) });
       }
+    },
+  });
+};
+
+export const useConfirmRentalPickup = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (rentalId: string | number) => rentalService.confirmPickup(rentalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+    },
+  });
+};
+
+export const useConfirmRentalReturn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (rentalId: string | number) => rentalService.confirmReturn(rentalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+};
+
+export const useResolveRentalLifecycle = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      action,
+      note,
+    }: {
+      id: number | string;
+      action:
+        | 'activate'
+        | 'complete'
+        | 'cancel'
+        | 'mark_no_show'
+        | 'mark_pickup_disputed'
+        | 'mark_return_disputed';
+      note?: string;
+    }) => rentalService.resolveLifecycleByAdmin(id, action, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
