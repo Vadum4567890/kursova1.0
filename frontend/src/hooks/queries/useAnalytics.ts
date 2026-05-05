@@ -11,10 +11,11 @@ const QUERY_KEYS = {
   forecast: () => [...QUERY_KEYS.all, 'forecast'] as const,
 };
 
-export const useDashboardStats = () => {
+export const useDashboardStats = (enabled = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.dashboard(),
     queryFn: () => analyticsService.getDashboardStats(),
+    enabled,
   });
 };
 
@@ -32,17 +33,19 @@ export const useTotalRevenue = (startDate?: string, endDate?: string) => {
 /**
  * Get revenue stats (with revenueByDay for charts)
  */
-export const useRevenueStats = (startDate?: string, endDate?: string) => {
+export const useRevenueStats = (startDate?: string, endDate?: string, enabled = true) => {
   return useQuery({
     queryKey: [...QUERY_KEYS.revenue(startDate, endDate), 'stats'],
     queryFn: () => analyticsService.getRevenueStats(startDate, endDate),
+    enabled,
   });
 };
 
-export const usePopularCars = (limit: number = 10) => {
+export const usePopularCars = (limit: number = 10, enabled = true) => {
   return useQuery({
     queryKey: [...QUERY_KEYS.popularCars(), limit],
     queryFn: () => analyticsService.getPopularCars(limit),
+    enabled,
   });
 };
 

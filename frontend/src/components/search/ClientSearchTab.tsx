@@ -1,8 +1,11 @@
 import React from 'react';
-import { Box, Paper, TextField, Button, CircularProgress } from '@mui/material';
+import { Box, Paper, TextField, Button, CircularProgress, Alert, Typography, Pagination } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { Client } from '../../interfaces';
 import { ClientSearchResults } from './ClientSearchResults';
+import { usePagedSlice } from '@/hooks/usePagedSlice';
+
+const PAGE_SIZE = 12;
 
 interface ClientSearchTabProps {
   query: string;
@@ -19,10 +22,14 @@ const ClientSearchTab: React.FC<ClientSearchTabProps> = ({
   loading,
   results,
 }) => {
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      onSearch();
-    }
+  const { page, setPage, resetToFirstPage, totalPages, pagedItems, shownFrom, shownTo } = usePagedSlice(
+    results,
+    PAGE_SIZE
+  );
+
+  const handleSearchClick = () => {
+    resetToFirstPage();
+    onSearch();
   };
 
   return (
@@ -30,23 +37,66 @@ const ClientSearchTab: React.FC<ClientSearchTabProps> = ({
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
           fullWidth
-          label="Пошук орендаря"
-          placeholder="Ім'я, телефон або адреса"
+          label="Пошук клієнта"
+          placeholder="Ім'я, телефон, адреса або email (орендар / орендодавець)"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') handleSearchClick();
+          }}
         />
         <Button
           variant="contained"
-          onClick={onSearch}
-          disabled={loading || !query.trim()}
+          onClick={handleSearchClick}
+          disabled={loading}
           startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
         >
           Шукати
         </Button>
       </Box>
 
-      {results && results.length > 0 && <ClientSearchResults clients={results} />}
+      {loading && results.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : null}
+
+      {!loading && results.length === 0 ? (
+        <Alert severity="info">
+          Клієнтів не знайдено. Спробуйте інший запит або переконайтесь, що в системі є користувачі з ролями орендар /
+          орендодавець.
+        </Alert>
+      ) : null}
+
+      {!loading && results.length > 0 ? (
+        <>
+          <ClientSearchResults clients={pagedItems} />
+          <Box
+            sx={{
+              mt: 3,
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Показано {shownFrom}–{shownTo} з {results.length}
+            </Typography>
+            {totalPages > 1 ? (
+              <Pagination
+                page={page}
+                count={totalPages}
+                color="primary"
+                onChange={(_, p) => setPage(p)}
+                showFirstButton
+                showLastButton
+              />
+            ) : null}
+          </Box>
+        </>
+      ) : null}
     </Paper>
   );
 };

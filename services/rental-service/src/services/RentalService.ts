@@ -1,5 +1,6 @@
 import { Rental } from '../entities/Rental.entity';
 import { RentalStatus } from '../entities/Rental.entity';
+import { RentalOwnerApprovalStatus } from '../entities/Rental.entity';
 import { RentalReviewStatus } from '../entities/Rental.entity';
 import { RentalRepository } from '../repositories/RentalRepository';
 import { RentalMessageRepository } from '../repositories/RentalMessageRepository';
@@ -106,6 +107,7 @@ export class RentalService {
       totalCost: r.totalCost,
       penaltyAmount: r.penaltyAmount,
       status: r.status,
+      ownerApprovalStatus: r.ownerApprovalStatus,
       ownerUserId: r.ownerUserId,
       reviewStatus: r.reviewStatus,
       reviewWindowClosesAt: r.reviewWindowClosesAt,
@@ -369,11 +371,15 @@ export class RentalService {
     const startDay = this.normalizeDateToStartOfDay(start);
     const today = this.normalizeDateToStartOfDay(now);
     const isInstantBook = Boolean(carForRental.car.instantBook);
-    const bookingStatus = isInstantBook
-      ? startDay.getTime() > today.getTime()
-        ? RentalStatus.PENDING
-        : RentalStatus.ACTIVE
-      : RentalStatus.PENDING;
+    const ownerApprovalStatus = isInstantBook
+      ? RentalOwnerApprovalStatus.APPROVED
+      : RentalOwnerApprovalStatus.PENDING;
+    const bookingStatus =
+      ownerApprovalStatus === RentalOwnerApprovalStatus.APPROVED
+        ? startDay.getTime() > today.getTime()
+          ? RentalStatus.PENDING
+          : RentalStatus.ACTIVE
+        : RentalStatus.PENDING;
 
     const rental = await this.rentalRepository.create({
       carId,
@@ -385,6 +391,7 @@ export class RentalService {
       totalCost,
       penaltyAmount: 0,
       status: bookingStatus,
+      ownerApprovalStatus,
       reviewStatus: RentalReviewStatus.NOT_AVAILABLE,
       reviewWindowClosesAt: null,
       ownerReviewSubmittedAt: null,
@@ -403,6 +410,7 @@ export class RentalService {
       endDate: end.toISOString(),
       totalCost,
       status: bookingStatus,
+      ownerApprovalStatus,
       bookingMode: isInstantBook ? 'instant' : 'manual',
     });
 
@@ -417,8 +425,8 @@ export class RentalService {
     if (!rental) {
       throw Object.assign(new Error('Rental not found'), { statusCode: 404 });
     }
-    if (rental.status !== RentalStatus.PENDING) {
-      throw Object.assign(new Error('Only pending rentals can be approved'), { statusCode: 409 });
+    if (rental.status !== RentalStatus.PENDING || rental.ownerApprovalStatus !== RentalOwnerApprovalStatus.PENDING) {
+      throw Object.assign(new Error('Only bookings awaiting owner approval can be approved'), { statusCode: 409 });
     }
 
     const car = await this.carServiceClient.getCarById(rental.carId);
@@ -431,7 +439,10 @@ export class RentalService {
       this.normalizeDateToStartOfDay(new Date()).getTime()
         ? RentalStatus.PENDING
         : RentalStatus.ACTIVE;
-    const updated = await this.rentalRepository.update(rentalId, { status });
+    const updated = await this.rentalRepository.update(rentalId, {
+      status,
+      ownerApprovalStatus: RentalOwnerApprovalStatus.APPROVED,
+    });
     if (status === RentalStatus.ACTIVE) {
       await this.carServiceClient.updateCarStatus(rental.carId, 'rented');
     }
@@ -445,8 +456,8 @@ export class RentalService {
     if (!rental) {
       throw Object.assign(new Error('Rental not found'), { statusCode: 404 });
     }
-    if (rental.status !== RentalStatus.PENDING) {
-      throw Object.assign(new Error('Only pending rentals can be rejected'), { statusCode: 409 });
+    if (rental.status !== RentalStatus.PENDING || rental.ownerApprovalStatus !== RentalOwnerApprovalStatus.PENDING) {
+      throw Object.assign(new Error('Only bookings awaiting owner approval can be rejected'), { statusCode: 409 });
     }
 
     const car = await this.carServiceClient.getCarById(rental.carId);
@@ -456,6 +467,7 @@ export class RentalService {
 
     const updated = await this.rentalRepository.update(rentalId, {
       status: RentalStatus.CANCELLED,
+      ownerApprovalStatus: RentalOwnerApprovalStatus.REJECTED,
       actualEndDate: new Date(),
       totalCost: 0,
       penaltyAmount: 0,
@@ -621,7 +633,18 @@ export class RentalService {
   /** Усі бронювання по авто власника (для підтвердження заявок тощо). */
   async getRentalsForOwner(ownerUserId: string): Promise<Rental[]> {
     await this.promotePendingRentals();
-    const rows = await this.rentalRepository.findByOwnerUserId(ownerUserId);
+    const ownedCars = await this.carServiceClient.getCarsByOwner(ownerUserId);
+    const rows =
+      ownedCars.length > 0
+        ? await this.rentalRepository.findByCarIds(ownedCars.map((car) => car.id))
+        : await this.rentalRepository.findByOwnerUserId(ownerUserId);
+
+    await Promise.allSettled(
+      rows
+        .filter((rental) => !rental.ownerUserId)
+        .map((rental) => this.rentalRepository.update(rental.id, { ownerUserId }))
+    );
+
     return (await this.withCarSummaries(rows)) as unknown as Rental[];
   }
 

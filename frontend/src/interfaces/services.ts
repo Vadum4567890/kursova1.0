@@ -342,12 +342,16 @@ export interface CarSearchParams {
   maxPrice?: number;
   minYear?: number;
   maxYear?: number;
+  /** Пагінація (передається в car-service через api-gateway) */
+  page?: number;
+  limit?: number;
 }
 
 export interface RentalSearchParams {
   clientId?: number | string;
   carId?: number | string;
-  status?: 'active' | 'completed' | 'cancelled';
+  status?: 'pending' | 'active' | 'completed' | 'cancelled';
   startDate?: string;
   endDate?: string;
+  searchQuery?: string; // Пошук за ім'ям орендаря або маркою авто
 }

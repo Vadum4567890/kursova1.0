@@ -20,8 +20,7 @@ import {
   useDeleteCustomer,
 } from '../hooks/queries/useCustomers';
 import {
-  ErrorAlert,
-  LoadingSpinner,
+  PageAsyncSection,
   SearchBar,
   PageHeader,
   FormDialog,
@@ -109,11 +108,7 @@ const CustomersPage: React.FC = () => {
         sx={{ mb: 3 }}
       />
 
-      <ErrorAlert message={displayError || ''} onClose={clearError} />
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
+      <PageAsyncSection error={displayError} onCloseError={clearError} loading={loading}>
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -159,7 +154,7 @@ const CustomersPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-      )}
+      </PageAsyncSection>
 
       <FormDialog
         open={formDialog.open}

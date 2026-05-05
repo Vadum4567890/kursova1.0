@@ -12,6 +12,9 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
 }
 
 export function internalHeaders(): Record<string, string> {
-  const key = process.env.SERVICE_API_KEY || 'internal-service-key';
+  const key =
+    process.env.NODE_ENV === 'production'
+      ? process.env.SERVICE_API_KEY || ''
+      : process.env.SERVICE_API_KEY || 'internal-service-key';
   return { 'X-Service-Key': key };
 }

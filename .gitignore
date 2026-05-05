@@ -31,6 +31,17 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# IDE / local AI tooling (do not commit)
+.claude/settings.local.json
+.cursor/skills/
+
+# Python caches
+**/__pycache__/
+*.pyc
+
+# Personal Obsidian vault metadata (notes may stay untracked locally)
+CarRental/.obsidian/
+
 # IDE
 .vscode/
 .idea/

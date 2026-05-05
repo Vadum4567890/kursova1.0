@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { Rental, RentalStatus } from '../entities/Rental.entity';
 import { AppDataSource } from '../database/data-source';
-import { fetchCarBrandModel } from '../clients/carServiceClient';
+import { fetchCarBrandModel, fetchCarsCatalog } from '../clients/carServiceClient';
 import { fetchUserDisplayName } from '../clients/userServiceClient';
 
 function toNumber(value: unknown): number {
@@ -21,8 +21,10 @@ export class AnalyticsService {
 
   private async getRentalsInRange(startDate?: Date, endDate?: Date): Promise<Rental[]> {
     const rentals = await this.rentalRepository.find({ order: { startDate: 'ASC' } });
-    const start = startDate || new Date(2000, 0, 1);
-    const end = endDate || new Date();
+    const start = startDate ? new Date(startDate) : new Date(2000, 0, 1);
+    const end = endDate ? new Date(endDate) : new Date();
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
     return rentals.filter((rental) => rental.startDate >= start && rental.startDate <= end);
   }
 
@@ -30,7 +32,7 @@ export class AnalyticsService {
     const filtered = await this.getRentalsInRange(startDate, endDate);
     const activeRentals = filtered.filter((rental) => rental.status === RentalStatus.ACTIVE);
     const completedRentals = filtered.filter((rental) => rental.status === RentalStatus.COMPLETED);
-    const distinctCars = new Set(filtered.map((rental) => rental.carId));
+    const cars = await fetchCarsCatalog();
     const activeCars = new Set(activeRentals.map((rental) => rental.carId));
 
     const totalRevenue = completedRentals.reduce(
@@ -39,7 +41,7 @@ export class AnalyticsService {
     );
     const totalPenalties = completedRentals.reduce((sum, rental) => sum + toNumber(rental.penaltyAmount), 0);
     const totalDeposits = filtered.reduce((sum, rental) => sum + toNumber(rental.depositAmount), 0);
-    const totalCars = distinctCars.size;
+    const totalCars = cars.length;
     const rentedCars = activeCars.size;
 
     return {
@@ -177,7 +179,7 @@ export class AnalyticsService {
     const rows = Array.from(map.entries())
       .map(([renterUserId, stats]) => {
         const totalReceived = stats.totalCost + stats.totalPenalties;
-        const netRevenue = roundCurrency(totalReceived - stats.totalToReturn);
+        const netRevenue = roundCurrency(totalReceived);
         return { renterUserId, stats, totalReceived, netRevenue };
       })
       .sort((a, b) => b.netRevenue - a.netRevenue)
@@ -198,7 +200,7 @@ export class AnalyticsService {
           totalPenalties: roundCurrency(stats.totalPenalties),
           totalDeposits: roundCurrency(stats.totalDeposits),
           totalToReturn: roundCurrency(stats.totalToReturn),
-          netRevenue: roundCurrency(totalReceived - stats.totalToReturn),
+          netRevenue: roundCurrency(totalReceived),
           rentalCount: stats.rentalCount,
         };
       })
@@ -206,13 +208,12 @@ export class AnalyticsService {
   }
 
   async calculateOccupancyRate(): Promise<number> {
-    const rentals = await this.rentalRepository.find();
-    const distinctCars = new Set(rentals.map((rental) => rental.carId));
+    const [rentals, cars] = await Promise.all([this.rentalRepository.find(), fetchCarsCatalog()]);
     const activeCars = new Set(
       rentals.filter((rental) => rental.status === RentalStatus.ACTIVE).map((rental) => rental.carId)
     );
 
-    return distinctCars.size > 0 ? roundCurrency((activeCars.size / distinctCars.size) * 100) : 0;
+    return cars.length > 0 ? roundCurrency((activeCars.size / cars.length) * 100) : 0;
   }
 
   async getRevenueForecast(): Promise<any> {

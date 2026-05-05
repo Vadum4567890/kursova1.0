@@ -41,7 +41,7 @@ import { ErrorAlert, LoadingSpinner, PageContainer } from '../components/common'
 import ReviewDialog from '../components/reviews/ReviewDialog';
 import RatingSummaryCard from '../components/reviews/RatingSummaryCard';
 import ReviewList from '../components/reviews/ReviewList';
-import { ReviewableBooking } from '../interfaces';
+import { Rental, ReviewableBooking } from '../interfaces';
 
 const popIn = keyframes`
   0% {
@@ -85,6 +85,11 @@ const CarDetailsPage: React.FC = () => {
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<ReviewableBooking | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState({
+    open: false,
+    title: '',
+    message: '',
+  });
   const [reviewSuccess, setReviewSuccess] = useState({
     open: false,
     title: '',
@@ -96,8 +101,21 @@ const CarDetailsPage: React.FC = () => {
       ...bookedDates,
       ...((car?.unavailableDates || []).map((date) => ({ startDate: date, endDate: date }))),
     ],
-    onSuccess: () => {
+    onSuccess: (rental: Rental) => {
       setBookingDialogOpen(false);
+      setBookingSuccess({
+        open: true,
+        title:
+          rental.ownerApprovalStatus === 'approved'
+            ? 'Бронювання підтверджено'
+            : 'Заявку надіслано',
+        message:
+          rental.ownerApprovalStatus === 'approved'
+            ? rental.status === 'active'
+              ? 'Оренда вже активна. Авто закріплено за вами.'
+              : 'Авто зарезервовано на ваші дати. До старту оренди статус залишатиметься очікувальним.'
+            : 'Орендодавець отримає ваш запит і зможе підтвердити його у своєму кабінеті.',
+      });
     },
   });
 
@@ -395,6 +413,37 @@ const CarDetailsPage: React.FC = () => {
         onClose={() => setSelectedReviewBooking(null)}
         onSubmit={handleReviewSubmit}
       />
+
+      <Snackbar
+        open={bookingSuccess.open}
+        autoHideDuration={3200}
+        onClose={() => setBookingSuccess((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        TransitionComponent={Zoom}
+      >
+        <Alert
+          severity="success"
+          variant="filled"
+          icon={
+            <CheckCircle
+              sx={{
+                animation: `${popIn} 360ms ease-out`,
+              }}
+            />
+          }
+          sx={{
+            minWidth: 320,
+            boxShadow: 6,
+            '& .MuiAlert-message': {
+              display: 'grid',
+              gap: 0.5,
+            },
+          }}
+        >
+          <strong>{bookingSuccess.title}</strong>
+          <span>{bookingSuccess.message}</span>
+        </Alert>
+      </Snackbar>
 
       <Snackbar
         open={reviewSuccess.open}

@@ -28,8 +28,10 @@ flowchart LR
   Gateway -->|/api/cars| CarService
   Gateway -->|/api/rentals| RentalService
   Gateway -->|/api/reports_/api/analytics_/api/penalties| ReportingService
-  Gateway -->|/api/upload_/api/search_/api/clients| GatewayEdge[GatewayEdgeFeatures]
+  Gateway -->|/api/upload| MediaService
 ```
+
+**Note:** `/api/search/*` and compatibility `/api/clients/*` are implemented **inside the gateway** (calling `car-service`, `user-service`, and `rental-service`). There is no separate `search-service` process.
 
 ### Services and responsibilities
 
@@ -40,10 +42,11 @@ flowchart LR
     - `/api/users/*` → `user-service`
     - `/api/rentals/*` → `rental-service` (with BFF routes for `/my` and `/book`)
     - `/api/penalties`, `/api/reports`, `/api/analytics` → `reporting-service`
-    - `/api/search/*` → `search-service`
     - `/api/upload/*` → `media-service`
-    - `/api/clients/*` → `client-service`
-  - Implemented in the gateway (not proxied):
+  - Implemented **inside the gateway** (BFF; no separate search microservice):
+    - `/api/search/*` → aggregates calls to `car-service`, `user-service`, `rental-service`
+    - `/api/clients/*` → compatibility routes mapped to `user-service` (`/api/users/clients`, etc.)
+  - Implemented in the gateway only (not proxied to a domain service):
     - `/api/auth` (dev JWT; can be replaced by user-service / Keycloak later)
 
 - **User Service (`services/user-service/`)**
@@ -65,16 +68,10 @@ flowchart LR
   - Serves `/api/penalties`, `/api/reports`, `/api/analytics`
   - Reads from `rental_service_db` for reports (financial/analytics)
 
-- **Search Service (`services/search-service/`, port **3005**)**
-  - `POST /api/search/cars` → delegates to car-service search
-  - `GET /api/search/clients?q=` → filters clients from client-service
-  - `POST /api/search/rentals` → loads rentals from rental-service and filters in-process
-
 - **Media Service (`services/media-service/`, port **3006**)**
   - Stores uploaded images (multipart) under `UPLOAD_DIR`; serves `GET /api/upload/files/:filename`
 
-- **Client Service (`services/client-service/`, port **3007**)**
-  - CRUD for rental-point **clients** in `client_service_db` (separate from `user_accounts`)
+Standalone **`search-service`** and **`client-service`** processes were **removed** from the repository; search and client compatibility live in **`api-gateway`** + **`user-service`**.
 
 ---
 
@@ -88,9 +85,7 @@ flowchart LR
 - **Car service**: `3003`
 - **Rental service**: `3004`
 - **Reporting service**: `3009`
-- **Search service**: `3005`
 - **Media service**: `3006`
-- **Client service**: `3007`
 
 ### Gateway `.env` (recommended)
 
@@ -105,9 +100,7 @@ CAR_SERVICE_URL=http://localhost:3003
 USER_SERVICE_URL=http://localhost:3002
 RENTAL_SERVICE_URL=http://localhost:3004
 REPORTING_SERVICE_URL=http://localhost:3009
-SEARCH_SERVICE_URL=http://localhost:3005
 MEDIA_SERVICE_URL=http://localhost:3006
-CLIENT_SERVICE_URL=http://localhost:3007
 SERVICE_API_KEY=internal-service-key
 JWT_SECRET=your-secret-key-change-in-production
 JWT_EXPIRES_IN=24h

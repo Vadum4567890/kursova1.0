@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
 import { useCreateBooking } from './queries/useRentals';
 import { isDateRangeValid } from '../utils/dateHelpers';
+import { Rental } from '../interfaces';
 
 interface BookedPeriod {
   startDate: string;
@@ -12,17 +13,30 @@ interface BookedPeriod {
 interface UseCarBookingOptions {
   carId?: number | string;
   bookedDates?: BookedPeriod[];
-  onSuccess?: () => void;
+  onSuccess?: (rental: Rental) => void;
 }
 
-/**
- * Hook for managing car booking logic
- */
+function getErrorMessage(err: any, fallback: string): string {
+  const payload = err?.response?.data;
+  const nested =
+    (typeof payload?.error === 'object' && payload?.error?.message) ||
+    (typeof payload?.error === 'string' ? payload.error : null) ||
+    payload?.message;
+
+  if (typeof nested === 'string' && nested.trim()) {
+    return nested;
+  }
+  if (typeof err?.message === 'string' && err.message.trim()) {
+    return err.message;
+  }
+  return fallback;
+}
+
 export function useCarBooking(options: UseCarBookingOptions = {}) {
   const { carId, bookedDates = [], onSuccess } = options;
   const queryClient = useQueryClient();
   const createBooking = useCreateBooking();
-  
+
   const [error, setError] = useState('');
   const [bookingData, setBookingData] = useState({
     startDate: null as Dayjs | null,
@@ -46,20 +60,26 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
     });
   }, []);
 
-  const updateStartDate = useCallback((newValue: Dayjs | null) => {
-    if (newValue && bookingData.expectedEndDate && newValue.isAfter(bookingData.expectedEndDate)) {
-      setBookingData({
-        startDate: newValue,
-        expectedEndDate: newValue.add(1, 'day'),
-      });
-    } else {
-      setBookingData({ ...bookingData, startDate: newValue });
-    }
-  }, [bookingData]);
+  const updateStartDate = useCallback(
+    (newValue: Dayjs | null) => {
+      if (newValue && bookingData.expectedEndDate && newValue.isAfter(bookingData.expectedEndDate)) {
+        setBookingData({
+          startDate: newValue,
+          expectedEndDate: newValue.add(1, 'day'),
+        });
+      } else {
+        setBookingData({ ...bookingData, startDate: newValue });
+      }
+    },
+    [bookingData]
+  );
 
-  const updateEndDate = useCallback((newValue: Dayjs | null) => {
-    setBookingData({ ...bookingData, expectedEndDate: newValue });
-  }, [bookingData]);
+  const updateEndDate = useCallback(
+    (newValue: Dayjs | null) => {
+      setBookingData({ ...bookingData, expectedEndDate: newValue });
+    },
+    [bookingData]
+  );
 
   const validateBooking = useCallback((): string | null => {
     if (!bookingData.startDate || !bookingData.expectedEndDate) {
@@ -67,7 +87,7 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
     }
 
     if (!isDateRangeValid(bookingData.startDate, bookingData.expectedEndDate, bookedDates)) {
-      return 'Вибраний період перетинається з заброньованими датами';
+      return 'Вибраний період перетинається з уже заброньованими датами';
     }
 
     if (bookingData.startDate.isBefore(dayjs(), 'day')) {
@@ -85,7 +105,7 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
     }
 
     if (!carId || !bookingData.startDate || !bookingData.expectedEndDate) {
-      setError('Помилка: не вказано ID автомобіля або дати');
+      setError('Помилка: не вказано автомобіль або дати');
       return;
     }
 
@@ -94,7 +114,7 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
       const startDateStr = bookingData.startDate.format('YYYY-MM-DD');
       const expectedEndDateStr = bookingData.expectedEndDate.format('YYYY-MM-DD');
 
-      await createBooking.mutateAsync({
+      const rental = await createBooking.mutateAsync({
         carId: carId as number | string,
         startDate: startDateStr,
         expectedEndDate: expectedEndDateStr,
@@ -105,9 +125,9 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
       if (carId !== undefined) {
         void queryClient.invalidateQueries({ queryKey: ['rentals', 'landlord-contact', carId] });
       }
-      onSuccess?.();
+      onSuccess?.(rental);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Помилка бронювання');
+      setError(getErrorMessage(err, 'Помилка бронювання'));
       throw err;
     }
   }, [carId, bookingData, validateBooking, createBooking, resetBookingData, onSuccess, queryClient]);
@@ -131,4 +151,3 @@ export function useCarBooking(options: UseCarBookingOptions = {}) {
     isPending: createBooking.isPending,
   };
 }
-

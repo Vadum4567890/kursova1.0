@@ -26,6 +26,12 @@ export interface CarInfo {
  * Used to get car details, pricing, and update status (e.g. rented/available).
  */
 export class CarServiceClient {
+  private serviceApiKey(): string {
+    return process.env.NODE_ENV === 'production'
+      ? process.env.SERVICE_API_KEY || ''
+      : process.env.SERVICE_API_KEY || 'internal-service-key';
+  }
+
   private writeBaseUrl(): string {
     return (process.env.CAR_SERVICE_URL || 'http://localhost:3003').replace(/\/$/, '');
   }
@@ -83,7 +89,7 @@ export class CarServiceClient {
       const response = await axios.get(`${baseUrl}/api/cars/${encodeURIComponent(carId)}`, {
         timeout: 8000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey(),
         },
       });
 
@@ -115,7 +121,7 @@ export class CarServiceClient {
           {
             timeout: 12000,
             headers: {
-              'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+              'X-Service-Key': this.serviceApiKey(),
             },
           }
         );
@@ -187,7 +193,7 @@ export class CarServiceClient {
           {
             timeout: 5000,
             headers: {
-              'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+              'X-Service-Key': this.serviceApiKey(),
             },
           }
         );
@@ -206,7 +212,7 @@ export class CarServiceClient {
       {
         timeout: 5000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey(),
         },
       }
     );
@@ -225,7 +231,7 @@ export class CarServiceClient {
       {
         timeout: 5000,
         headers: {
-          'X-Service-Key': process.env.SERVICE_API_KEY || 'internal-service-key',
+          'X-Service-Key': this.serviceApiKey(),
         },
       }
     );

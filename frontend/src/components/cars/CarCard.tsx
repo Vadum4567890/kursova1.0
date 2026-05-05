@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardMedia, CardContent, Typography, Box, Button } from '@mui/material';
-import { Edit, Delete, BookOnline } from '@mui/icons-material';
+import { Card, CardMedia, CardContent, Typography, Box, Button, Chip } from '@mui/material';
+import { Edit, Delete, BookOnline, Speed, LocalGasStation, AirlineSeatReclineNormal, Settings } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Car } from '../../interfaces';
 import { getTypeLabel } from '../../utils/labels';
@@ -18,10 +18,48 @@ interface CarCardProps {
 
 const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
 
-const getImageUrl = (imageUrl?: string): string => {
-  if (!imageUrl) return DEFAULT_IMAGE;
-  if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) return imageUrl;
-  return `${window.location.protocol}//${window.location.hostname}:3000${imageUrl}`;
+const getImageUrl = (car: Car): string => {
+  // Спочатку перевіряємо imageUrls (масив)
+  if (car.imageUrls && Array.isArray(car.imageUrls) && car.imageUrls.length > 0) {
+    const firstImage = car.imageUrls[0];
+    if (firstImage.startsWith('http') || firstImage.startsWith('data:')) return firstImage;
+    return `${window.location.protocol}//${window.location.hostname}:3000${firstImage}`;
+  }
+
+  // Потім перевіряємо images (масив об'єктів)
+  if (car.images && Array.isArray(car.images) && car.images.length > 0) {
+    const primaryImage = car.images.find(img => img.isPrimary) || car.images[0];
+    const imageUrl = primaryImage.imageUrl;
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) return imageUrl;
+    return `${window.location.protocol}//${window.location.hostname}:3000${imageUrl}`;
+  }
+
+  // Нарешті перевіряємо imageUrl (одне фото)
+  if (car.imageUrl) {
+    if (car.imageUrl.startsWith('http') || car.imageUrl.startsWith('data:')) return car.imageUrl;
+    return `${window.location.protocol}//${window.location.hostname}:3000${car.imageUrl}`;
+  }
+
+  return DEFAULT_IMAGE;
+};
+
+const getTransmissionLabel = (transmission?: string) => {
+  const labels: Record<string, string> = {
+    manual: 'Механіка',
+    automatic: 'Автомат',
+    cvt: 'Варіатор',
+  };
+  return labels[transmission || ''] || transmission || 'Не вказано';
+};
+
+const getFuelTypeLabel = (fuelType?: string) => {
+  const labels: Record<string, string> = {
+    petrol: 'Бензин',
+    diesel: 'Дизель',
+    electric: 'Електро',
+    hybrid: 'Гібрид',
+  };
+  return labels[fuelType || ''] || fuelType || 'Не вказано';
 };
 
 export const CarCard: React.FC<CarCardProps> = ({
@@ -103,7 +141,7 @@ export const CarCard: React.FC<CarCardProps> = ({
         <CardMedia
           component="img"
           height="220"
-          image={getImageUrl(car.imageUrl)}
+          image={getImageUrl(car)}
           alt={`${car.brand} ${car.model}`}
           crossOrigin="anonymous"
           sx={{
@@ -143,6 +181,39 @@ export const CarCard: React.FC<CarCardProps> = ({
         >
           {car.year} рік • {getTypeLabel(car.type)}
         </Typography>
+
+        {/* Характеристики */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          <Chip
+            icon={<Settings />}
+            label={getTransmissionLabel(car.transmission)}
+            size="small"
+            variant="outlined"
+          />
+          <Chip
+            icon={<LocalGasStation />}
+            label={getFuelTypeLabel(car.fuelType)}
+            size="small"
+            variant="outlined"
+          />
+          {car.seats && (
+            <Chip
+              icon={<AirlineSeatReclineNormal />}
+              label={`${car.seats} місць`}
+              size="small"
+              variant="outlined"
+            />
+          )}
+          {car.mileage && car.mileage > 0 && (
+            <Chip
+              icon={<Speed />}
+              label={`${car.mileage.toLocaleString()} км`}
+              size="small"
+              variant="outlined"
+            />
+          )}
+        </Box>
+
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
           <StatusChip status={car.status} />
         </Box>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMyPenalties } from '../../hooks/queries/usePenalties';
-import { PageHeader, ErrorAlert, LoadingSpinner, PageContainer } from '../../components/common';
+import { PageHeader, PageAsyncSection, PageContainer } from '../../components/common';
 import { MyPenaltiesTable } from '../../components/user';
 
 const MyPenaltiesPage: React.FC = () => {
@@ -10,9 +10,9 @@ const MyPenaltiesPage: React.FC = () => {
     <PageContainer>
       <PageHeader title="Мої штрафи" />
 
-      {penaltiesError?.message && <ErrorAlert message={penaltiesError.message} />}
-
-      {loading ? <LoadingSpinner /> : <MyPenaltiesTable penalties={penalties} />}
+      <PageAsyncSection error={penaltiesError?.message} loading={loading}>
+        <MyPenaltiesTable penalties={penalties} />
+      </PageAsyncSection>
     </PageContainer>
   );
 };

@@ -113,7 +113,7 @@ export class UserController {
   listClients = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clients = await this.userService.listClients(String(req.query.q || ''));
-      res.json(clients);
+      res.json({ success: true, data: clients, count: clients.length });
     } catch (error) {
       next(error);
     }

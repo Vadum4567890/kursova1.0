@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { Typography, Box, Paper, Tabs, Tab } from '@mui/material';
 import { useSearch, useSearchOperations } from '../hooks';
 import {
@@ -14,7 +14,15 @@ const SearchPage: React.FC = () => {
   const searchOps = useSearchOperations();
 
   const handleSearchCars = () => {
-    searchOps.searchCars(search.carParams, search.setLoading, search.setError);
+    const merged = { ...search.carParams, page: 1 };
+    search.updateCarParams({ page: 1 });
+    searchOps.searchCars(merged, search.setLoading, search.setError);
+  };
+
+  const handleCarPageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
+    const merged = { ...search.carParams, page };
+    search.updateCarParams({ page });
+    searchOps.searchCars(merged, search.setLoading, search.setError);
   };
 
   const handleSearchCustomers = () => {
@@ -25,6 +33,13 @@ const SearchPage: React.FC = () => {
     searchOps.searchRentals(search.rentalParams, search.setLoading, search.setError);
   };
 
+  /** При відкритті вкладки «Клієнти» одразу завантажуємо повний список (порожній запит = усі записи). */
+  useLayoutEffect(() => {
+    if (tabValue !== 1) return;
+    searchOps.searchClients(search.clientQuery, search.setLoading, search.setError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- лише перемикання вкладки; пошук за кнопкою окремо
+  }, [tabValue]);
+
   return (
     <PageContainer>
       <Box sx={{ mb: 3 }}>
@@ -32,7 +47,7 @@ const SearchPage: React.FC = () => {
           Пошук
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Розширений пошук по автомобілях, орендарях та прокатах
+          Розширений пошук по автомобілях, клієнтах і прокатах
         </Typography>
       </Box>
 
@@ -41,7 +56,7 @@ const SearchPage: React.FC = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
           <Tab label="Автомобілі" />
-          <Tab label="Орендарі" />
+          <Tab label="Клієнти" />
           <Tab label="Прокати" />
         </Tabs>
       </Paper>
@@ -53,6 +68,10 @@ const SearchPage: React.FC = () => {
           onSearch={handleSearchCars}
           loading={search.loading}
           results={searchOps.carResults}
+          totalCount={searchOps.carPagination.total}
+          page={searchOps.carPagination.page}
+          totalPages={searchOps.carPagination.totalPages}
+          onPageChange={handleCarPageChange}
         />
       )}
 

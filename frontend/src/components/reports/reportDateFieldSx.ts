@@ -15,18 +15,32 @@ export const reportDateFieldOnGradientSx: SxProps<Theme> = {
   minWidth: { xs: '100%', sm: 180 },
   '& .MuiOutlinedInput-root': {
     color: '#0f172a',
+    bgcolor: 'rgba(255,255,255,0.98)',
+    '& fieldset': {
+      borderColor: 'rgba(15, 23, 42, 0.18)',
+    },
+    '&:hover fieldset': {
+      borderColor: 'rgba(15, 23, 42, 0.38)',
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: '#1d4ed8',
+      borderWidth: 2,
+    },
   },
   '& .MuiOutlinedInput-input': inputDark,
   '& input': inputDark,
   '& .MuiInputLabel-root': {
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: 'rgba(15, 23, 42, 0.72)',
   },
   '& .MuiInputLabel-root.Mui-focused': {
-    color: '#e0f2fe',
+    color: '#1d4ed8',
   },
   '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-    color: 'rgba(255, 255, 255, 0.95)',
-    textShadow: '0 1px 4px rgba(15,23,42,0.85)',
+    color: 'rgba(15, 23, 42, 0.82)',
+    textShadow: 'none',
+  },
+  '& .MuiSvgIcon-root': {
+    color: '#0f172a',
   },
 };
 

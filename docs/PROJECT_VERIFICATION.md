@@ -40,12 +40,6 @@ This command currently checks:
 - `services/reporting-service` build + test
 - `services/media-service` build + test
 
-Legacy services can still be verified separately with:
-
-```powershell
-npm run verify:legacy
-```
-
 Optional full workspace verification:
 
 ```powershell
@@ -84,14 +78,14 @@ Current service databases:
 - `car-service` -> `car_service_db`
 - `rental-service` -> `rental_service_db`
 - `reporting-service` -> `rental_service_db`
-- `client-service` -> `client_service_db` `(legacy / pending migration)`
+- legacy `client_service_db` → cut over into `user_service_db` via `npm run migrate:clients` when needed
 
 Current DB lifecycle status:
 
 - `database/init/*.sql` exists for initial database creation
 - services now expose a clearer path toward migration-based management
 - some services still rely on `DB_SYNCHRONIZE` defaults in development until full migrations are added
-- legacy client cutover is prepared via `npm --prefix services/user-service run migrate:clients`
+- legacy client cutover is prepared via `npm run migrate:clients` (repo root)
 
 ## Important Runtime Flags
 

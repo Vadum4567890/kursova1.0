@@ -58,6 +58,14 @@ export class SearchCarsDto {
 
   @IsOptional()
   @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @IsOptional()
+  @IsString()
   features?: string; // Comma-separated list
 
   @IsOptional()

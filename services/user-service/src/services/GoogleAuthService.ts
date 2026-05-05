@@ -20,10 +20,16 @@ export class GoogleAuthService {
 
   constructor() {
     this.googleClientId = process.env.GOOGLE_CLIENT_ID || '';
-    this.jwtSecret = process.env.JWT_SECRET || 'dev-user-service-secret';
+    this.jwtSecret =
+      process.env.NODE_ENV === 'production'
+        ? process.env.JWT_SECRET || ''
+        : process.env.JWT_SECRET || 'dev-user-service-secret';
 
     if (!this.googleClientId) {
       logger.warn('GOOGLE_CLIENT_ID not set, Google Auth will not work');
+    }
+    if (!this.jwtSecret) {
+      logger.warn('JWT_SECRET is not set, Google Auth JWT signing is disabled');
     }
   }
 

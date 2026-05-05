@@ -1,20 +1,12 @@
 import { useState, useCallback } from 'react';
 import { CarSearchParams, RentalSearchParams } from '../interfaces';
 
-/**
- * Hook for managing search state and operations
- */
 export function useSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Car search
-  const [carParams, setCarParams] = useState<CarSearchParams>({});
-
-  // Client search
+  const [carParams, setCarParams] = useState<CarSearchParams>({ page: 1, limit: 12 });
   const [clientQuery, setClientQuery] = useState('');
-
-  // Rental search
   const [rentalParams, setRentalParams] = useState<RentalSearchParams>({});
 
   const updateCarParams = useCallback((updates: Partial<CarSearchParams>) => {

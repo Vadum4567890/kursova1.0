@@ -22,3 +22,47 @@ export async function fetchCarBrandModel(carId: string): Promise<{ brand: string
     return null;
   }
 }
+
+export interface ReportingCarSnapshot {
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+  category: string;
+  status: string;
+  dailyRate: number;
+}
+
+export async function fetchCarsCatalog(limit: number = 1000): Promise<ReportingCarSnapshot[]> {
+  const base = process.env.CAR_SERVICE_URL || 'http://localhost:3003';
+  try {
+    const body = await fetchJson<{
+      data?: Array<{
+        id: string;
+        make?: string;
+        brand?: string;
+        model?: string;
+        year?: number;
+        category?: string;
+        status?: string;
+        pricing?: {
+          dailyRate?: number;
+        } | null;
+      }>;
+    }>(`${base}/api/cars?limit=${limit}`, {
+      headers: internalHeaders(),
+    });
+
+    return (body?.data || []).map((car) => ({
+      id: String(car.id),
+      brand: String(car.make ?? car.brand ?? '').trim() || 'Авто',
+      model: String(car.model ?? '').trim() || String(car.id).slice(0, 8),
+      year: Number(car.year || 0),
+      category: String(car.category ?? '').trim() || 'unknown',
+      status: String(car.status ?? '').trim() || 'active',
+      dailyRate: Number(car.pricing?.dailyRate || 0),
+    }));
+  } catch {
+    return [];
+  }
+}

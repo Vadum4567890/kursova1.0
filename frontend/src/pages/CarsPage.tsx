@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Grid, Alert } from '@mui/material';
+import { Grid, Alert, Box, Pagination, Typography } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { Dayjs } from 'dayjs';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,13 @@ import { useCarManagement, useCarFilters } from '../hooks';
 import { useFormDialog } from '../hooks/useFormDialog';
 import { useDeleteConfirm } from '../hooks/useDeleteConfirm';
 import { useBooking } from '../hooks/useBooking';
-import { ErrorAlert, LoadingSpinner, PageHeader, ConfirmDialog, PageContainer } from '../components/common';
+import {
+  PageAsyncSection,
+  PageHeader,
+  ConfirmDialog,
+  PageContainer,
+  SuccessSnackbar,
+} from '../components/common';
 import { CarCard, CarFiltersBar, CarFormDialog } from '../components/cars';
 import BookingDialog from '../components/car/BookingDialog';
 import { parseImageUrls, getInitialCarFormData } from '../utils/carHelpers';
@@ -19,13 +25,28 @@ const CarsPage: React.FC = () => {
   const { user } = useAuth();
 
   // Filters and search
-  const carFilters = useCarFilters();
-  const { filters, searchTerm, setFilters, setSearchTerm, filterCars } = carFilters;
+  const carFilters = useCarFilters({ initialFilters: { page: 1, limit: 12 } });
+  const { filters, searchTerm, setFilters, setSearchTerm } = carFilters;
 
   // React Query hooks
-  const { data: carsResponse, isLoading: loading, error: carsError } = useCars(filters);
+  const serverFilters = useMemo(
+    () => ({
+      ...filters,
+      brand: searchTerm.trim() || undefined,
+    }),
+    [filters, searchTerm]
+  );
+  const { data: carsResponse, isLoading: loading, error: carsError } = useCars(serverFilters);
   const cars = carsResponse?.data || [];
+  const totalCars = carsResponse?.total ?? cars.length;
+  const currentPage = carsResponse?.page ?? filters.page ?? 1;
+  const totalPages = carsResponse?.totalPages ?? 1;
   const createBooking = useCreateBooking();
+  const [bookingSuccess, setBookingSuccess] = useState({
+    open: false,
+    title: '',
+    message: '',
+  });
 
   // Car management
   const carManagement = useCarManagement({
@@ -64,10 +85,23 @@ const CarsPage: React.FC = () => {
   const booking = useBooking({
     bookedDates: effectiveBookedDates,
     onCreateBooking: async (data) => {
-      await createBooking.mutateAsync(data);
+      return createBooking.mutateAsync(data);
     },
-    onSuccess: () => {
+    onSuccess: (rental) => {
       booking.closeBooking();
+      setBookingSuccess({
+        open: true,
+        title:
+          rental.ownerApprovalStatus === 'approved'
+            ? 'Бронювання підтверджено'
+            : 'Заявку надіслано',
+        message:
+          rental.ownerApprovalStatus === 'approved'
+            ? rental.status === 'active'
+              ? 'Оренда вже активна. Авто закріплено за вами.'
+              : 'Авто зарезервовано на ваші дати. До старту оренди статус буде очікувальним.'
+            : 'Орендодавець отримає ваш запит і підтвердить його у своєму кабінеті.',
+      });
     },
   });
 
@@ -85,9 +119,6 @@ const CarsPage: React.FC = () => {
     if (!booking.carId) return null;
     return cars.find((c: Car) => c.id === booking.carId) || null;
   }, [booking.carId, cars]);
-
-  // Filtered cars
-  const filteredCars = useMemo(() => filterCars(cars), [cars, filterCars]);
 
   // Role checks
   const isStaff = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'employee';
@@ -182,8 +213,33 @@ const CarsPage: React.FC = () => {
       ?.message ||
     (carsError as Error)?.message;
 
-  const emptyCatalog = !loading && cars.length === 0;
-  const emptyAfterFilters = !loading && cars.length > 0 && filteredCars.length === 0;
+  const hasActiveFilters = Boolean(searchTerm.trim() || filters.type || filters.status);
+  const emptyCatalog = !loading && totalCars === 0 && !hasActiveFilters;
+  const emptyAfterFilters = !loading && totalCars === 0 && hasActiveFilters;
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setFilters((prev) => ({
+      ...prev,
+      page: 1,
+    }));
+  };
+
+  const handleFiltersChange = (nextFilters: typeof filters) => {
+    setFilters({
+      ...nextFilters,
+      page: 1,
+      limit: nextFilters.limit ?? filters.limit ?? 12,
+    });
+  };
+
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
+    setFilters((prev) => ({
+      ...prev,
+      page,
+      limit: prev.limit ?? 12,
+    }));
+  };
 
   return (
     <PageContainer>
@@ -203,37 +259,64 @@ const CarsPage: React.FC = () => {
       <CarFiltersBar
         filters={filters}
         searchTerm={searchTerm}
-        onFiltersChange={setFilters}
-        onSearchChange={setSearchTerm}
+        onFiltersChange={handleFiltersChange}
+        onSearchChange={handleSearchChange}
       />
 
-      {displayError && <ErrorAlert message={displayError} onClose={() => carManagement.clearError()} />}
+      <PageAsyncSection
+        error={displayError}
+        onCloseError={() => carManagement.clearError()}
+        loading={loading}
+      >
+        {emptyCatalog ? (
+          <Alert severity="info">
+            Немає автомобілів у каталозі. Якщо ви адміністратор або менеджер — додайте перше авто кнопкою «Додати
+            автомобіль».
+          </Alert>
+        ) : emptyAfterFilters ? (
+          <Alert severity="info">За обраними фільтрами нічого не знайдено. Спробуйте змінити умови пошуку.</Alert>
+        ) : (
+          <Grid container spacing={3}>
+            {cars.map((car: Car) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
+                <CarCard
+                  car={car}
+                  isUser={isUser}
+                  isStaff={isStaff}
+                  isAdmin={isAdmin}
+                  onEdit={handleOpenDialog}
+                  onDelete={deleteConfirm.handleDeleteClick}
+                  onBook={handleBookClick}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </PageAsyncSection>
 
-      {loading ? (
-        <LoadingSpinner />
-      ) : emptyCatalog ? (
-        <Alert severity="info">
-          Немає автомобілів у каталозі. Якщо ви адміністратор або менеджер — додайте перше авто кнопкою «Додати
-          автомобіль».
-        </Alert>
-      ) : emptyAfterFilters ? (
-        <Alert severity="info">За обраними фільтрами нічого не знайдено. Спробуйте змінити умови пошуку.</Alert>
-      ) : (
-        <Grid container spacing={3}>
-          {filteredCars.map((car: Car) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={car.id}>
-              <CarCard
-                car={car}
-                isUser={isUser}
-                isStaff={isStaff}
-                isAdmin={isAdmin}
-                onEdit={handleOpenDialog}
-                onDelete={deleteConfirm.handleDeleteClick}
-                onBook={handleBookClick}
-              />
-            </Grid>
-          ))}
-        </Grid>
+      {!loading && totalPages > 1 && (
+        <Box
+          sx={{
+            mt: 4,
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Показано {cars.length} з {totalCars} авто
+          </Typography>
+          <Pagination
+            page={currentPage}
+            count={totalPages}
+            color="primary"
+            onChange={handlePageChange}
+            showFirstButton
+            showLastButton
+          />
+        </Box>
       )}
 
       <CarFormDialog
@@ -273,6 +356,14 @@ const CarsPage: React.FC = () => {
         onCancel={deleteConfirm.closeDeleteDialog}
         confirmText="Видалити"
         confirmColor="error"
+      />
+
+      <SuccessSnackbar
+        open={bookingSuccess.open}
+        title={bookingSuccess.title}
+        message={bookingSuccess.message}
+        onClose={() => setBookingSuccess((prev) => ({ ...prev, open: false }))}
+        autoHideDuration={3200}
       />
     </PageContainer>
   );

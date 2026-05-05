@@ -39,53 +39,103 @@ export class CarRepository {
     status?: CarStatus;
     transmission?: TransmissionType;
     fuelType?: FuelType;
+    searchQuery?: string;
+    brand?: string;
+    model?: string;
     minPrice?: number;
     maxPrice?: number;
     limit?: number;
     offset?: number;
-  }): Promise<Car[]> {
-    const queryBuilder = this.repository
+  }): Promise<{ items: Car[]; total: number }> {
+    const baseQuery = this.repository
+      .createQueryBuilder('car')
+      .leftJoin('car.pricing', 'pricing')
+      .where('car.status != :deleted', { deleted: CarStatus.DELETED });
+
+    if (options?.category) {
+      baseQuery.andWhere('car.category = :category', { category: options.category });
+    }
+
+    if (options?.status) {
+      baseQuery.andWhere('car.status = :status', { status: options.status });
+    }
+
+    if (options?.transmission) {
+      baseQuery.andWhere('car.transmission = :transmission', { transmission: options.transmission });
+    }
+
+    if (options?.fuelType) {
+      baseQuery.andWhere('car.fuelType = :fuelType', { fuelType: options.fuelType });
+    }
+
+    const search = options?.searchQuery?.trim();
+    if (search) {
+      baseQuery.andWhere('(LOWER(car.make) LIKE LOWER(:search) OR LOWER(car.model) LIKE LOWER(:search))', {
+        search: `%${search}%`,
+      });
+    }
+
+    const brand = options?.brand?.trim();
+    if (brand) {
+      baseQuery.andWhere('LOWER(car.make) LIKE LOWER(:brand)', {
+        brand: `%${brand}%`,
+      });
+    }
+
+    const model = options?.model?.trim();
+    if (model) {
+      baseQuery.andWhere('LOWER(car.model) LIKE LOWER(:model)', {
+        model: `%${model}%`,
+      });
+    }
+
+    if (options?.minPrice) {
+      baseQuery.andWhere('pricing.dailyRate >= :minPrice', { minPrice: options.minPrice });
+    }
+
+    if (options?.maxPrice) {
+      baseQuery.andWhere('pricing.dailyRate <= :maxPrice', { maxPrice: options.maxPrice });
+    }
+
+    const totalResult = await baseQuery
+      .clone()
+      .select('COUNT(DISTINCT car.id)', 'total')
+      .getRawOne<{ total: string }>();
+    const total = Number(totalResult?.total ?? 0);
+
+    const idQuery = baseQuery
+      .clone()
+      .select(['car.id AS id', 'car.created_at AS "createdAt"'])
+      .distinct(true)
+      .orderBy('car.created_at', 'DESC');
+
+    if (options?.limit != null) {
+      idQuery.limit(options.limit);
+    }
+
+    if (options?.offset != null) {
+      idQuery.offset(options.offset);
+    }
+
+    const rows = await idQuery.getRawMany<{ id: string; createdAt: string }>();
+    const ids = rows.map((row) => row.id);
+    if (ids.length === 0) {
+      return { items: [], total };
+    }
+
+    const items = await this.repository
       .createQueryBuilder('car')
       .leftJoinAndSelect('car.pricing', 'pricing')
       .leftJoinAndSelect('car.features', 'features')
       .leftJoinAndSelect('car.images', 'images')
-      .where('car.status != :deleted', { deleted: CarStatus.DELETED });
+      .where('car.id IN (:...ids)', { ids })
+      .orderBy('car.createdAt', 'DESC')
+      .getMany();
 
-    if (options?.category) {
-      queryBuilder.andWhere('car.category = :category', { category: options.category });
-    }
+    const orderMap = new Map(ids.map((id, index) => [id, index]));
+    items.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
 
-    if (options?.status) {
-      queryBuilder.andWhere('car.status = :status', { status: options.status });
-    }
-
-    if (options?.transmission) {
-      queryBuilder.andWhere('car.transmission = :transmission', { transmission: options.transmission });
-    }
-
-    if (options?.fuelType) {
-      queryBuilder.andWhere('car.fuelType = :fuelType', { fuelType: options.fuelType });
-    }
-
-    if (options?.minPrice) {
-      queryBuilder.andWhere('pricing.dailyRate >= :minPrice', { minPrice: options.minPrice });
-    }
-
-    if (options?.maxPrice) {
-      queryBuilder.andWhere('pricing.dailyRate <= :maxPrice', { maxPrice: options.maxPrice });
-    }
-
-    if (options?.limit) {
-      queryBuilder.limit(options.limit);
-    }
-
-    if (options?.offset) {
-      queryBuilder.offset(options.offset);
-    }
-
-    queryBuilder.orderBy('car.createdAt', 'DESC');
-
-    return await queryBuilder.getMany();
+    return { items, total };
   }
 
   async update(id: string, carData: Partial<Car>): Promise<Car> {
@@ -134,4 +184,3 @@ export class CarRepository {
       .getMany();
   }
 }
-

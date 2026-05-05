@@ -70,6 +70,22 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
 }) => {
   const startDate = dateRange.startDate || undefined;
   const endDate = dateRange.endDate || undefined;
+  const lightActionButtonSx = {
+    minWidth: 120,
+    color: '#0f172a',
+    borderColor: 'rgba(255,255,255,0.92)',
+    bgcolor: 'rgba(255,255,255,0.92)',
+    fontWeight: 700,
+    '&:hover': {
+      borderColor: '#ffffff',
+      bgcolor: '#ffffff',
+    },
+    '&.Mui-disabled': {
+      color: 'rgba(15,23,42,0.45)',
+      borderColor: 'rgba(255,255,255,0.32)',
+      bgcolor: 'rgba(255,255,255,0.28)',
+    },
+  } as const;
 
   return (
     <Box>
@@ -77,24 +93,63 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
         sx={{
           p: 3,
           mb: 3,
+          position: 'relative',
+          overflow: 'hidden',
           background:
             'linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(30,64,175,0.95) 50%, rgba(8,145,178,0.9) 100%)',
           color: 'common.white',
           borderRadius: 3,
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(90deg, rgba(2,6,23,0.82) 0%, rgba(15,23,42,0.62) 28%, rgba(15,23,42,0.28) 56%, rgba(15,23,42,0.04) 78%, rgba(15,23,42,0) 100%)',
+            pointerEvents: 'none',
+          },
         }}
       >
-        <Typography variant="overline" sx={{ opacity: 0.85 }}>
+        <Typography
+          variant="overline"
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            opacity: 0.92,
+            letterSpacing: 0.8,
+            textShadow: '0 2px 10px rgba(2,6,23,0.45)',
+          }}
+        >
           Car Rental Platform
         </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+        <Typography
+          variant="h5"
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            fontWeight: 800,
+            mb: 1,
+            maxWidth: 720,
+            textShadow: '0 3px 18px rgba(2,6,23,0.55)',
+          }}
+        >
           Branded Financial Reporting
         </Typography>
-        <Typography variant="body2" sx={{ opacity: 0.9, mb: 3, maxWidth: 680 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            color: 'rgba(255,255,255,0.96)',
+            mb: 3,
+            maxWidth: 680,
+            textShadow: '0 2px 12px rgba(2,6,23,0.45)',
+          }}
+        >
           Формуй фінансовий звіт, переглядай ключові показники і одразу експортуй документ у Excel
-          або PDF для керівництва, захисту чи демо.
+          або PDF
         </Typography>
 
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2, position: 'relative', zIndex: 1 }}>
           <TextField
             label="Дата початку"
             type="date"
@@ -116,7 +171,13 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
             onClick={onGenerate}
             disabled={loading || !startDate || !endDate}
             startIcon={loading ? <CircularProgress size={20} /> : <Description />}
-            sx={{ minWidth: 190, bgcolor: '#f8fafc', color: '#0f172a', '&:hover': { bgcolor: '#e2e8f0' } }}
+            sx={{
+              minWidth: 190,
+              bgcolor: '#f8fafc',
+              color: '#0f172a',
+              fontWeight: 700,
+              '&:hover': { bgcolor: '#ffffff' },
+            }}
           >
             Згенерувати звіт
           </Button>
@@ -125,7 +186,7 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
             onClick={onDownloadExcel}
             disabled={!report || loading}
             startIcon={<Download />}
-            sx={{ minWidth: 120, color: 'common.white', borderColor: 'rgba(255,255,255,0.45)' }}
+            sx={lightActionButtonSx}
           >
             Excel
           </Button>
@@ -134,7 +195,7 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
             onClick={onDownloadPdf}
             disabled={!report || loading}
             startIcon={<Download />}
-            sx={{ minWidth: 120, color: 'common.white', borderColor: 'rgba(255,255,255,0.45)' }}
+            sx={lightActionButtonSx}
           >
             PDF
           </Button>

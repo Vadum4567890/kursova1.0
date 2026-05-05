@@ -13,9 +13,9 @@
 | `CAR_SERVICE_URL` | `http://localhost:3003` | car-service |
 | `RENTAL_SERVICE_URL` | `http://localhost:3004` | rental-service |
 | `REPORTING_SERVICE_URL` | `http://localhost:3009` | reporting-service (штрафи, звіти, аналітика) |
-| `SEARCH_SERVICE_URL` | `http://localhost:3005` | search-service (агрегований пошук) |
 | `MEDIA_SERVICE_URL` | `http://localhost:3006` | media-service (завантаження зображень) |
-| `CLIENT_SERVICE_URL` | `http://localhost:3007` | client-service (клієнти пункту прокату) |
+
+Окремих змінних **`SEARCH_SERVICE_URL`** та **`CLIENT_SERVICE_URL`** немає: агрегований пошук (`/api/search/*`) і клієнтська сумісність реалізовані **в самому gateway** та через **`user-service`**.
 
 У Docker імена хостів збігаються з назвами сервісів у `docker-compose.yml`.
 
@@ -26,9 +26,9 @@
 - **`/api/cars/*`** → car-service.
 - **`/api/rentals/*`** → rental-service; окремо **`/api/rentals/my`** проксується як **`/api/rentals/me`** у rental-service.
 - **`/api/analytics/*`**, **`/api/reports/*`**, **`/api/penalties/*`** → reporting-service (БД `rental_service_db`).
-- **`/api/search/*`** → search-service (викликає car / rental / client за потреби).
+- **`/api/search/*`** — реалізовано в gateway: звертається до car / user / rental сервісів за потреби (окремий search-service не використовується).
 - **`/api/upload/*`** → media-service (локальне сховище файлів; у Docker — volume).
-- **`/api/clients/*`** → client-service (БД `client_service_db`).
+- **`/api/clients/*`** → проксі на **`user-service`** (`/api/users/clients` тощо); окремий client-service не використовується.
 
 ## Запуск
 
@@ -38,6 +38,6 @@ npm install
 npm run dev
 ```
 
-`npm run dev` лише проксує на microservices (`localhost:3002`…`3009`); відповідні сервіси мають бути запущені (наприклад `docker compose up -d` з кореня репозиторію).
+`npm run dev` лише проксує на microservices (`localhost:3002`…`3009` згідно з таблицею вище); відповідні сервіси мають бути запущені (наприклад `docker compose up -d` з кореня репозиторію).
 
 Повна збірка через Docker: з кореня репозиторію `docker compose up --build` (див. кореневий `docker-compose.yml`).

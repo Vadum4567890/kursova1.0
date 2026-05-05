@@ -110,7 +110,7 @@ function mapCarFormToUpdateBody(form: Partial<Car>): Record<string, unknown> {
   };
 }
 
-function mapCarFromService(dto: CarServiceDto): Car {
+export function mapCarFromService(dto: CarServiceDto): Car {
   if (!dto) {
     return {
       id: 0,
@@ -170,6 +170,25 @@ function mapCarFromService(dto: CarServiceDto): Car {
   };
 }
 
+function buildImageSyncPayload(data: Partial<Car>) {
+  const mainImageUrl = String(data.imageUrl || '').trim();
+  const additionalUrls = (data.imageUrls || [])
+    .map((url) => String(url || '').trim())
+    .filter(Boolean)
+    .filter((url, index, arr) => arr.indexOf(url) === index && url !== mainImageUrl);
+
+  const images = [
+    ...(mainImageUrl ? [{ imageUrl: mainImageUrl, isPrimary: true, displayOrder: 0 }] : []),
+    ...additionalUrls.map((imageUrl, index) => ({
+      imageUrl,
+      isPrimary: false,
+      displayOrder: index + 1,
+    })),
+  ];
+
+  return { images };
+}
+
 export const carService = {
   async getAllCars(filters?: CarFilters): Promise<PaginatedResponse<Car>> {
     try {
@@ -179,7 +198,7 @@ export const carService = {
       if ('success' in data && Array.isArray(data.data)) {
         return {
           data: data.data.map(mapCarFromService),
-          total: data.count ?? data.data.length,
+          total: data.total ?? data.count ?? data.data.length,
           page: data.page ?? 1,
           limit: data.limit ?? data.data.length,
           totalPages: data.totalPages ?? 1,
@@ -200,7 +219,7 @@ export const carService = {
       if ('success' in data && Array.isArray(data.data)) {
         return {
           data: data.data.map(mapCarFromService),
-          total: data.count ?? data.data.length,
+          total: data.total ?? data.count ?? data.data.length,
           page: data.page ?? 1,
           limit: data.limit ?? data.data.length,
           totalPages: data.totalPages ?? 1,
@@ -239,7 +258,7 @@ export const carService = {
       if ('success' in data && Array.isArray(data.data)) {
         return {
           data: data.data.map(mapCarFromService),
-          total: data.count ?? data.data.length,
+          total: data.total ?? data.count ?? data.data.length,
           page: data.page ?? 1,
           limit: data.limit ?? data.data.length,
           totalPages: data.totalPages ?? 1,
@@ -258,18 +277,9 @@ export const carService = {
     const dto = 'success' in resData ? resData.data : resData;
     const car = mapCarFromService(dto);
 
-    // Save images after creation (main first, then additional)
-    const imageList: Array<{ url: string; isPrimary: boolean; order: number }> = [];
-    if (data.imageUrl) imageList.push({ url: data.imageUrl, isPrimary: true, order: 0 });
-    (data.imageUrls ?? []).forEach((url, i) => {
-      if (url) imageList.push({ url, isPrimary: !data.imageUrl && i === 0, order: i + 1 });
-    });
-    if (imageList.length > 0) {
-      await Promise.all(
-        imageList.map((img) =>
-          api.post(`/cars/${car.id}/images`, { imageUrl: img.url, isPrimary: img.isPrimary, displayOrder: img.order }).catch(() => {})
-        )
-      );
+    const syncPayload = buildImageSyncPayload(data);
+    if (syncPayload.images.length > 0) {
+      await api.put(`/cars/${car.id}/images`, syncPayload).catch(() => {});
       return this.getCarById(car.id);
     }
     return car;
@@ -286,19 +296,7 @@ export const carService = {
       depositRequired: Number(data.deposit ?? depositAmount ?? 0) > 0,
       currency: 'UAH',
     });
-    // Save new images if provided
-    const imageList: Array<{ url: string; isPrimary: boolean; order: number }> = [];
-    if (data.imageUrl) imageList.push({ url: data.imageUrl, isPrimary: true, order: 0 });
-    (data.imageUrls ?? []).forEach((url, i) => {
-      if (url) imageList.push({ url, isPrimary: !data.imageUrl && i === 0, order: i + 1 });
-    });
-    if (imageList.length > 0) {
-      await Promise.all(
-        imageList.map((img) =>
-          api.post(`/cars/${id}/images`, { imageUrl: img.url, isPrimary: img.isPrimary, displayOrder: img.order }).catch(() => {})
-        )
-      );
-    }
+    await api.put(`/cars/${id}/images`, buildImageSyncPayload(data));
     return this.getCarById(id);
   },
 
@@ -353,4 +351,3 @@ export const carService = {
     }
   },
 };
-

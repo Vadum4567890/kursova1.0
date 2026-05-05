@@ -15,6 +15,8 @@ export interface ClientRecord {
   address: string;
   phone: string;
   email: string | null;
+  /** Для каталогу пошуку: орендар / орендодавець / обидві ролі */
+  role: 'renter' | 'owner' | 'both';
   registrationDate: string;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +55,19 @@ export class UserService {
     return role === UserRole.RENTER || role === UserRole.BOTH;
   }
 
+  /** У списку «клієнти» / пошук: орендарі та орендодавці (без адміністраторів) */
+  private isMarketplaceCustomerRole(role?: UserRole): boolean {
+    return (
+      role === UserRole.RENTER || role === UserRole.OWNER || role === UserRole.BOTH
+    );
+  }
+
+  private mapUserRoleToClientRecordRole(role?: UserRole): ClientRecord['role'] {
+    if (role === UserRole.OWNER) return 'owner';
+    if (role === UserRole.BOTH) return 'both';
+    return 'renter';
+  }
+
   private splitFullName(fullName?: string): { firstName: string | null; lastName: string | null } {
     const normalized = String(fullName || '').trim().replace(/\s+/g, ' ');
     if (!normalized) {
@@ -77,6 +92,7 @@ export class UserService {
       address: user.profile?.address || '',
       phone: user.phone || '',
       email: user.email || null,
+      role: this.mapUserRoleToClientRecordRole(user.role),
       registrationDate: user.createdAt?.toISOString() || new Date().toISOString(),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -98,18 +114,37 @@ export class UserService {
       const users = await this.userRepository.findAll();
       const normalizedQuery = String(searchQuery || '').trim().toLowerCase();
       const clients = users
-        .filter((user) => this.isClientRole(user.role))
+        .filter((user) => this.isMarketplaceCustomerRole(user.role))
         .map((user) => this.toClientRecord(user));
 
       if (!normalizedQuery) {
         return clients;
       }
 
-      return clients.filter((client) =>
-        [client.fullName, client.phone, client.email || '', client.address].some((value) =>
-          value.toLowerCase().includes(normalizedQuery)
-        )
-      );
+      const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+
+      return clients.filter((client) => {
+        const fields = [
+          String(client.id ?? ''),
+          client.fullName ?? '',
+          client.phone ?? '',
+          client.email ?? '',
+          client.address ?? '',
+        ].map((v) => String(v).toLowerCase());
+
+        const phoneDigits = String(client.phone ?? '').replace(/\D/g, '');
+
+        return tokens.every((token) => {
+          if (fields.some((f) => f.includes(token))) {
+            return true;
+          }
+          const td = token.replace(/\D/g, '');
+          if (td.length >= 2 && phoneDigits.includes(td)) {
+            return true;
+          }
+          return false;
+        });
+      });
     } catch (error) {
       logger.error('Error listing clients:', error);
       throw error;
@@ -119,7 +154,7 @@ export class UserService {
   async getClientById(userId: string): Promise<ClientRecord | null> {
     try {
       const user = await this.userRepository.findById(userId);
-      if (!user || !this.isClientRole(user.role)) {
+      if (!user || !this.isMarketplaceCustomerRole(user.role)) {
         return null;
       }
       return this.toClientRecord(user);
@@ -132,7 +167,7 @@ export class UserService {
   async getClientByPhone(phone: string): Promise<ClientRecord | null> {
     try {
       const user = await this.userRepository.findByPhone(phone);
-      if (!user || !this.isClientRole(user.role)) {
+      if (!user || !this.isMarketplaceCustomerRole(user.role)) {
         return null;
       }
       return this.toClientRecord(user);

@@ -14,9 +14,12 @@ export const errorHandler = (
 ) => {
   const statusCode = err.statusCode || 500;
   const status = err.status || 'error';
+  const rawMessage = err.message || 'Internal server error';
+  const isProd = process.env.NODE_ENV === 'production';
+  const message = isProd && statusCode >= 500 ? 'Internal server error' : rawMessage;
 
   logger.error({
-    message: err.message,
+    message: rawMessage,
     stack: err.stack,
     path: req.path,
     method: req.method,
@@ -25,7 +28,7 @@ export const errorHandler = (
 
   res.status(statusCode).json({
     status,
-    message: err.message || 'Internal server error',
+    message,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 };

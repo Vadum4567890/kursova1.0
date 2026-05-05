@@ -11,10 +11,18 @@ import { DashboardStats } from '../interfaces';
 export function useDashboardData(userRole?: string) {
   const isAdminOrManager = userRole === 'admin' || userRole === 'manager';
 
-  // React Query hooks for admin/manager
-  const { data: dashboardStats, isLoading: loadingStats, error: statsError } = useDashboardStats();
-  const { data: popularCars = [], isLoading: loadingPopular, error: popularError } = usePopularCars(5);
-  const { data: revenueStats, isLoading: loadingRevenue, error: revenueError } = useRevenueStats();
+  // React Query hooks for admin/manager (не викликати analytics API для employee — 403 після захисту reporting)
+  const { data: dashboardStats, isLoading: loadingStats, error: statsError } =
+    useDashboardStats(isAdminOrManager);
+  const { data: popularCars = [], isLoading: loadingPopular, error: popularError } = usePopularCars(
+    5,
+    isAdminOrManager
+  );
+  const { data: revenueStats, isLoading: loadingRevenue, error: revenueError } = useRevenueStats(
+    undefined,
+    undefined,
+    isAdminOrManager
+  );
 
   // React Query hooks for employees
   const { data: carsResponse, isLoading: loadingCars } = useCars();

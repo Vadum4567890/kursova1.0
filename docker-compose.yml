@@ -3,9 +3,9 @@ services:
     image: postgres:15-alpine
     container_name: car-rental-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: user_service_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-user_service_db}
     ports:
       - "5432:5432"
     volumes:
@@ -26,19 +26,20 @@ services:
     container_name: car-rental-api-gateway
     environment:
       PORT: 3000
-      NODE_ENV: development
-      ENABLE_DEV_AUTH: "true"
+      NODE_ENV: ${NODE_ENV:-production}
+      ENABLE_DEV_AUTH: ${ENABLE_DEV_AUTH:-false}
       DATA_DIR: /app/data
-      CORS_ORIGIN: http://localhost:3001
-      JWT_SECRET: dev-gateway-secret-change-me
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
-      SERVICE_API_KEY: internal-service-key
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
       USER_SERVICE_URL: http://user-service:3002
       CAR_SERVICE_URL: http://car-service:3003
       RENTAL_SERVICE_URL: http://rental-service:3004
       REPORTING_SERVICE_URL: http://reporting-service:3009
       MEDIA_SERVICE_URL: http://media-service:3006
+      PROXY_TIMEOUT_MS: "60000"
     ports:
       - "3000:3000"
     volumes:
@@ -64,19 +65,21 @@ services:
     container_name: car-rental-user-service
     environment:
       PORT: 3002
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: 1234
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_DATABASE: user_service_db
-      JWT_SECRET: dev-user-service-secret
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
       JWT_EXPIRES_IN: 24h
-      SERVICE_API_KEY: internal-service-key
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
     ports:
       - "3002:3002"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - car-rental-network
     healthcheck:
@@ -92,21 +95,23 @@ services:
     container_name: car-rental-car-service
     environment:
       PORT: 3003
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: 1234
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_DATABASE: car_service_db
       USER_SERVICE_URL: http://user-service:3002
-      SERVICE_API_KEY: internal-service-key
-      JWT_SECRET: dev-user-service-secret
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
       JWT_EXPIRES_IN: 24h
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       KAFKA_BROKERS: ""
     ports:
       - "3003:3003"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - car-rental-network
     healthcheck:
@@ -122,23 +127,25 @@ services:
     container_name: car-rental-rental-service
     environment:
       PORT: 3004
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: 1234
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_DATABASE: rental_service_db
       CAR_SERVICE_URL: http://car-service:3003
       USER_SERVICE_URL: http://user-service:3002
       GATEWAY_URL: http://api-gateway:3000
-      SERVICE_API_KEY: internal-service-key
-      JWT_SECRET: dev-gateway-secret-change-me
-      ALLOW_INSECURE_JWT_DECODE: "true"
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ALLOW_INSECURE_JWT_DECODE: ${ALLOW_INSECURE_JWT_DECODE:-false}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       KAFKA_BROKERS: ""
     ports:
       - "3004:3004"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - car-rental-network
     healthcheck:
@@ -154,20 +161,23 @@ services:
     container_name: car-rental-reporting-service
     environment:
       PORT: 3009
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: 1234
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_DATABASE: rental_service_db
       USER_SERVICE_URL: http://user-service:3002
       CAR_SERVICE_URL: http://car-service:3003
-      SERVICE_API_KEY: internal-service-key
-      JWT_SECRET: dev-gateway-secret-change-me
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_VERIFY_SECRETS: ${JWT_VERIFY_SECRETS:-${JWT_SECRET},${USER_SERVICE_JWT_SECRET}}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
     ports:
       - "3009:3009"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - car-rental-network
     healthcheck:
@@ -183,9 +193,12 @@ services:
     container_name: car-rental-media-service
     environment:
       PORT: 3006
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
       UPLOAD_DIR: /app/data/uploads
-      PUBLIC_BASE_URL: http://localhost:3000
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      JWT_VERIFY_SECRETS: ${JWT_VERIFY_SECRETS:-${JWT_SECRET},${USER_SERVICE_JWT_SECRET}}
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
     ports:
       - "3006:3006"
     volumes:

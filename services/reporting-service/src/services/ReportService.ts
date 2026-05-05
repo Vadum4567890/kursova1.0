@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Rental, RentalStatus } from '../entities/Rental.entity';
 import { AppDataSource } from '../database/data-source';
 import { fetchUserDisplayName } from '../clients/userServiceClient';
+import { fetchCarBrandModel, fetchCarsCatalog, ReportingCarSnapshot } from '../clients/carServiceClient';
 
 export type ReportExportFormat = 'xlsx' | 'pdf';
 
@@ -65,6 +66,11 @@ export interface ExportResult {
   fileName: string;
 }
 
+interface CarAvailabilityState {
+  status: 'available' | 'rented' | 'maintenance';
+  nextAvailableDate?: string;
+}
+
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -78,6 +84,21 @@ function toPeriodKey(date: Date): string {
 
 function toNumber(value: unknown): number {
   return Number(value || 0);
+}
+
+function calculateCalendarDays(startDate: Date, endDate: Date): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
+  const diff = end.getTime() - start.getTime();
+  return Math.max(1, Math.floor(diff / (1000 * 60 * 60 * 24)) + 1);
+}
+
+function clampDateRange(startDate: Date, endDate: Date, rangeStart: Date, rangeEnd: Date): [Date, Date] | null {
+  const start = startDate > rangeStart ? startDate : rangeStart;
+  const end = endDate < rangeEnd ? endDate : rangeEnd;
+  return start <= end ? [start, end] : null;
 }
 
 function formatCurrency(value: number): string {
@@ -117,25 +138,115 @@ export class ReportService {
     this.rentalRepository = AppDataSource.getRepository(Rental);
   }
 
-  private async getFilteredRentals(startDate?: Date, endDate?: Date): Promise<Rental[]> {
-    const rentals = await this.rentalRepository.find({ order: { startDate: 'ASC' } });
+  private async getAllRentals(): Promise<Rental[]> {
+    return this.rentalRepository.find({ order: { startDate: 'ASC' } });
+  }
+
+  private getReportRange(startDate?: Date, endDate?: Date): { start: Date; end: Date } {
+    const start = startDate ? new Date(startDate) : new Date(0);
+    const end = endDate ? new Date(endDate) : new Date();
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return {
+      start,
+      end,
+    };
+  }
+
+  private getRentalEffectiveEndDate(rental: Rental): Date {
+    return rental.actualEndDate || rental.expectedEndDate;
+  }
+
+  private getFinancialRentalsInRange(rentals: Rental[], startDate?: Date, endDate?: Date): Rental[] {
     if (!startDate && !endDate) {
       return rentals;
     }
 
-    const start = startDate || new Date(0);
-    const end = endDate || new Date();
-    return rentals.filter((rental) => rental.startDate >= start && rental.startDate <= end);
+    const { start, end } = this.getReportRange(startDate, endDate);
+    return rentals.filter((rental) => {
+      if (rental.status === RentalStatus.COMPLETED || rental.status === RentalStatus.CANCELLED) {
+        const recognizedAt = this.getRentalEffectiveEndDate(rental);
+        return recognizedAt >= start && recognizedAt <= end;
+      }
+
+      const overlap = clampDateRange(rental.startDate, this.getRentalEffectiveEndDate(rental), start, end);
+      return Boolean(overlap);
+    });
+  }
+
+  private getRentalsOverlappingRange(rentals: Rental[], startDate?: Date, endDate?: Date): Rental[] {
+    if (!startDate && !endDate) {
+      return rentals;
+    }
+
+    const { start, end } = this.getReportRange(startDate, endDate);
+    return rentals.filter((rental) =>
+      Boolean(clampDateRange(rental.startDate, this.getRentalEffectiveEndDate(rental), start, end))
+    );
+  }
+
+  private getOpenDepositLiability(row: RentalTransactionRow): number {
+    return row.status === RentalStatus.ACTIVE || row.status === RentalStatus.PENDING ? row.depositToReturn : 0;
+  }
+
+  private getProjectedRevenueInRange(
+    rental: Rental,
+    row: RentalTransactionRow,
+    startDate: Date,
+    endDate: Date
+  ): number {
+    if (row.status !== RentalStatus.ACTIVE && row.status !== RentalStatus.PENDING) {
+      return 0;
+    }
+
+    const overlap = clampDateRange(rental.startDate, this.getRentalEffectiveEndDate(rental), startDate, endDate);
+    if (!overlap) {
+      return 0;
+    }
+
+    const overlapDays = calculateCalendarDays(overlap[0], overlap[1]);
+    const durationDays = Math.max(1, row.durationDays);
+    return roundCurrency((row.totalCost / durationDays) * overlapDays);
+  }
+
+  private mapCarCategoryToBucket(category: string): 'economy' | 'business' | 'premium' {
+    switch (category) {
+      case 'economy':
+        return 'economy';
+      case 'premium':
+      case 'luxury':
+        return 'premium';
+      default:
+        return 'business';
+    }
+  }
+
+  private buildCurrentCarAvailabilityMap(cars: ReportingCarSnapshot[], rentals: Rental[]): Map<string, CarAvailabilityState> {
+    const state = new Map<string, CarAvailabilityState>();
+
+    cars.forEach((car) => {
+      state.set(car.id, {
+        status: car.status === 'maintenance' ? 'maintenance' : car.status === 'rented' ? 'rented' : 'available',
+      });
+    });
+
+    rentals
+      .filter((rental) => rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING)
+      .forEach((rental) => {
+        state.set(rental.carId, {
+          status: 'rented',
+          nextAvailableDate: this.getRentalEffectiveEndDate(rental).toISOString(),
+        });
+      });
+
+    return state;
   }
 
   private buildTransactionRow(rental: Rental): RentalTransactionRow {
     const completed = rental.status === RentalStatus.COMPLETED;
     const cancelled = rental.status === RentalStatus.CANCELLED;
     const actualEndDate = rental.actualEndDate || rental.expectedEndDate;
-    const durationDays = Math.max(
-      1,
-      Math.ceil((actualEndDate.getTime() - rental.startDate.getTime()) / (1000 * 60 * 60 * 24))
-    );
+    const durationDays = calculateCalendarDays(rental.startDate, actualEndDate);
     const totalCost = toNumber(rental.totalCost);
     const penaltyAmount = toNumber(rental.penaltyAmount);
     const depositAmount = toNumber(rental.depositAmount);
@@ -181,7 +292,9 @@ export class ReportService {
   }
 
   private async buildFinancialReport(startDate?: Date, endDate?: Date): Promise<FinancialReportModel> {
-    const filtered = await this.getFilteredRentals(startDate, endDate);
+    const rentals = await this.getAllRentals();
+    const filtered = this.getFinancialRentalsInRange(rentals, startDate, endDate);
+    const { start, end } = this.getReportRange(startDate, endDate);
     let transactions = filtered.map((rental) => this.buildTransactionRow(rental));
     transactions = await this.enrichTransactionsWithRenterNames(transactions);
     const completedTransactions = transactions.filter((row) => row.status === RentalStatus.COMPLETED);
@@ -190,19 +303,19 @@ export class ReportService {
     const cancelledTransactions = transactions.filter((row) => row.status === RentalStatus.CANCELLED);
 
     const recognizedRevenue = transactions.reduce((sum, row) => sum + row.recognizedRevenue, 0);
-    const projectedRevenue = [...activeTransactions, ...pendingTransactions].reduce(
-      (sum, row) => sum + row.totalCost,
+    const projectedRevenue = filtered.reduce(
+      (sum, rental, index) => sum + this.getProjectedRevenueInRange(rental, transactions[index], start, end),
       0
     );
     const totalPenalties = transactions.reduce((sum, row) => sum + row.penaltyAmount, 0);
     const totalDeposits = transactions.reduce((sum, row) => sum + row.depositAmount, 0);
-    const depositLiability = transactions.reduce((sum, row) => sum + row.depositToReturn, 0);
-    const netRevenue = recognizedRevenue - depositLiability;
+    const depositLiability = transactions.reduce((sum, row) => sum + this.getOpenDepositLiability(row), 0);
+    const netRevenue = recognizedRevenue;
 
     const penaltiesOnCompleted = completedTransactions.reduce((sum, row) => sum + row.penaltyAmount, 0);
 
     const timeline = new Map<string, { recognizedRevenue: number; penalties: number; rentalsCompleted: number }>();
-    completedTransactions.forEach((row) => {
+    [...completedTransactions, ...cancelledTransactions].forEach((row) => {
       const period = toPeriodKey(new Date(row.actualEndDate || row.expectedEndDate));
       const current = timeline.get(period) || { recognizedRevenue: 0, penalties: 0, rentalsCompleted: 0 };
       current.recognizedRevenue += row.recognizedRevenue;
@@ -247,12 +360,24 @@ export class ReportService {
         {
           status: RentalStatus.PENDING,
           count: pendingTransactions.length,
-          revenue: roundCurrency(pendingTransactions.reduce((sum, row) => sum + row.totalCost, 0)),
+          revenue: roundCurrency(
+            filtered.reduce((sum, rental, index) => {
+              const row = transactions[index];
+              if (row.status !== RentalStatus.PENDING) return sum;
+              return sum + this.getProjectedRevenueInRange(rental, row, start, end);
+            }, 0)
+          ),
         },
         {
           status: RentalStatus.ACTIVE,
           count: activeTransactions.length,
-          revenue: roundCurrency(activeTransactions.reduce((sum, row) => sum + row.totalCost, 0)),
+          revenue: roundCurrency(
+            filtered.reduce((sum, rental, index) => {
+              const row = transactions[index];
+              if (row.status !== RentalStatus.ACTIVE) return sum;
+              return sum + this.getProjectedRevenueInRange(rental, row, start, end);
+            }, 0)
+          ),
         },
         {
           status: RentalStatus.CANCELLED,
@@ -277,71 +402,71 @@ export class ReportService {
   }
 
   async generateOccupancyReport(): Promise<any> {
-    const rentals = await this.rentalRepository.find();
-    const distinctCars = new Set(rentals.map((rental) => rental.carId));
-    const activeCars = new Set(
-      rentals
-        .filter(
-          (rental) =>
-            rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING
-        )
-        .map((rental) => rental.carId)
-    );
+    const [cars, rentals] = await Promise.all([fetchCarsCatalog(), this.getAllRentals()]);
+    const availabilityMap = this.buildCurrentCarAvailabilityMap(cars, rentals);
+    const totalCars = cars.length;
+    const rentedCars = Array.from(availabilityMap.values()).filter((item) => item.status === 'rented').length;
+    const maintenanceCars = Array.from(availabilityMap.values()).filter((item) => item.status === 'maintenance').length;
+    const availableCars = Math.max(0, totalCars - rentedCars - maintenanceCars);
 
-    const totalCars = distinctCars.size;
-    const rentedCars = activeCars.size;
-    const availableCars = Math.max(0, totalCars - rentedCars);
+    const byType = {
+      economy: { total: 0, available: 0, rented: 0 },
+      business: { total: 0, available: 0, rented: 0 },
+      premium: { total: 0, available: 0, rented: 0 },
+    };
+
+    cars.forEach((car) => {
+      const bucket = this.mapCarCategoryToBucket(car.category);
+      const status = availabilityMap.get(car.id)?.status || 'available';
+      byType[bucket].total += 1;
+      if (status === 'rented') {
+        byType[bucket].rented += 1;
+      } else if (status === 'available') {
+        byType[bucket].available += 1;
+      }
+    });
 
     return {
       totalCars,
       availableCars,
       rentedCars,
-      maintenanceCars: 0,
+      maintenanceCars,
       occupancyRate: totalCars > 0 ? roundCurrency((rentedCars / totalCars) * 100) : 0,
-      byType: {
-        economy: { total: 0, available: 0, rented: 0 },
-        business: { total: 0, available: 0, rented: 0 },
-        premium: { total: 0, available: 0, rented: 0 },
-      },
+      byType,
     };
   }
 
   async generateAvailabilityReport(): Promise<any> {
-    const rentals = await this.rentalRepository.find({ order: { updatedAt: 'DESC' } });
-    const byCar = new Map<string, Rental>();
-
-    rentals.forEach((rental) => {
-      if (!byCar.has(rental.carId)) {
-        byCar.set(rental.carId, rental);
-      }
+    const [carsCatalog, rentals] = await Promise.all([fetchCarsCatalog(), this.getAllRentals()]);
+    const availabilityMap = this.buildCurrentCarAvailabilityMap(carsCatalog, rentals);
+    const cars = carsCatalog.map((car) => {
+      const availability = availabilityMap.get(car.id);
+      return {
+        id: car.id,
+        brand: car.brand,
+        model: car.model,
+        status: availability?.status || 'available',
+        nextAvailableDate: availability?.nextAvailableDate,
+      };
     });
 
-    const cars = Array.from(byCar.entries()).map(([carId, rental]) => ({
-      id: carId,
-      brand: 'Unknown',
-      model: 'Unknown',
-      status:
-        rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING
-          ? 'rented'
-          : 'available',
-      nextAvailableDate:
-        rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING
-          ? rental.expectedEndDate.toISOString()
-          : undefined,
-    }));
-
     const unavailableCars = cars.filter((car) => car.status === 'rented').length;
+    const maintenanceCars = cars.filter((car) => car.status === 'maintenance').length;
     return {
-      availableCars: cars.length - unavailableCars,
+      availableCars: cars.length - unavailableCars - maintenanceCars,
       unavailableCars,
-      maintenanceCars: 0,
+      maintenanceCars,
       cars,
     };
   }
 
   async generateCarReport(startDate?: Date, endDate?: Date): Promise<any> {
-    const filtered = await this.getFilteredRentals(startDate, endDate);
+    const [allRentals, carsCatalog] = await Promise.all([this.getAllRentals(), fetchCarsCatalog()]);
+    const filtered = this.getFinancialRentalsInRange(allRentals, startDate, endDate);
     const byCar = new Map<string, RentalTransactionRow[]>();
+    const availabilityMap = this.buildCurrentCarAvailabilityMap(carsCatalog, allRentals);
+    const { start, end } = this.getReportRange(startDate, endDate);
+    const periodDays = calculateCalendarDays(start, end);
 
     filtered.forEach((rental) => {
       const row = this.buildTransactionRow(rental);
@@ -350,7 +475,25 @@ export class ReportService {
       byCar.set(rental.carId, current);
     });
 
-    const cars = Array.from(byCar.entries()).map(([carId, rows]) => {
+    const catalogById = new Map(carsCatalog.map((car) => [car.id, car]));
+    const missingCarIds = Array.from(byCar.keys()).filter((carId) => !catalogById.has(carId));
+    const missingCarsMeta = await Promise.all(
+      missingCarIds.map(async (carId) => {
+        const meta = await fetchCarBrandModel(carId);
+        return {
+          id: carId,
+          brand: meta?.brand || 'Archived',
+          model: meta?.model || carId.slice(0, 8),
+          year: 0,
+          category: 'unknown',
+          status: 'available',
+          dailyRate: 0,
+        } satisfies ReportingCarSnapshot;
+      })
+    );
+
+    const cars = [...carsCatalog, ...missingCarsMeta].map((car) => {
+      const rows = byCar.get(car.id) || [];
       const completed = rows.filter((row) => row.status === RentalStatus.COMPLETED);
       const active = rows.filter(
         (row) => row.status === RentalStatus.ACTIVE || row.status === RentalStatus.PENDING
@@ -359,35 +502,60 @@ export class ReportService {
       const totalRevenue = rows.reduce((sum, row) => sum + row.recognizedRevenue, 0);
       const totalPenalties = rows.reduce((sum, row) => sum + row.penaltyAmount, 0);
       const totalDeposits = rows.reduce((sum, row) => sum + row.depositAmount, 0);
+      const recognizedRentalCount = completed.length + cancelled.length;
+      const expectedRevenue = filtered
+        .filter((rental) => rental.carId === car.id)
+        .reduce((sum, rental) => {
+          const row = this.buildTransactionRow(rental);
+          return sum + this.getProjectedRevenueInRange(rental, row, start, end);
+        }, 0);
+      const totalRentalDays = filtered
+        .filter((rental) => rental.carId === car.id)
+        .reduce((sum, rental) => {
+          const overlap = clampDateRange(
+            rental.startDate,
+            this.getRentalEffectiveEndDate(rental),
+            start,
+            end
+          );
+          if (!overlap) {
+            return sum;
+          }
+          return sum + calculateCalendarDays(overlap[0], overlap[1]);
+        }, 0);
+      const occupancyRate = periodDays > 0 ? roundCurrency((totalRentalDays / periodDays) * 100) : 0;
+      const availability = availabilityMap.get(car.id);
 
       return {
         car: {
-          id: carId,
-          brand: 'Unknown',
-          model: 'Unknown',
-          year: 0,
-          type: 'unknown',
-          pricePerDay: completed[0]?.totalCost || active[0]?.totalCost || 0,
-          status: active.length > 0 ? 'rented' : 'available',
+          id: car.id,
+          brand: car.brand,
+          model: car.model,
+          year: car.year,
+          type: car.category,
+          pricePerDay: car.dailyRate,
+          status: availability?.status || 'available',
         },
         occupancy: {
-          totalRentalDays: rows.reduce((sum, row) => sum + row.durationDays, 0),
-          periodDays: 0,
-          occupancyRate: '0%',
+          totalRentalDays,
+          periodDays,
+          occupancyRate: `${occupancyRate}%`,
           rentalCount: rows.length,
           completedCount: completed.length,
           activeCount: active.length,
           cancelledCount: cancelled.length,
-          isCurrentlyRented: active.length > 0,
-          nextAvailableDate: active[0]?.expectedEndDate,
+          isCurrentlyRented: availability?.status === 'rented',
+          nextAvailableDate: availability?.nextAvailableDate,
         },
         financial: {
           totalRevenue: roundCurrency(totalRevenue),
-          expectedRevenue: roundCurrency(active.reduce((sum, row) => sum + row.totalCost, 0)),
+          expectedRevenue: roundCurrency(expectedRevenue),
           totalPenalties: roundCurrency(totalPenalties),
           totalDeposits: roundCurrency(totalDeposits),
-          netRevenue: roundCurrency(totalRevenue - rows.reduce((sum, row) => sum + row.depositToReturn, 0)),
-          averageRevenuePerRental: roundCurrency(rows.length > 0 ? totalRevenue / rows.length : 0),
+          netRevenue: roundCurrency(totalRevenue),
+          averageRevenuePerRental: roundCurrency(
+            recognizedRentalCount > 0 ? totalRevenue / recognizedRentalCount : 0
+          ),
         },
       };
     });
@@ -399,11 +567,17 @@ export class ReportService {
         endDate: (endDate || now).toISOString(),
       },
       summary: {
-        totalCars: cars.length,
+        totalCars: carsCatalog.length,
         totalRevenue: roundCurrency(cars.reduce((sum, car) => sum + car.financial.totalRevenue, 0)),
         totalNetRevenue: roundCurrency(cars.reduce((sum, car) => sum + car.financial.netRevenue, 0)),
         totalPenalties: roundCurrency(cars.reduce((sum, car) => sum + car.financial.totalPenalties, 0)),
-        averageOccupancyRate: 0,
+        averageOccupancyRate: roundCurrency(
+          carsCatalog.length > 0
+            ? cars
+                .filter((car) => catalogById.has(car.car.id))
+                .reduce((sum, car) => sum + Number.parseFloat(car.occupancy.occupancyRate), 0) / carsCatalog.length
+            : 0
+        ),
       },
       cars,
     };
@@ -420,13 +594,13 @@ export class ReportService {
       ['Total revenue', report.totalRevenue],
       [
         'Note (total revenue)',
-        'Recognized from completed/cancelled + projected from active (not yet charged)',
+        'Recognized from completed/cancelled + projected from active/pending rentals',
       ],
       ['Net revenue', report.netRevenue],
-      ['Note (net revenue)', 'Recognized revenue minus deposit amounts to return'],
+      ['Note (net revenue)', 'Recognized revenue from completed/cancelled rentals only'],
       ['Projected revenue', report.projectedRevenue],
       ['Total penalties', report.totalPenalties],
-      ['Deposit liability', report.depositLiability],
+      ['Active deposit liability', report.depositLiability],
       ['Average completed ticket', report.averageCompletedTicket],
       ['Average penalty / completed rental', report.averagePenaltyPerCompletedRental],
       [],
@@ -580,7 +754,7 @@ export class ReportService {
         .fillColor('#64748b')
         .fontSize(8)
         .text(
-          'Total revenue = recognized (completed/cancelled) + projected (active). Net revenue = recognized − deposit liability.',
+          'Total revenue = recognized (completed/cancelled) + projected (active/pending). Net revenue = recognized revenue only. Deposit liability includes only active/pending deposits still held.',
           40,
           158,
           { width: 515 }
@@ -639,7 +813,7 @@ export class ReportService {
           tableEnd + 18
         )
         .text(
-          `Projected revenue: ${formatCurrency(report.projectedRevenue)} | Deposit liability: ${formatCurrency(report.depositLiability)}`,
+          `Projected revenue: ${formatCurrency(report.projectedRevenue)} | Active deposit liability: ${formatCurrency(report.depositLiability)}`,
           40,
           tableEnd + 34
         );

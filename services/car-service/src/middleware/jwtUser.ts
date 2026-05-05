@@ -43,11 +43,15 @@ function setUserIdFromToken(req: AuthRequest, token: string): boolean {
     const decoded = readJwtPayload(token);
     const raw =
       decoded?.sub ?? decoded?.id ?? (decoded?.userId as string | undefined) ?? (decoded?.user as { id?: string } | undefined)?.id;
+    const role =
+      (decoded?.role as string | undefined) ??
+      (decoded?.user as { role?: string } | undefined)?.role;
     if (raw === undefined || raw === null) {
       return false;
     }
     const s = String(raw);
     req.userId = isUuidLike(s) ? s : isNumericLike(s) ? uuidv5(`legacy:${s}`, LEGACY_NS) : s;
+    req.userRole = role ? String(role).toLowerCase() : undefined;
     return true;
   } catch {
     return false;

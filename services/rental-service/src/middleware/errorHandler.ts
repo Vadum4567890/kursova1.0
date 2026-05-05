@@ -12,10 +12,12 @@ export const errorHandler = (
   _next: NextFunction
 ): void => {
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  const rawMessage = err.message || 'Internal Server Error';
+  const isProd = process.env.NODE_ENV === 'production';
+  const message = isProd && statusCode >= 500 ? 'Internal server error' : rawMessage;
 
   logger.error({
-    error: message,
+    error: rawMessage,
     stack: err.stack,
     path: req.path,
     method: req.method,
