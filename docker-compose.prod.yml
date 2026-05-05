@@ -144,7 +144,7 @@ services:
       USER_SERVICE_URL: http://user-service:3002
       GATEWAY_URL: http://api-gateway:3000
       SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY is required}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET:?USER_SERVICE_JWT_SECRET is required}
       ALLOW_INSECURE_JWT_DECODE: "false"
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
       KAFKA_BROKERS: ""
