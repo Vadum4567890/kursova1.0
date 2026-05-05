@@ -124,15 +124,12 @@ app.get('/health', (_req, res) => {
 if (ENABLE_DEV_AUTH) {
   app.use('/api/auth', express.json(), createDevAuthRouter());
 } else {
-  app.use('/api/auth', (_req, res) => {
-    res.status(501).json({
-      success: false,
-      error: {
-        message: 'Dev auth is disabled in this environment',
-        detail: 'Set ENABLE_DEV_AUTH=true for local compatibility or move auth to user-service.',
-      },
-    });
-  });
+  app.use(
+    '/api/auth',
+    createServiceProxy(SERVICE_URLS.users, {
+      pathRewrite: { '^/api/auth': '/api/users/auth' },
+    })
+  );
 }
 
 app.use('/api/search', express.json(), createSearchRouter({

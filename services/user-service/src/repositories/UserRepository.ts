@@ -24,6 +24,13 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  async findByUsername(username: string): Promise<User | null> {
+    return await this.repository.findOne({
+      where: { username },
+      relations: ['profile', 'rating'],
+    });
+  }
+
   async findByPhone(phone: string): Promise<User | null> {
     return await this.repository.findOne({
       where: { phone },

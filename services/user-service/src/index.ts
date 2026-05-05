@@ -51,6 +51,11 @@ export async function startServer() {
     await AppDataSource.initialize();
     logger.info('Database connected successfully');
 
+    if (process.env.DB_RUN_MIGRATIONS === 'true') {
+      const migrations = await AppDataSource.runMigrations();
+      logger.info(`Database migrations applied: ${migrations.length}`);
+    }
+
     // Start server
     app.listen(PORT, () => {
       logger.info(`User Service running on port ${PORT}`);
