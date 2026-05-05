@@ -49,7 +49,7 @@ export const useUpdateUserRole = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, role }: { id: number; role: string }) =>
+    mutationFn: ({ id, role }: { id: number | string; role: string }) =>
       userService.updateUserRole(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
@@ -61,7 +61,7 @@ export const useUpdateUserStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+    mutationFn: ({ id, isActive }: { id: number | string; isActive: boolean }) =>
       userService.updateUserStatus(id, isActive),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });

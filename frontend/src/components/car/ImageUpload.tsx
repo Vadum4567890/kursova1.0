@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { uploadService } from '../../services/uploadService';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrls';
 
 function formatUploadError(err: unknown, fallback: string): string {
   if (typeof err === 'object' && err !== null && 'response' in err) {
@@ -108,11 +109,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
-  const getImageUrl = (url: string): string => {
-    if (url.startsWith('http') || url.startsWith('data:')) return url;
-    return `${window.location.protocol}//${window.location.hostname}:3000${url}`;
-  };
-
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -197,7 +193,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               }}
             >
               <img
-                src={imagePreview || getImageUrl(mainImageUrl!)}
+                src={imagePreview || resolvePublicMediaUrl(mainImageUrl)}
                 alt="Головне фото"
                 crossOrigin="anonymous"
                 style={{
@@ -275,7 +271,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                     }}
                   >
                     <img
-                      src={getImageUrl(url)}
+                      src={resolvePublicMediaUrl(url)}
                       alt={`Image ${index + 1}`}
                       crossOrigin="anonymous"
                       style={{

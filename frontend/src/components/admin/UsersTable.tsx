@@ -17,7 +17,7 @@ import { getRoleLabel, getRoleColor } from '../../utils/labels';
 interface UsersTableProps {
   users: User[];
   onEditRole: (user: User) => void;
-  onToggleStatus: (id: number, isActive: boolean) => void;
+  onToggleStatus: (id: number | string, isActive: boolean) => void;
   onDelete: (id: number | string) => void;
 }
 
@@ -44,7 +44,6 @@ export const UsersTable: React.FC<UsersTableProps> = ({
         </TableHead>
         <TableBody>
           {users.map((user) => {
-            const isDevNumericRecord = typeof user.id === 'number';
             return (
               <TableRow key={user.id} hover>
                 <TableCell>{user.id}</TableCell>
@@ -71,16 +70,14 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                     size="small"
                     onClick={() => onEditRole(user)}
                     title="Змінити роль"
-                    disabled={!isDevNumericRecord}
                   >
                     <Edit />
                   </IconButton>
                   <IconButton
                     size="small"
                     color={user.isActive ? 'error' : 'success'}
-                    onClick={() => onToggleStatus(user.id as number, !user.isActive)}
+                    onClick={() => onToggleStatus(user.id, !user.isActive)}
                     title={user.isActive ? 'Заблокувати' : 'Активувати'}
-                    disabled={!isDevNumericRecord}
                   >
                     {user.isActive ? <Block /> : <CheckCircle />}
                   </IconButton>
@@ -89,7 +86,6 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                     color="error"
                     onClick={() => onDelete(user.id)}
                     title="Видалити"
-                    disabled={!isDevNumericRecord}
                   >
                     <Delete />
                   </IconButton>

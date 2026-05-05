@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Button } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrls';
 
 interface ImageSliderProps {
   images: string[];
@@ -35,11 +36,6 @@ const ImageSlider: React.FC<ImageSliderProps> = ({
 
   const handleIndicatorClick = (index: number) => {
     setCurrentIndex(index);
-  };
-
-  const getImageUrl = (url: string): string => {
-    if (url.startsWith('http') || url.startsWith('data:')) return url;
-    return `${window.location.protocol}//${window.location.hostname}:3000${url}`;
   };
 
   const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
@@ -78,7 +74,7 @@ const ImageSlider: React.FC<ImageSliderProps> = ({
     >
       <Box
         component="img"
-        src={getImageUrl(images[currentIndex])}
+        src={resolvePublicMediaUrl(images[currentIndex])}
         alt={`Image ${currentIndex + 1}`}
         crossOrigin="anonymous"
         sx={{

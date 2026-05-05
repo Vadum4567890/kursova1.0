@@ -4,6 +4,7 @@ import { Edit, Delete, BookOnline, Speed, LocalGasStation, AirlineSeatReclineNor
 import { useNavigate } from 'react-router-dom';
 import { Car } from '../../interfaces';
 import { getTypeLabel } from '../../utils/labels';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrls';
 import { StatusChip } from '../common';
 
 interface CarCardProps {
@@ -22,22 +23,19 @@ const getImageUrl = (car: Car): string => {
   // Спочатку перевіряємо imageUrls (масив)
   if (car.imageUrls && Array.isArray(car.imageUrls) && car.imageUrls.length > 0) {
     const firstImage = car.imageUrls[0];
-    if (firstImage.startsWith('http') || firstImage.startsWith('data:')) return firstImage;
-    return `${window.location.protocol}//${window.location.hostname}:3000${firstImage}`;
+    return resolvePublicMediaUrl(firstImage) || DEFAULT_IMAGE;
   }
 
   // Потім перевіряємо images (масив об'єктів)
   if (car.images && Array.isArray(car.images) && car.images.length > 0) {
     const primaryImage = car.images.find(img => img.isPrimary) || car.images[0];
     const imageUrl = primaryImage.imageUrl;
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) return imageUrl;
-    return `${window.location.protocol}//${window.location.hostname}:3000${imageUrl}`;
+    return resolvePublicMediaUrl(imageUrl) || DEFAULT_IMAGE;
   }
 
   // Нарешті перевіряємо imageUrl (одне фото)
   if (car.imageUrl) {
-    if (car.imageUrl.startsWith('http') || car.imageUrl.startsWith('data:')) return car.imageUrl;
-    return `${window.location.protocol}//${window.location.hostname}:3000${car.imageUrl}`;
+    return resolvePublicMediaUrl(car.imageUrl) || DEFAULT_IMAGE;
   }
 
   return DEFAULT_IMAGE;

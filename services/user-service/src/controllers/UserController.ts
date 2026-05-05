@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { UserService } from '../services/UserService';
+import { UserRole } from '../entities/User.entity';
 import { logger } from '../utils/logger';
 
 export class UserController {
@@ -9,6 +10,76 @@ export class UserController {
   constructor() {
     this.userService = new UserService();
   }
+
+  listUsers = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const users = await this.userService.listUsers(
+        typeof req.query.role === 'string' ? req.query.role : undefined
+      );
+      res.json({ data: users });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await this.userService.createPasswordUser(req.body || {});
+      res.status(201).json({ data: user });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateUserRole = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const role = req.body?.role;
+      if (!Object.values(UserRole).includes(role)) {
+        res.status(400).json({ status: 'error', message: 'Invalid role' });
+        return;
+      }
+
+      const user = await this.userService.updateUserRole(req.params.id, role);
+      if (!user) {
+        res.status(404).json({ status: 'error', message: 'User not found' });
+        return;
+      }
+      res.json({ data: user });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateUserStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await this.userService.getUserById(req.params.id);
+      if (!user) {
+        res.status(404).json({ status: 'error', message: 'User not found' });
+        return;
+      }
+      res.json({ data: this.userService.toAdminUser(user) });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (req.user?.id === req.params.id) {
+        res.status(400).json({ status: 'error', message: 'You cannot delete your own account' });
+        return;
+      }
+
+      const deleted = await this.userService.deleteUser(req.params.id);
+      if (!deleted) {
+        res.status(404).json({ status: 'error', message: 'User not found' });
+        return;
+      }
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  };
 
   getMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {

@@ -3,15 +3,11 @@
  */
 
 import { Car } from '../interfaces';
+import { resolvePublicMediaUrl } from './mediaUrls';
 
 /** Узгоджено з CarCard / CarSearchResults — placeholder без зовнішніх запитів */
 export const DEFAULT_CAR_IMAGE_PLACEHOLDER =
   'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
-
-function getApiPublicOrigin(): string {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  return String(base).replace(/\/api\/?$/, '');
-}
 
 type CarWithImages = Car & { images?: Array<{ imageUrl: string; isPrimary?: boolean }> };
 
@@ -22,22 +18,19 @@ export function resolveCarImageUrlForDisplay(car: CarWithImages): string {
   if (car.imageUrls && Array.isArray(car.imageUrls) && car.imageUrls.length > 0) {
     const u = String(car.imageUrls[0] || '').trim();
     if (!u) return DEFAULT_CAR_IMAGE_PLACEHOLDER;
-    if (u.startsWith('http') || u.startsWith('data:')) return u;
-    return `${getApiPublicOrigin()}${u.startsWith('/') ? u : `/${u}`}`;
+    return resolvePublicMediaUrl(u) || DEFAULT_CAR_IMAGE_PLACEHOLDER;
   }
   if (car.images && Array.isArray(car.images) && car.images.length > 0) {
     const primary = car.images.find((i) => i.isPrimary) || car.images[0];
     const imageUrl = primary?.imageUrl;
     if (imageUrl) {
       const u = String(imageUrl).trim();
-      if (u.startsWith('http') || u.startsWith('data:')) return u;
-      return `${getApiPublicOrigin()}${u.startsWith('/') ? u : `/${u}`}`;
+      return resolvePublicMediaUrl(u) || DEFAULT_CAR_IMAGE_PLACEHOLDER;
     }
   }
   if (car.imageUrl) {
     const u = String(car.imageUrl).trim();
-    if (u.startsWith('http') || u.startsWith('data:')) return u;
-    return `${getApiPublicOrigin()}${u.startsWith('/') ? u : `/${u}`}`;
+    return resolvePublicMediaUrl(u) || DEFAULT_CAR_IMAGE_PLACEHOLDER;
   }
   return DEFAULT_CAR_IMAGE_PLACEHOLDER;
 }

@@ -9,7 +9,6 @@ import fs from 'fs';
 import path from 'path';
 import { createDevAuthRouter, getAllDevUsers, findDevUserById, userToPublic, isDevCustomerUser } from './auth/dev';
 import { createSearchRouter } from './routes/search';
-import { createUsersCompatRouter } from './routes/users-compat';
 import { createAiRouter, createReferenceRouter } from './routes/ai-reference';
 import { createServiceProxy } from './proxy/utils';
 
@@ -151,16 +150,6 @@ app.use(
   })
 );
 
-// Dynamic routes AFTER static ones
-app.use('/api/users', express.json(), createUsersCompatRouter({
-  getAllDevUsers,
-  findDevUserById,
-  userToPublic,
-  extraUsers,
-  BUILTIN,
-  saveExtraUsers,
-}));
-// Fallback: forward unresolved user routes (e.g. /:id/rating) to user-service.
 app.use('/api/users', createServiceProxy(SERVICE_URLS.users));
 app.use('/api/analytics', createServiceProxy(SERVICE_URLS.reporting));
 app.use('/api/reports', createServiceProxy(SERVICE_URLS.reporting));

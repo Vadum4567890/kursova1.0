@@ -39,7 +39,6 @@ const AdminPage: React.FC = () => {
   // Delete confirmation
   const deleteConfirm = useDeleteConfirm({
     onConfirm: async (id) => {
-      if (typeof id !== 'number') return;
       await userManagement.remove(id);
       userManagement.clearError();
     },
@@ -54,10 +53,10 @@ const AdminPage: React.FC = () => {
     setRoleDialogOpen(true);
   };
 
-  const handleUpdateRole = async () => {
-    if (!selectedUser || typeof selectedUser.id !== 'number') return;
+  const handleUpdateRole = async (role?: string) => {
+    if (!selectedUser) return;
     try {
-      await userManagement.updateRole(selectedUser.id, roleDialog.formData.role);
+      await userManagement.updateRole(selectedUser.id, role || roleDialog.formData.role);
       setRoleDialogOpen(false);
       setSelectedUser(null);
       roleDialog.handleSuccess();
@@ -66,7 +65,7 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (id: number, isActive: boolean) => {
+  const handleToggleStatus = async (id: number | string, isActive: boolean) => {
     try {
       await userManagement.updateStatus(id, !isActive);
     } catch {
