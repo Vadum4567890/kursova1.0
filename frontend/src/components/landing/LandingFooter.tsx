@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Typography, Link, useTheme } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 
 const LandingFooter: React.FC = () => {
   const theme = useTheme();
@@ -19,7 +20,7 @@ const LandingFooter: React.FC = () => {
     >
       <Typography variant="body2" color="text.secondary" align="center">
         © {year} Car Rental.{' '}
-        <Link href="#" color="inherit" underline="hover" sx={{ cursor: 'default' }}>
+        <Link component={RouterLink} to="/terms" color="inherit" underline="hover">
           Умови використання
         </Link>
       </Typography>

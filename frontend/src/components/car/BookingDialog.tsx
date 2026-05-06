@@ -130,7 +130,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   {car.brand} {car.model} ({car.year})
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Ціна: {car.pricePerDay} ₴/день • Базовий залог: {car.deposit} ₴
+                  Ціна: {car.pricePerDay} ₴/день • Базовий завдаток: {car.deposit} ₴
                 </Typography>
                 <Alert severity={car.instantBook ? 'success' : 'info'} sx={{ mt: 1.5 }}>
                   {helperAlert}
@@ -210,7 +210,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                         Орієнтовна вартість: {formatCurrency(pricing.price)} ({days} дн.)
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Залог: {formatCurrency(pricing.deposit)}
+                        Завдаток: {formatCurrency(pricing.deposit)}
                       </Typography>
                       {days > 1 ? (
                         <Typography
@@ -229,7 +229,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                           color="text.secondary"
                           sx={{ mt: 0.5 }}
                         >
-                          Базовий залог без доплат
+                          Базовий завдаток без доплат
                         </Typography>
                       )}
                       {!isRangeValid && (
@@ -288,7 +288,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 Вартість оренди: <strong>{formatCurrency(pricing.price)}</strong>
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                Залог: <strong>{formatCurrency(pricing.deposit)}</strong>
+                Завдаток: <strong>{formatCurrency(pricing.deposit)}</strong>
               </Typography>
             </Paper>
 

@@ -9,6 +9,7 @@ import LandingPage from './pages/LandingPage';
 import HomePage from './pages/client/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import TermsPage from './pages/TermsPage';
 import DashboardPage from './pages/DashboardPage';
 import CarsPage from './pages/CarsPage';
 import RentalsPage from './pages/RentalsPage';
@@ -41,6 +42,7 @@ function App() {
               <Route index element={<LandingPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
+              <Route path="terms" element={<TermsPage />} />
             </Route>
 
             <Route element={<Layout />}>

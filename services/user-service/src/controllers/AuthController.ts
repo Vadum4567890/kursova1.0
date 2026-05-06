@@ -31,6 +31,70 @@ function normalizeUsername(username: unknown): string {
   return String(username || '').trim().toLowerCase();
 }
 
+function normalizePhone(phone: unknown): string {
+  const raw = String(phone || '').trim();
+  const digits = raw.replace(/\D/g, '');
+
+  if (digits.length === 10 && digits.startsWith('0')) {
+    return `+38${digits}`;
+  }
+  if (digits.length === 12 && digits.startsWith('380')) {
+    return `+${digits}`;
+  }
+  if (raw.startsWith('+') && digits.length >= 10 && digits.length <= 15) {
+    return `+${digits}`;
+  }
+  if (digits.length >= 10 && digits.length <= 15) {
+    return `+${digits}`;
+  }
+
+  return raw;
+}
+
+function normalizeFullName(fullName: unknown): string {
+  return String(fullName || '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeAddress(address: unknown): string {
+  return String(address || '').trim().replace(/\s+/g, ' ');
+}
+
+function validateFullName(fullName: string): void {
+  if (!fullName) {
+    throw createStatusError('Full name is required', 400);
+  }
+  if (fullName.length < 5 || fullName.length > 80) {
+    throw createStatusError('Full name must be between 5 and 80 characters', 400);
+  }
+  if (fullName.split(' ').length < 2) {
+    throw createStatusError('Full name must include first and last name', 400);
+  }
+  if (!/^[\p{L}'’-]+(?:\s+[\p{L}'’-]+)+$/u.test(fullName)) {
+    throw createStatusError('Full name contains invalid characters', 400);
+  }
+}
+
+function validatePhone(phone: string): void {
+  if (!phone) {
+    throw createStatusError('Phone is required', 400);
+  }
+  if (!/^\+\d{10,15}$/.test(phone)) {
+    throw createStatusError('Phone must be a valid international number', 400);
+  }
+}
+
+function validateAddress(address: string): void {
+  if (!address) {
+    throw createStatusError('Address is required', 400);
+  }
+  if (address.length < 5 || address.length > 160) {
+    throw createStatusError('Address must be between 5 and 160 characters', 400);
+  }
+  if (!/^[\p{L}\p{N}\s.,'’/#№()-]+$/u.test(address)) {
+    throw createStatusError('Address contains invalid characters', 400);
+  }
+}
+
 function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -111,7 +175,9 @@ export class AuthController {
       const normalizedEmail = normalizeEmail(email);
       const normalizedUsername = normalizeUsername(username);
       const normalizedPassword = String(password || '');
-      const normalizedPhone = phone ? String(phone).trim() : null;
+      const normalizedPhone = normalizePhone(phone);
+      const normalizedFullName = normalizeFullName(fullName);
+      const normalizedAddress = normalizeAddress(address);
 
       if (!normalizedUsername || !normalizedEmail || !normalizedPassword) {
         throw createStatusError('username, email and password are required', 400);
@@ -119,6 +185,9 @@ export class AuthController {
       if (normalizedPassword.length < 6) {
         throw createStatusError('Password must be at least 6 characters', 400);
       }
+      validateFullName(normalizedFullName);
+      validatePhone(normalizedPhone);
+      validateAddress(normalizedAddress);
 
       const existingByEmail = await this.userService.getUserByEmail(normalizedEmail);
       if (existingByEmail) {
@@ -128,11 +197,9 @@ export class AuthController {
       if (existingByUsername) {
         throw createStatusError('Username already exists', 409);
       }
-      if (normalizedPhone) {
-        const existingByPhone = await this.userService.getClientByPhone(normalizedPhone);
-        if (existingByPhone) {
-          throw createStatusError('Phone already exists', 409);
-        }
+      const existingByPhone = await this.userService.getClientByPhone(normalizedPhone);
+      if (existingByPhone) {
+        throw createStatusError('Phone already exists', 409);
       }
 
       const user = await this.userService.createUser({
@@ -143,15 +210,12 @@ export class AuthController {
         passwordHash: hashPassword(normalizedPassword),
       });
 
-      if (fullName || address) {
-        const normalizedFullName = String(fullName || '').trim().replace(/\s+/g, ' ');
-        const [firstName, ...rest] = normalizedFullName ? normalizedFullName.split(' ') : [];
-        await this.userService.updateUserProfile(user.id, {
-          firstName: firstName || null,
-          lastName: rest.length > 0 ? rest.join(' ') : null,
-          address: address ? String(address).trim() : null,
-        });
-      }
+      const [firstName, ...rest] = normalizedFullName.split(' ');
+      await this.userService.updateUserProfile(user.id, {
+        firstName,
+        lastName: rest.join(' '),
+        address: normalizedAddress,
+      });
 
       const saved = await this.userService.getUserById(user.id);
       if (!saved) {
