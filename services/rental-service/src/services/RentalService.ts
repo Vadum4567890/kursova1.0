@@ -3,7 +3,9 @@ import { RentalStatus } from '../entities/Rental.entity';
 import { RentalOwnerApprovalStatus } from '../entities/Rental.entity';
 import { RentalReviewStatus } from '../entities/Rental.entity';
 import { RentalLifecycleState } from '../entities/Rental.entity';
+import { RentalResolutionType } from '../entities/RentalResolution.entity';
 import { RentalRepository } from '../repositories/RentalRepository';
+import { RentalResolutionRepository } from '../repositories/RentalResolutionRepository';
 import { RentalMessageRepository } from '../repositories/RentalMessageRepository';
 import { CarInquiryMessageRepository } from '../repositories/CarInquiryMessageRepository';
 import { ChatReadCursorRepository } from '../repositories/ChatReadCursorRepository';
@@ -16,8 +18,16 @@ import { sendEvent } from '../kafka/producer';
 import { broadcastChatTopic, broadcastToUser } from '../ws/chatWebSocket';
 import logger from '../utils/logger';
 
+type AdminLifecycleResolutionInput = {
+  note?: string;
+  resolutionType?: RentalResolutionType;
+  penaltyAmount?: number;
+  depositRefundAmount?: number;
+};
+
 export class RentalService {
   private rentalRepository: RentalRepository;
+  private rentalResolutionRepository: RentalResolutionRepository;
   private rentalMessageRepository: RentalMessageRepository;
   private carInquiryMessageRepository: CarInquiryMessageRepository;
   private chatReadCursorRepository: ChatReadCursorRepository;
@@ -28,6 +38,7 @@ export class RentalService {
 
   constructor() {
     this.rentalRepository = new RentalRepository();
+    this.rentalResolutionRepository = new RentalResolutionRepository();
     this.rentalMessageRepository = new RentalMessageRepository();
     this.carInquiryMessageRepository = new CarInquiryMessageRepository();
     this.chatReadCursorRepository = new ChatReadCursorRepository();
@@ -129,6 +140,21 @@ export class RentalService {
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       penalties: r.penalties,
+      resolutions: r.resolutions?.map((item) => ({
+        id: item.id,
+        action: item.action,
+        resolutionType: item.resolutionType,
+        previousStatus: item.previousStatus,
+        nextStatus: item.nextStatus,
+        previousLifecycleState: item.previousLifecycleState,
+        nextLifecycleState: item.nextLifecycleState,
+        penaltyAmount: Number(item.penaltyAmount || 0),
+        depositRefundAmount: Number(item.depositRefundAmount || 0),
+        note: item.note,
+        actorUserId: item.actorUserId,
+        actorRole: item.actorRole,
+        createdAt: item.createdAt,
+      })),
     };
   }
 
@@ -227,6 +253,33 @@ export class RentalService {
     }
   }
 
+  private async recordAdminResolution(params: {
+    before: Rental;
+    after: Rental;
+    actorUserId: string;
+    actorRole: string;
+    action: string;
+    resolutionType: RentalResolutionType;
+    note?: string;
+    penaltyAmount?: number;
+    depositRefundAmount?: number;
+  }): Promise<void> {
+    await this.rentalResolutionRepository.create({
+      rentalId: params.before.id,
+      actorUserId: params.actorUserId,
+      actorRole: params.actorRole,
+      action: params.action,
+      resolutionType: params.resolutionType,
+      previousStatus: params.before.status,
+      nextStatus: params.after.status,
+      previousLifecycleState: params.before.lifecycleState,
+      nextLifecycleState: params.after.lifecycleState,
+      penaltyAmount: this.toMoney(params.penaltyAmount),
+      depositRefundAmount: this.toMoney(params.depositRefundAmount),
+      note: params.note?.trim() || null,
+    });
+  }
+
   private confirmationGraceMs(): number {
     const hours = Number(process.env.RENTAL_CONFIRMATION_GRACE_HOURS ?? 24);
     return (Number.isFinite(hours) && hours > 0 ? hours : 24) * 60 * 60 * 1000;
@@ -234,6 +287,18 @@ export class RentalService {
 
   private addGrace(date: Date): Date {
     return new Date(date.getTime() + this.confirmationGraceMs());
+  }
+
+  private toMoney(value: unknown, fallback = 0): number {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return fallback;
+    }
+    return Number(numeric.toFixed(2));
+  }
+
+  private depositRefund(depositAmount: unknown, penaltyAmount: unknown): number {
+    return Number(Math.max(0, this.toMoney(depositAmount) - this.toMoney(penaltyAmount)).toFixed(2));
   }
 
   private resolveLifecycleState(rental: Rental, now = new Date()): RentalLifecycleState {
@@ -753,7 +818,7 @@ export class RentalService {
     adminUserId: string,
     adminRole: string | undefined,
     action: string,
-    note?: string
+    input: AdminLifecycleResolutionInput = {}
   ): Promise<Rental> {
     if (!['admin', 'manager', 'employee'].includes(adminRole || '')) {
       throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
@@ -766,10 +831,12 @@ export class RentalService {
     }
 
     const now = new Date();
+    const note = input.note?.trim() || undefined;
+    const actorRole = adminRole || 'staff';
     const adminPatch: Partial<Rental> = {
       adminResolvedAt: now,
       adminResolvedByUserId: adminUserId,
-      adminResolutionNote: note?.trim() || null,
+      adminResolutionNote: note || null,
     };
 
     if (action === 'activate') {
@@ -784,6 +851,15 @@ export class RentalService {
         pickupConfirmedByRenterAt: rental.pickupConfirmedByRenterAt || now,
       });
       await this.carServiceClient.updateCarStatus(updated.carId, 'rented');
+      await this.recordAdminResolution({
+        before: rental,
+        after: updated,
+        actorUserId: adminUserId,
+        actorRole,
+        action,
+        resolutionType: RentalResolutionType.ADMIN_ACTIVATED,
+        note,
+      });
       await this.broadcastRentalLifecycleChange(updated, 'admin_activated');
       const [withCar] = await this.withCarSummaries([updated]);
       return withCar as unknown as Rental;
@@ -798,21 +874,50 @@ export class RentalService {
         returnConfirmedByOwnerAt: rental.returnConfirmedByOwnerAt || now,
         returnConfirmedByRenterAt: rental.returnConfirmedByRenterAt || now,
       });
-      return this.finalizeRentalCompletion(patched, now);
+      const finalized = await this.finalizeRentalCompletion(patched, now);
+      await this.recordAdminResolution({
+        before: rental,
+        after: finalized,
+        actorUserId: adminUserId,
+        actorRole,
+        action,
+        resolutionType: RentalResolutionType.ADMIN_COMPLETED,
+        note,
+        penaltyAmount: Number(finalized.penaltyAmount || 0),
+        depositRefundAmount: this.depositRefund(finalized.depositAmount, finalized.penaltyAmount),
+      });
+      return finalized;
     }
 
     if (action === 'mark_no_show') {
       if (rental.status !== RentalStatus.PENDING) {
         throw Object.assign(new Error('Only pending rentals can be marked as no-show'), { statusCode: 409 });
       }
+      const penaltyAmount = this.toMoney(input.penaltyAmount, this.toMoney(rental.depositAmount));
+      const depositRefundAmount =
+        input.depositRefundAmount !== undefined
+          ? this.toMoney(input.depositRefundAmount)
+          : this.depositRefund(rental.depositAmount, penaltyAmount);
       const updated = await this.rentalRepository.update(rentalId, {
         ...adminPatch,
         status: RentalStatus.CANCELLED,
         lifecycleState: RentalLifecycleState.NO_SHOW,
         actualEndDate: now,
         totalCost: 0,
-        penaltyAmount: Number(rental.depositAmount || 0),
+        penaltyAmount,
       });
+      await this.recordAdminResolution({
+        before: rental,
+        after: updated,
+        actorUserId: adminUserId,
+        actorRole,
+        action,
+        resolutionType: input.resolutionType || RentalResolutionType.RENTER_NO_SHOW,
+        note,
+        penaltyAmount,
+        depositRefundAmount,
+      });
+      await this.carServiceClient.updateCarStatus(updated.carId, 'active');
       await this.broadcastRentalLifecycleChange(updated, 'admin_no_show');
       const [withCar] = await this.withCarSummaries([updated]);
       return withCar as unknown as Rental;
@@ -825,6 +930,16 @@ export class RentalService {
       const updated = await this.rentalRepository.update(rentalId, {
         ...adminPatch,
         lifecycleState: RentalLifecycleState.PICKUP_DISPUTED,
+      });
+      await this.recordAdminResolution({
+        before: rental,
+        after: updated,
+        actorUserId: adminUserId,
+        actorRole,
+        action,
+        resolutionType: RentalResolutionType.PICKUP_DISPUTE,
+        note,
+        depositRefundAmount: this.toMoney(rental.depositAmount),
       });
       await this.broadcastRentalLifecycleChange(updated, 'admin_pickup_disputed');
       const [withCar] = await this.withCarSummaries([updated]);
@@ -839,15 +954,38 @@ export class RentalService {
         ...adminPatch,
         lifecycleState: RentalLifecycleState.RETURN_DISPUTED,
       });
+      await this.recordAdminResolution({
+        before: rental,
+        after: updated,
+        actorUserId: adminUserId,
+        actorRole,
+        action,
+        resolutionType: RentalResolutionType.RETURN_DISPUTE,
+        note,
+        penaltyAmount: Number(rental.penaltyAmount || 0),
+        depositRefundAmount: this.depositRefund(rental.depositAmount, rental.penaltyAmount),
+      });
       await this.broadcastRentalLifecycleChange(updated, 'admin_return_disputed');
       const [withCar] = await this.withCarSummaries([updated]);
       return withCar as unknown as Rental;
     }
 
     if (action === 'cancel') {
-      const updated = await this.cancelRental(rentalId, now);
-      await this.rentalRepository.update(rentalId, adminPatch);
-      return updated;
+      await this.cancelRental(rentalId, now);
+      const updated = await this.rentalRepository.update(rentalId, adminPatch);
+      await this.recordAdminResolution({
+        before: rental,
+        after: updated,
+        actorUserId: adminUserId,
+        actorRole,
+        action,
+        resolutionType: input.resolutionType || RentalResolutionType.ADMIN_CANCEL,
+        note,
+        penaltyAmount: Number(updated.penaltyAmount || 0),
+        depositRefundAmount: this.depositRefund(updated.depositAmount, updated.penaltyAmount),
+      });
+      const [withCar] = await this.withCarSummaries([updated]);
+      return withCar as unknown as Rental;
     }
 
     throw Object.assign(new Error('Invalid lifecycle resolution action'), { statusCode: 400 });

@@ -1,4 +1,4 @@
-import { Rental } from '../interfaces';
+import { Rental, RentalResolution } from '../interfaces';
 
 function num(v: unknown): number {
   if (v === null || v === undefined) return 0;
@@ -42,6 +42,12 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
           brand: String(carRaw.brand ?? carRaw.make ?? ''),
           model: String(carRaw.model ?? ''),
           pricePerDay: num(carRaw.pricePerDay ?? carRaw.dailyRate),
+          year: carRaw.year !== undefined ? num(carRaw.year) : undefined,
+          imageUrl: carRaw.imageUrl !== undefined && carRaw.imageUrl !== null ? String(carRaw.imageUrl) : undefined,
+          imageUrls: Array.isArray(carRaw.imageUrls) ? (carRaw.imageUrls as string[]) : undefined,
+          images: Array.isArray(carRaw.images)
+            ? (carRaw.images as Array<{ imageUrl: string; isPrimary?: boolean }>)
+            : undefined,
         }
       : undefined;
 
@@ -64,6 +70,30 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
           };
         })()
       : undefined;
+  const resolutions: RentalResolution[] | undefined = Array.isArray(raw.resolutions)
+    ? raw.resolutions.map((item) => {
+        const row = item as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ''),
+          action: String(row.action ?? ''),
+          resolutionType: String(row.resolutionType || 'admin_cancel') as RentalResolution['resolutionType'],
+          previousStatus: String(row.previousStatus || 'pending') as Rental['status'],
+          nextStatus: String(row.nextStatus || 'pending') as Rental['status'],
+          previousLifecycleState: row.previousLifecycleState
+            ? (String(row.previousLifecycleState) as Rental['lifecycleState'])
+            : undefined,
+          nextLifecycleState: row.nextLifecycleState
+            ? (String(row.nextLifecycleState) as Rental['lifecycleState'])
+            : undefined,
+          penaltyAmount: num(row.penaltyAmount),
+          depositRefundAmount: num(row.depositRefundAmount),
+          note: row.note !== undefined && row.note !== null ? String(row.note) : null,
+          actorUserId: String(row.actorUserId ?? ''),
+          actorRole: String(row.actorRole ?? ''),
+          createdAt: iso(row.createdAt),
+        };
+      })
+    : undefined;
 
   return {
     id: raw.id as number | string,
@@ -117,6 +147,7 @@ export function mapRentalFromApi(raw: Record<string, unknown> | null | undefined
       raw.adminResolutionNote !== undefined && raw.adminResolutionNote !== null
         ? String(raw.adminResolutionNote)
         : undefined,
+    resolutions,
     client: raw.client as Rental['client'],
     renter,
     car,

@@ -139,6 +139,9 @@ export const useResolveRentalLifecycle = () => {
       id,
       action,
       note,
+      resolutionType,
+      penaltyAmount,
+      depositRefundAmount,
     }: {
       id: number | string;
       action:
@@ -149,7 +152,18 @@ export const useResolveRentalLifecycle = () => {
         | 'mark_pickup_disputed'
         | 'mark_return_disputed';
       note?: string;
-    }) => rentalService.resolveLifecycleByAdmin(id, action, note),
+      resolutionType?:
+        | 'admin_activated'
+        | 'admin_completed'
+        | 'renter_no_show'
+        | 'owner_no_show'
+        | 'mutual_cancel'
+        | 'admin_cancel'
+        | 'pickup_dispute'
+        | 'return_dispute';
+      penaltyAmount?: number;
+      depositRefundAmount?: number;
+    }) => rentalService.resolveLifecycleByAdmin(id, action, { note, resolutionType, penaltyAmount, depositRefundAmount }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
       queryClient.invalidateQueries({ queryKey: ['cars'] });

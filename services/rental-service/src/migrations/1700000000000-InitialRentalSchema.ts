@@ -7,21 +7,33 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-    await queryRunner.query(
-      `CREATE TYPE "public"."rentals_status_enum" AS ENUM('pending','active','completed','cancelled')`
-    );
-    await queryRunner.query(
-      `CREATE TYPE "public"."rentals_owner_approval_status_enum" AS ENUM('pending','approved','rejected')`
-    );
-    await queryRunner.query(
-      `CREATE TYPE "public"."rentals_review_status_enum" AS ENUM('not_available','waiting','partial','published','expired')`
-    );
-    await queryRunner.query(
-      `CREATE TYPE "public"."rentals_lifecycle_state_enum" AS ENUM('awaiting_owner_approval','awaiting_pickup','pickup_partially_confirmed','pickup_disputed','no_show','active','return_due','return_partially_confirmed','return_disputed','completed','cancelled')`
-    );
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."rentals_status_enum" AS ENUM('pending','active','completed','cancelled');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."rentals_owner_approval_status_enum" AS ENUM('pending','approved','rejected');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."rentals_review_status_enum" AS ENUM('not_available','waiting','partial','published','expired');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."rentals_lifecycle_state_enum" AS ENUM('awaiting_owner_approval','awaiting_pickup','pickup_partially_confirmed','pickup_disputed','no_show','active','return_due','return_partially_confirmed','return_disputed','completed','cancelled');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
 
     await queryRunner.query(`
-      CREATE TABLE "rentals" (
+      CREATE TABLE IF NOT EXISTS "rentals" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "car_id" uuid NOT NULL,
         "renter_user_id" uuid NOT NULL,
@@ -53,7 +65,7 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "penalties" (
+      CREATE TABLE IF NOT EXISTS "penalties" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "rental_id" uuid NOT NULL,
         "amount" numeric(10,2) NOT NULL,
@@ -67,7 +79,7 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "rental_messages" (
+      CREATE TABLE IF NOT EXISTS "rental_messages" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "rental_id" uuid NOT NULL,
         "sender_user_id" uuid NOT NULL,
@@ -80,7 +92,7 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "car_inquiry_messages" (
+      CREATE TABLE IF NOT EXISTS "car_inquiry_messages" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "car_id" uuid NOT NULL,
         "thread_renter_user_id" uuid NOT NULL,
@@ -91,11 +103,11 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
       )
     `);
     await queryRunner.query(
-      `CREATE INDEX "IDX_car_inquiry_car_thread" ON "car_inquiry_messages" ("car_id", "thread_renter_user_id")`
+      `CREATE INDEX IF NOT EXISTS "IDX_car_inquiry_car_thread" ON "car_inquiry_messages" ("car_id", "thread_renter_user_id")`
     );
 
     await queryRunner.query(`
-      CREATE TABLE "chat_read_cursors" (
+      CREATE TABLE IF NOT EXISTS "chat_read_cursors" (
         "user_id" uuid NOT NULL,
         "conversation_key" character varying(512) NOT NULL,
         "last_read_at" TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -103,14 +115,27 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(
-      `CREATE TYPE "public"."reviews_review_type_enum" AS ENUM('owner_to_renter','renter_to_owner_and_car')`
-    );
-    await queryRunner.query(`CREATE TYPE "public"."reviews_reviewee_type_enum" AS ENUM('owner','renter')`);
-    await queryRunner.query(`CREATE TYPE "public"."reviews_status_enum" AS ENUM('submitted','published','expired')`);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."reviews_review_type_enum" AS ENUM('owner_to_renter','renter_to_owner_and_car');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."reviews_reviewee_type_enum" AS ENUM('owner','renter');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."reviews_status_enum" AS ENUM('submitted','published','expired');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
 
     await queryRunner.query(`
-      CREATE TABLE "reviews" (
+      CREATE TABLE IF NOT EXISTS "reviews" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "booking_id" uuid NOT NULL,
         "reviewer_user_id" uuid NOT NULL,
@@ -131,7 +156,7 @@ export class InitialRentalSchema1700000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "review_scores" (
+      CREATE TABLE IF NOT EXISTS "review_scores" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "review_id" uuid NOT NULL,
         "category_code" character varying(64) NOT NULL,

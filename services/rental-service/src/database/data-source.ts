@@ -7,6 +7,7 @@ import { CarInquiryMessage } from '../entities/CarInquiryMessage.entity';
 import { ChatReadCursor } from '../entities/ChatReadCursor.entity';
 import { Review } from '../entities/Review.entity';
 import { ReviewScore } from '../entities/ReviewScore.entity';
+import { RentalResolution } from '../entities/RentalResolution.entity';
 
 const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
 const synchronize = process.env.DB_SYNCHRONIZE
@@ -23,7 +24,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'rental_service_db',
   synchronize,
   logging,
-  entities: [Rental, Penalty, RentalMessage, CarInquiryMessage, ChatReadCursor, Review, ReviewScore],
+  entities: [Rental, Penalty, RentalResolution, RentalMessage, CarInquiryMessage, ChatReadCursor, Review, ReviewScore],
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   subscribers: [],
 });

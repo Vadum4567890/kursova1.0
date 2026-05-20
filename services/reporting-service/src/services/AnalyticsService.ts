@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { Rental, RentalStatus } from '../entities/Rental.entity';
+import { Rental, RentalLifecycleState, RentalStatus } from '../entities/Rental.entity';
 import { AppDataSource } from '../database/data-source';
 import { fetchCarBrandModel, fetchCarsCatalog } from '../clients/carServiceClient';
 import { fetchUserDisplayName } from '../clients/userServiceClient';
@@ -16,6 +16,17 @@ function getSystemCommissionRate(): number {
   const raw = Number(process.env.SYSTEM_COMMISSION_RATE ?? 0.05);
   if (!Number.isFinite(raw) || raw < 0) return 0.05;
   return raw;
+}
+
+function isDisputedOrRiskyLifecycle(state?: RentalLifecycleState | null): boolean {
+  return [
+    RentalLifecycleState.PICKUP_PARTIALLY_CONFIRMED,
+    RentalLifecycleState.PICKUP_DISPUTED,
+    RentalLifecycleState.NO_SHOW,
+    RentalLifecycleState.RETURN_DUE,
+    RentalLifecycleState.RETURN_PARTIALLY_CONFIRMED,
+    RentalLifecycleState.RETURN_DISPUTED,
+  ].includes(state as RentalLifecycleState);
 }
 
 export class AnalyticsService {
@@ -44,6 +55,8 @@ export class AnalyticsService {
     const filtered = await this.getRentalsInRange(startDate, endDate);
     const activeRentals = filtered.filter((rental) => rental.status === RentalStatus.ACTIVE);
     const completedRentals = filtered.filter((rental) => rental.status === RentalStatus.COMPLETED);
+    const pendingRentals = filtered.filter((rental) => rental.status === RentalStatus.PENDING);
+    const openRentals = [...activeRentals, ...pendingRentals];
     const cars = await fetchCarsCatalog();
     const activeCars = new Set(activeRentals.map((rental) => rental.carId));
 
@@ -55,6 +68,18 @@ export class AnalyticsService {
     );
     const landlordRevenue = totalRentalRevenue - systemRevenue + totalPenalties;
     const totalRevenue = totalRentalRevenue + totalPenalties;
+    const projectedRevenue = openRentals
+      .filter((rental) => !isDisputedOrRiskyLifecycle(rental.lifecycleState))
+      .reduce((sum, rental) => sum + toNumber(rental.totalCost), 0);
+    const disputedRevenue = openRentals
+      .filter((rental) => isDisputedOrRiskyLifecycle(rental.lifecycleState))
+      .reduce((sum, rental) => sum + toNumber(rental.totalCost) + toNumber(rental.penaltyAmount), 0);
+    const refundedDeposits = filtered
+      .filter((rental) => rental.status === RentalStatus.COMPLETED || rental.status === RentalStatus.CANCELLED)
+      .reduce(
+        (sum, rental) => sum + Math.max(0, toNumber(rental.depositAmount) - toNumber(rental.penaltyAmount)),
+        0
+      );
     const totalDeposits = filtered.reduce((sum, rental) => sum + toNumber(rental.depositAmount), 0);
     const totalCars = cars.length;
     const rentedCars = activeCars.size;
@@ -72,8 +97,12 @@ export class AnalyticsService {
       systemRevenue: roundCurrency(systemRevenue),
       landlordRevenue: roundCurrency(landlordRevenue),
       totalRevenue: roundCurrency(totalRevenue),
+      recognizedRevenue: roundCurrency(totalRevenue),
+      projectedRevenue: roundCurrency(projectedRevenue),
+      disputedRevenue: roundCurrency(disputedRevenue),
       totalPenalties: roundCurrency(totalPenalties),
       totalDeposits: roundCurrency(totalDeposits),
+      refundedDeposits: roundCurrency(refundedDeposits),
       netRevenue: roundCurrency(totalRevenue),
       averageRentalDuration: await this.getAverageRentalDuration(),
       occupancyRate: totalCars > 0 ? roundCurrency((rentedCars / totalCars) * 100) : 0,
@@ -85,6 +114,9 @@ export class AnalyticsService {
   async getRevenueStats(startDate?: Date, endDate?: Date): Promise<any> {
     const inRange = await this.getRentalsInRange(startDate, endDate);
     const completed = inRange.filter((rental) => rental.status === RentalStatus.COMPLETED);
+    const open = inRange.filter(
+      (rental) => rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING
+    );
 
     const revenueByDay = new Map<string, number>();
     const systemRevenueByDay = new Map<string, number>();
@@ -111,15 +143,23 @@ export class AnalyticsService {
       0
     );
     const landlordRevenue = totalRentalRevenue - systemRevenue + totalPenalties;
+    const projectedRevenue = open
+      .filter((rental) => !isDisputedOrRiskyLifecycle(rental.lifecycleState))
+      .reduce((sum, rental) => sum + toNumber(rental.totalCost), 0);
+    const disputedRevenue = open
+      .filter((rental) => isDisputedOrRiskyLifecycle(rental.lifecycleState))
+      .reduce((sum, rental) => sum + toNumber(rental.totalCost) + toNumber(rental.penaltyAmount), 0);
 
     return {
       systemCommissionRate: this.systemCommissionRate,
-      totalRevenue: roundCurrency(totalRentalRevenue),
+      totalRevenue: roundCurrency(totalRentalRevenue + totalPenalties + projectedRevenue + disputedRevenue),
       totalRentalRevenue: roundCurrency(totalRentalRevenue),
       totalPenalties: roundCurrency(totalPenalties),
       systemRevenue: roundCurrency(systemRevenue),
       landlordRevenue: roundCurrency(landlordRevenue),
       recognizedRevenue: roundCurrency(totalRentalRevenue + totalPenalties),
+      projectedRevenue: roundCurrency(projectedRevenue),
+      disputedRevenue: roundCurrency(disputedRevenue),
       revenueByDay: Array.from(revenueByDay.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, amount]) => ({

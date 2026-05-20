@@ -17,6 +17,13 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Alert,
+  Avatar,
+  Stack,
 } from '@mui/material';
 import { Add, CheckCircle, Cancel } from '@mui/icons-material';
 import { Rental, Client, Car } from '../interfaces';
@@ -44,6 +51,7 @@ import { useErrorHandler } from '../hooks/useErrorHandler';
 import { RentalFormData } from '../interfaces';
 import { formatDate } from '../utils/dateHelpers';
 import { getRenterDisplayName } from '../utils/rentalDisplay';
+import { resolvePublicMediaUrl } from '../utils/mediaUrls';
 
 function getLifecycleLabel(rental: Rental): string | null {
   switch (rental.lifecycleState) {
@@ -68,8 +76,65 @@ function getLifecycleLabel(rental: Rental): string | null {
   }
 }
 
+function getRentalCarImage(rental: Rental, carFromCatalog?: Car): string {
+  const car = rental.car;
+  const first =
+    car?.imageUrls?.[0] ||
+    car?.images?.find((image) => image.isPrimary)?.imageUrl ||
+    car?.images?.[0]?.imageUrl ||
+    car?.imageUrl ||
+    carFromCatalog?.imageUrls?.[0] ||
+    carFromCatalog?.images?.find((image) => image.isPrimary)?.imageUrl ||
+    carFromCatalog?.images?.[0]?.imageUrl ||
+    carFromCatalog?.imageUrl;
+  return resolvePublicMediaUrl(first);
+}
+
+function getShortId(id: number | string): string {
+  const value = String(id);
+  return value.length > 8 ? `${value.slice(0, 8)}...` : value;
+}
+
+type AdminLifecycleAction =
+  | 'activate'
+  | 'complete'
+  | 'cancel'
+  | 'mark_no_show'
+  | 'mark_pickup_disputed'
+  | 'mark_return_disputed';
+
+type RentalResolutionType =
+  | 'admin_activated'
+  | 'admin_completed'
+  | 'renter_no_show'
+  | 'owner_no_show'
+  | 'mutual_cancel'
+  | 'admin_cancel'
+  | 'pickup_dispute'
+  | 'return_dispute';
+
+interface ResolutionDialogState {
+  open: boolean;
+  rental: Rental | null;
+  action: AdminLifecycleAction | null;
+  title: string;
+  note: string;
+  resolutionType?: RentalResolutionType;
+  penaltyAmount: string;
+  depositRefundAmount: string;
+}
+
 const RentalsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
+  const [resolutionDialog, setResolutionDialog] = useState<ResolutionDialogState>({
+    open: false,
+    rental: null,
+    action: null,
+    title: '',
+    note: '',
+    penaltyAmount: '0',
+    depositRefundAmount: '0',
+  });
   
   // React Query hooks
   const { data: allRentals = [], isLoading: loadingAll, error: rentalsError } = useRentals();
@@ -82,9 +147,18 @@ const RentalsPage: React.FC = () => {
   // Load renter/customer records and cars when dialog opens
   const { data: customers = [] } = useCustomers();
   const { data: carsResponse } = useCars();
-  const cars = useMemo(() => carsResponse?.data?.filter((c: Car) => c.status === 'available') || [], [carsResponse]);
+  const allCars = useMemo(() => carsResponse?.data || [], [carsResponse]);
+  const cars = useMemo(() => allCars.filter((c: Car) => c.status === 'available'), [allCars]);
+  const carsById = useMemo(
+    () => new Map(allCars.map((car: Car) => [String(car.id), car])),
+    [allCars]
+  );
   const clientNamesByUserId = useMemo(
     () => new Map(customers.map((c: Client) => [String(c.id), c.fullName])),
+    [customers]
+  );
+  const clientsById = useMemo(
+    () => new Map(customers.map((c: Client) => [String(c.id), c])),
     [customers]
   );
   
@@ -145,19 +219,49 @@ const RentalsPage: React.FC = () => {
     }
   };
 
-  const handleResolveLifecycle = async (
-    id: number | string,
-    action:
-      | 'activate'
-      | 'complete'
-      | 'cancel'
-      | 'mark_no_show'
-      | 'mark_pickup_disputed'
-      | 'mark_return_disputed'
+  const openResolutionDialog = (
+    rental: Rental,
+    action: AdminLifecycleAction,
+    title: string,
+    resolutionType?: RentalResolutionType
   ) => {
+    const defaultPenalty = action === 'mark_no_show' ? rental.depositAmount : rental.penaltyAmount || 0;
+    setResolutionDialog({
+      open: true,
+      rental,
+      action,
+      title,
+      note: '',
+      resolutionType,
+      penaltyAmount: String(defaultPenalty),
+      depositRefundAmount: String(Math.max(0, rental.depositAmount - defaultPenalty)),
+    });
+  };
+
+  const closeResolutionDialog = () => {
+    setResolutionDialog((prev) => ({ ...prev, open: false }));
+  };
+
+  const handleResolveLifecycle = async () => {
+    const rental = resolutionDialog.rental;
+    const action = resolutionDialog.action;
+    if (!rental || !action) return;
+    const note = resolutionDialog.note.trim();
+    if (!note) {
+      handleError(new Error('Вкажіть причину рішення'), 'Вкажіть причину рішення');
+      return;
+    }
     try {
       clearError();
-      await resolveLifecycle.mutateAsync({ id, action });
+      await resolveLifecycle.mutateAsync({
+        id: rental.id,
+        action,
+        note,
+        resolutionType: resolutionDialog.resolutionType,
+        penaltyAmount: Number(resolutionDialog.penaltyAmount || 0),
+        depositRefundAmount: Number(resolutionDialog.depositRefundAmount || 0),
+      });
+      closeResolutionDialog();
     } catch (err: any) {
       handleError(err, err?.message || 'Не вдалося оновити стан прокату');
     }
@@ -199,14 +303,71 @@ const RentalsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {rentals.map((rental: Rental) => (
+              {rentals.map((rental: Rental) => {
+                const catalogCar = carsById.get(String(rental.carId));
+                const carImage = getRentalCarImage(rental, catalogCar);
+                const client = rental.clientId != null ? clientsById.get(String(rental.clientId)) : undefined;
+                const renterName = getRenterDisplayName(rental, clientNamesByUserId);
+                const renterPhone = rental.client?.phone || client?.phone;
+                const renterEmail = rental.renter?.email || client?.email;
+                const carTitle = rental.car
+                  ? `${rental.car.brand} ${rental.car.model}`
+                  : catalogCar
+                    ? `${catalogCar.brand} ${catalogCar.model}`
+                    : (rental.carId ? `Авто #${getShortId(rental.carId)}` : 'Невідомо');
+
+                return (
                 <TableRow key={rental.id} hover>
-                  <TableCell>{rental.id}</TableCell>
-                  <TableCell>{getRenterDisplayName(rental, clientNamesByUserId)}</TableCell>
                   <TableCell>
+                    <Typography variant="body2" fontWeight={700}>
+                      #{getShortId(rental.id)}
+                    </Typography>
+                    {rental.createdAt && (
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(rental.createdAt)}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={700}>
+                      {renterName}
+                    </Typography>
+                    {renterPhone && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {renterPhone}
+                      </Typography>
+                    )}
+                    {renterEmail && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {renterEmail}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 220 }}>
+                      <Avatar
+                        variant="rounded"
+                        src={carImage || undefined}
+                        alt={carTitle}
+                        sx={{ width: 72, height: 48, bgcolor: 'action.hover' }}
+                      >
+                        {carTitle.slice(0, 1)}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2" fontWeight={700}>
+                          {carTitle}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {rental.car?.year || catalogCar?.year || 'Рік не вказано'}
+                          {catalogCar?.type ? ` • ${catalogCar.type}` : ''}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Box sx={{ display: 'none' }}>
                     {rental.car
                       ? `${rental.car.brand} ${rental.car.model}`
                       : (rental.carId ? `Автомобіль #${rental.carId}` : 'Невідомо')}
+                    </Box>
                   </TableCell>
                   <TableCell>
                     {formatDate(rental.startDate)}
@@ -284,7 +445,9 @@ const RentalsPage: React.FC = () => {
                           <Button
                             size="small"
                             disabled={resolveLifecycle.isPending}
-                            onClick={() => handleResolveLifecycle(rental.id, 'activate')}
+                            onClick={() =>
+                              openResolutionDialog(rental, 'activate', 'Підтвердити передачу авто адміном', 'admin_activated')
+                            }
                           >
                             Активувати
                           </Button>
@@ -294,7 +457,9 @@ const RentalsPage: React.FC = () => {
                             size="small"
                             color="error"
                             disabled={resolveLifecycle.isPending}
-                            onClick={() => handleResolveLifecycle(rental.id, 'mark_no_show')}
+                            onClick={() =>
+                              openResolutionDialog(rental, 'mark_no_show', 'Позначити неявку орендаря', 'renter_no_show')
+                            }
                           >
                             No-show
                           </Button>
@@ -305,7 +470,9 @@ const RentalsPage: React.FC = () => {
                             size="small"
                             color="warning"
                             disabled={resolveLifecycle.isPending}
-                            onClick={() => handleResolveLifecycle(rental.id, 'mark_pickup_disputed')}
+                            onClick={() =>
+                              openResolutionDialog(rental, 'mark_pickup_disputed', 'Відкрити спір щодо передачі', 'pickup_dispute')
+                            }
                           >
                             Спір передачі
                           </Button>
@@ -327,7 +494,7 @@ const RentalsPage: React.FC = () => {
                             rental.lifecycleState === 'return_due' ||
                             rental.lifecycleState === 'return_partially_confirmed' ||
                             rental.lifecycleState === 'return_disputed'
-                              ? handleResolveLifecycle(rental.id, 'complete')
+                              ? openResolutionDialog(rental, 'complete', 'Завершити прокат рішенням адміна', 'admin_completed')
                               : handleComplete(rental.id)
                           }
                         >
@@ -338,7 +505,9 @@ const RentalsPage: React.FC = () => {
                             size="small"
                             color="warning"
                             disabled={resolveLifecycle.isPending}
-                            onClick={() => handleResolveLifecycle(rental.id, 'mark_return_disputed')}
+                            onClick={() =>
+                              openResolutionDialog(rental, 'mark_return_disputed', 'Відкрити спір щодо повернення', 'return_dispute')
+                            }
                           >
                             Спір повернення
                           </Button>
@@ -355,7 +524,8 @@ const RentalsPage: React.FC = () => {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -417,6 +587,103 @@ const RentalsPage: React.FC = () => {
           InputLabelProps={{ shrink: true }}
         />
       </FormDialog>
+
+      <Dialog open={resolutionDialog.open} onClose={closeResolutionDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{resolutionDialog.title}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Це рішення змінить стан прокату і буде записане в журнал дій адміністратора.
+          </Alert>
+          {resolutionDialog.rental && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Прокат #{resolutionDialog.rental.id}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Поточний статус: {resolutionDialog.rental.status}
+                {resolutionDialog.rental.lifecycleState ? ` / ${getLifecycleLabel(resolutionDialog.rental) || resolutionDialog.rental.lifecycleState}` : ''}
+              </Typography>
+            </Box>
+          )}
+
+          {resolutionDialog.action === 'mark_no_show' && (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Тип рішення</InputLabel>
+              <Select
+                label="Тип рішення"
+                value={resolutionDialog.resolutionType || 'renter_no_show'}
+                onChange={(event) =>
+                  setResolutionDialog((prev) => ({
+                    ...prev,
+                    resolutionType: event.target.value as RentalResolutionType,
+                  }))
+                }
+              >
+                <MenuItem value="renter_no_show">Орендар не з’явився</MenuItem>
+                <MenuItem value="owner_no_show">Орендодавець не передав авто</MenuItem>
+                <MenuItem value="mutual_cancel">Сторони домовились скасувати</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
+          {(resolutionDialog.action === 'mark_no_show' || resolutionDialog.action === 'complete') && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
+              <TextField
+                label="Штраф, ₴"
+                type="number"
+                inputProps={{ min: 0, step: 0.01 }}
+                value={resolutionDialog.penaltyAmount}
+                onChange={(event) => {
+                  const penalty = Number(event.target.value || 0);
+                  const deposit = Number(resolutionDialog.rental?.depositAmount || 0);
+                  setResolutionDialog((prev) => ({
+                    ...prev,
+                    penaltyAmount: event.target.value,
+                    depositRefundAmount: String(Math.max(0, deposit - penalty)),
+                  }));
+                }}
+              />
+              <TextField
+                label="Повернення депозиту, ₴"
+                type="number"
+                inputProps={{ min: 0, step: 0.01 }}
+                value={resolutionDialog.depositRefundAmount}
+                onChange={(event) =>
+                  setResolutionDialog((prev) => ({ ...prev, depositRefundAmount: event.target.value }))
+                }
+              />
+            </Box>
+          )}
+
+          <TextField
+            label="Причина рішення"
+            multiline
+            minRows={3}
+            fullWidth
+            required
+            value={resolutionDialog.note}
+            onChange={(event) =>
+              setResolutionDialog((prev) => ({ ...prev, note: event.target.value }))
+            }
+            helperText="Наприклад: орендар не прибув у погоджений час, підтверджено дзвінком"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeResolutionDialog} disabled={resolveLifecycle.isPending}>
+            Скасувати
+          </Button>
+          <Button
+            variant="contained"
+            color={resolutionDialog.action === 'mark_no_show' ? 'error' : 'primary'}
+            onClick={() => {
+              void handleResolveLifecycle();
+            }}
+            disabled={resolveLifecycle.isPending}
+          >
+            Підтвердити рішення
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <ConfirmDialog
         open={deleteConfirm.deleteDialogOpen}

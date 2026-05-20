@@ -215,6 +215,14 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
             </Grid>
             <Grid item xs={12} md={3}>
               <StatCard
+                title="Визнаний дохід"
+                value={`${(report?.recognizedRevenue ?? 0).toLocaleString()} грн`}
+                color="success"
+                variant="h5"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <StatCard
                 title="Дохід системи (5%)"
                 value={`${(report?.systemRevenue ?? 0).toLocaleString()} грн`}
                 color="primary"
@@ -238,6 +246,14 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
             </Grid>
             <Grid item xs={12} md={3}>
               <StatCard
+                title="Спірний / ризиковий"
+                value={`${(report?.disputedRevenue ?? 0).toLocaleString()} грн`}
+                color="warning"
+                variant="h5"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <StatCard
                 title="Зобов'язання по депозитах"
                 value={`${(report?.depositLiability ?? 0).toLocaleString()} грн`}
                 color="warning"
@@ -248,6 +264,8 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Штрафи за період (усі прокати): {(report?.totalPenalties ?? 0).toLocaleString()} грн
+            {' · '}
+            Повернуто депозитів: {(report?.refundedDeposits ?? 0).toLocaleString()} грн
           </Typography>
 
           <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -306,6 +324,9 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
                     <TableCell>Орендар</TableCell>
                     <TableCell>Статус</TableCell>
                     <TableCell align="right">Оренда (базова)</TableCell>
+                    <TableCell align="right">Визнано</TableCell>
+                    <TableCell align="right">Прогноз</TableCell>
+                    <TableCell align="right">Спірно</TableCell>
                     <TableCell align="right">Комісія системи</TableCell>
                     <TableCell align="right">Орендодавцю</TableCell>
                     <TableCell align="right">Штраф</TableCell>
@@ -318,6 +339,9 @@ const FinancialReportTab: React.FC<FinancialReportTabProps> = ({
                       <TableCell>{formatRenterCell(transaction)}</TableCell>
                       <TableCell>{RENTAL_STATUS_UA[transaction.status] ?? transaction.status}</TableCell>
                       <TableCell align="right">{transaction.totalCost.toLocaleString()} грн</TableCell>
+                      <TableCell align="right">{(transaction.recognizedRevenue ?? 0).toLocaleString()} грн</TableCell>
+                      <TableCell align="right">{(transaction.projectedRevenue ?? 0).toLocaleString()} грн</TableCell>
+                      <TableCell align="right">{(transaction.disputedRevenue ?? 0).toLocaleString()} грн</TableCell>
                       <TableCell align="right">
                         {(transaction.systemCommission ?? 0).toLocaleString()} грн
                       </TableCell>

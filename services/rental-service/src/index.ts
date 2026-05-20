@@ -71,7 +71,11 @@ const startServer = async () => {
       logger.info(`Rental Service running on port ${PORT}`);
     });
   } catch (error) {
-    logger.error('Failed to start server', { error });
+    logger.error('Failed to start server', {
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     process.exit(1);
   }
 };
