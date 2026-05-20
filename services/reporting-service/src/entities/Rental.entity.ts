@@ -15,6 +15,20 @@ export enum RentalStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum RentalLifecycleState {
+  AWAITING_OWNER_APPROVAL = 'awaiting_owner_approval',
+  AWAITING_PICKUP = 'awaiting_pickup',
+  PICKUP_PARTIALLY_CONFIRMED = 'pickup_partially_confirmed',
+  PICKUP_DISPUTED = 'pickup_disputed',
+  NO_SHOW = 'no_show',
+  ACTIVE = 'active',
+  RETURN_DUE = 'return_due',
+  RETURN_PARTIALLY_CONFIRMED = 'return_partially_confirmed',
+  RETURN_DISPUTED = 'return_disputed',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
 @Entity('rentals')
 export class Rental {
   @PrimaryGeneratedColumn('uuid')
@@ -50,6 +64,14 @@ export class Rental {
     default: RentalStatus.ACTIVE,
   })
   status!: RentalStatus;
+
+  @Column({
+    type: 'enum',
+    enum: RentalLifecycleState,
+    nullable: true,
+    name: 'lifecycle_state',
+  })
+  lifecycleState!: RentalLifecycleState | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

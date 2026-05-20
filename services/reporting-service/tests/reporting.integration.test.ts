@@ -3,7 +3,7 @@ import { newDb } from 'pg-mem';
 import { DataSource } from 'typeorm';
 import { AppDataSource } from '../src/database/data-source';
 import { Penalty } from '../src/entities/Penalty.entity';
-import { Rental, RentalStatus } from '../src/entities/Rental.entity';
+import { Rental, RentalLifecycleState, RentalStatus } from '../src/entities/Rental.entity';
 import { PenaltyService } from '../src/services/PenaltyService';
 import { ReportService } from '../src/services/ReportService';
 import { AnalyticsService } from '../src/services/AnalyticsService';
@@ -115,6 +115,7 @@ describe('reporting-service integration (pg-mem)', () => {
         totalCost: 600,
         penaltyAmount: 50,
         status: RentalStatus.COMPLETED,
+        lifecycleState: RentalLifecycleState.COMPLETED,
       }),
       rentalRepo.create({
         id: '88888888-8888-4888-8888-888888888888',
@@ -127,6 +128,7 @@ describe('reporting-service integration (pg-mem)', () => {
         totalCost: 400,
         penaltyAmount: 0,
         status: RentalStatus.ACTIVE,
+        lifecycleState: RentalLifecycleState.ACTIVE,
       }),
     ]);
 
@@ -137,11 +139,94 @@ describe('reporting-service integration (pg-mem)', () => {
     );
 
     expect(report.totalRevenue).toBe(1050);
+    expect(report.recognizedRevenue).toBe(650);
+    expect(report.projectedRevenue).toBe(400);
+    expect(report.disputedRevenue).toBe(0);
+    expect(report.refundedDeposits).toBe(150);
     expect(report.totalPenalties).toBe(50);
     expect(report.rentals.completed).toBe(1);
     expect(report.rentals.active).toBe(1);
     expect(report.transactions).toHaveLength(2);
     expect(report.revenueTimeline).toHaveLength(1);
+  });
+
+  it('separates recognized, projected, disputed, and refunded money', async () => {
+    const rentalRepo = dataSource.getRepository(Rental);
+
+    await rentalRepo.save([
+      rentalRepo.create({
+        id: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
+        carId: '33333333-3333-4333-8333-333333333333',
+        renterUserId: '44444444-4444-4444-8444-444444444444',
+        startDate: new Date('2026-04-01T00:00:00.000Z'),
+        expectedEndDate: new Date('2026-04-03T00:00:00.000Z'),
+        actualEndDate: new Date('2026-04-03T00:00:00.000Z'),
+        depositAmount: 500,
+        totalCost: 900,
+        penaltyAmount: 100,
+        status: RentalStatus.COMPLETED,
+        lifecycleState: RentalLifecycleState.COMPLETED,
+      }),
+      rentalRepo.create({
+        id: 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb',
+        carId: '55555555-5555-4555-8555-555555555555',
+        renterUserId: '66666666-6666-4666-8666-666666666666',
+        startDate: new Date('2026-04-04T00:00:00.000Z'),
+        expectedEndDate: new Date('2026-04-05T00:00:00.000Z'),
+        actualEndDate: null,
+        depositAmount: 300,
+        totalCost: 600,
+        penaltyAmount: 0,
+        status: RentalStatus.ACTIVE,
+        lifecycleState: RentalLifecycleState.ACTIVE,
+      }),
+      rentalRepo.create({
+        id: 'cccccccc-3333-4333-8333-cccccccccccc',
+        carId: '77777777-7777-4777-8777-777777777777',
+        renterUserId: '88888888-8888-4888-8888-888888888888',
+        startDate: new Date('2026-04-06T00:00:00.000Z'),
+        expectedEndDate: new Date('2026-04-07T00:00:00.000Z'),
+        actualEndDate: null,
+        depositAmount: 250,
+        totalCost: 700,
+        penaltyAmount: 50,
+        status: RentalStatus.ACTIVE,
+        lifecycleState: RentalLifecycleState.RETURN_DISPUTED,
+      }),
+      rentalRepo.create({
+        id: 'dddddddd-4444-4444-8444-dddddddddddd',
+        carId: '99999999-9999-4999-8999-999999999999',
+        renterUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        startDate: new Date('2026-04-08T00:00:00.000Z'),
+        expectedEndDate: new Date('2026-04-08T00:00:00.000Z'),
+        actualEndDate: new Date('2026-04-08T00:00:00.000Z'),
+        depositAmount: 200,
+        totalCost: 0,
+        penaltyAmount: 200,
+        status: RentalStatus.CANCELLED,
+        lifecycleState: RentalLifecycleState.NO_SHOW,
+      }),
+    ]);
+
+    const service = new ReportService();
+    const report = await service.generateFinancialReport(
+      new Date('2026-04-01T00:00:00.000Z'),
+      new Date('2026-04-30T23:59:59.000Z')
+    );
+    const disputedRow = report.transactions.find((row) => row.lifecycleState === RentalLifecycleState.RETURN_DISPUTED);
+
+    expect(report.recognizedRevenue).toBe(1200);
+    expect(report.projectedRevenue).toBe(600);
+    expect(report.disputedRevenue).toBe(750);
+    expect(report.totalRevenue).toBe(2550);
+    expect(report.refundedDeposits).toBe(400);
+    expect(report.depositLiability).toBe(550);
+    expect(disputedRow).toEqual(
+      expect.objectContaining({
+        projectedRevenue: 0,
+        disputedRevenue: 750,
+      })
+    );
   });
 
   it('builds exportable workbook and top renter analytics', async () => {
@@ -159,6 +244,7 @@ describe('reporting-service integration (pg-mem)', () => {
         totalCost: 700,
         penaltyAmount: 100,
         status: RentalStatus.COMPLETED,
+        lifecycleState: RentalLifecycleState.COMPLETED,
       }),
       rentalRepo.create({
         id: '22222222-bbbb-4222-8222-222222222222',
@@ -171,6 +257,7 @@ describe('reporting-service integration (pg-mem)', () => {
         totalCost: 300,
         penaltyAmount: 0,
         status: RentalStatus.ACTIVE,
+        lifecycleState: RentalLifecycleState.ACTIVE,
       }),
     ]);
 

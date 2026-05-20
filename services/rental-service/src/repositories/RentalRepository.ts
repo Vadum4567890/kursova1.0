@@ -23,7 +23,7 @@ export class RentalRepository {
   async findById(id: string): Promise<Rental | null> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 
@@ -31,7 +31,7 @@ export class RentalRepository {
     return await this.repository.find({
       where: { carId },
       order: { startDate: 'ASC' },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 
@@ -39,7 +39,7 @@ export class RentalRepository {
     return await this.repository.find({
       where: { renterUserId },
       order: { startDate: 'DESC' },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 
@@ -47,7 +47,7 @@ export class RentalRepository {
     return await this.repository.find({
       where: { ownerUserId },
       order: { createdAt: 'DESC' },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 
@@ -56,14 +56,14 @@ export class RentalRepository {
     return await this.repository.find({
       where: { carId: In(carIds) },
       order: { startDate: 'DESC' },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 
   async findAll(): Promise<Rental[]> {
     return await this.repository.find({
       order: { createdAt: 'DESC' },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 
@@ -71,7 +71,7 @@ export class RentalRepository {
     return await this.repository.find({
       where: { status: In([RentalStatus.ACTIVE, RentalStatus.PENDING]) },
       order: { startDate: 'ASC' },
-      relations: ['penalties'],
+      relations: ['penalties', 'resolutions'],
     });
   }
 

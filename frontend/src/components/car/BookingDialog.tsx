@@ -3,12 +3,16 @@ import {
   Alert,
   Box,
   Button,
+  CardMedia,
+  Chip,
   CircularProgress,
+  Divider,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Paper,
+  Stack,
   Typography,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -19,6 +23,7 @@ import 'dayjs/locale/uk';
 import { Car } from '../../interfaces';
 import { calculateTotalCost, formatCurrency } from '../../utils/calculations';
 import { isDateBooked, isDateRangeValid } from '../../utils/dateHelpers';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrls';
 
 interface BookedPeriod {
   startDate: string;
@@ -57,6 +62,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const carImageUrl = useMemo(() => {
+    const first =
+      car?.imageUrls?.[0] ||
+      car?.images?.find((image) => image.isPrimary)?.imageUrl ||
+      car?.images?.[0]?.imageUrl ||
+      car?.imageUrl;
+    return resolvePublicMediaUrl(first) || '';
+  }, [car]);
+
   useEffect(() => {
     if (!open) {
       setConfirmOpen(false);
@@ -94,6 +108,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     };
   }, [car, days]);
 
+  const totalToReserve = pricing.price + pricing.deposit;
+
   const submitLabel = car?.instantBook ? 'Підтвердити умови' : 'Надіслати на підтвердження';
   const finalConfirmLabel = car?.instantBook ? 'Погоджуюсь і бронюю' : 'Погоджуюсь і надсилаю заявку';
   const helperAlert = car?.instantBook
@@ -125,17 +141,62 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         <DialogContent>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="uk">
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
-              <Box>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' },
+                  gap: 2,
+                  alignItems: 'stretch',
+                }}
+              >
+                <Box
+                  sx={{
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    bgcolor: 'action.hover',
+                    minHeight: 120,
+                  }}
+                >
+                  {carImageUrl ? (
+                    <CardMedia
+                      component="img"
+                      image={carImageUrl}
+                      alt={`${car.brand} ${car.model}`}
+                      sx={{ width: '100%', height: '100%', minHeight: 120, objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Box sx={{ height: 120, display: 'grid', placeItems: 'center' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Фото авто
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Box>
                 <Typography variant="h6" gutterBottom>
                   {car.brand} {car.model} ({car.year})
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Ціна: {car.pricePerDay} ₴/день • Базовий залог: {car.deposit} ₴
+                  Ціна: {car.pricePerDay} ₴/день • Базовий завдаток: {car.deposit} ₴
                 </Typography>
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                  <Chip size="small" label={`${car.year} рік`} />
+                  <Chip size="small" label={car.type} />
+                  {car.seats ? <Chip size="small" label={`${car.seats} місць`} /> : null}
+                  <Chip
+                    size="small"
+                    color={car.instantBook ? 'success' : 'info'}
+                    label={car.instantBook ? 'Миттєве бронювання' : 'Потребує підтвердження'}
+                  />
+                </Stack>
                 <Alert severity={car.instantBook ? 'success' : 'info'} sx={{ mt: 1.5 }}>
                   {helperAlert}
                 </Alert>
               </Box>
+              </Paper>
 
               {loadingBookedDates ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -188,7 +249,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       >
                         Уже заброньовані періоди
                       </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                         {bookedDates.map((period, idx) => (
                           <Typography
                             key={`${period.startDate}-${period.endDate}-${idx}`}
@@ -200,17 +261,59 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                             {dayjs(period.endDate).format('DD.MM.YYYY')}
                           </Typography>
                         ))}
-                      </Box>
+                      </Stack>
                     </Paper>
                   )}
 
                   {bookingData.startDate && bookingData.expectedEndDate && (
                     <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
+                          gap: 2,
+                          mb: 2,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Початок
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700}>
+                            {bookingData.startDate.format('DD.MM.YYYY')}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Повернення
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700}>
+                            {bookingData.expectedEndDate.format('DD.MM.YYYY')}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Тривалість
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700}>
+                            {days} дн.
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            До резервування
+                          </Typography>
+                          <Typography variant="body2" fontWeight={800} color="primary">
+                            {formatCurrency(totalToReserve)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Divider sx={{ mb: 1.5 }} />
                       <Typography variant="body2" color="text.secondary">
                         Орієнтовна вартість: {formatCurrency(pricing.price)} ({days} дн.)
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Залог: {formatCurrency(pricing.deposit)}
+                        Завдаток: {formatCurrency(pricing.deposit)}
                       </Typography>
                       {days > 1 ? (
                         <Typography
@@ -229,7 +332,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                           color="text.secondary"
                           sx={{ mt: 0.5 }}
                         >
-                          Базовий залог без доплат
+                          Базовий завдаток без доплат
                         </Typography>
                       )}
                       {!isRangeValid && (
@@ -288,7 +391,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 Вартість оренди: <strong>{formatCurrency(pricing.price)}</strong>
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                Залог: <strong>{formatCurrency(pricing.deposit)}</strong>
+                Завдаток: <strong>{formatCurrency(pricing.deposit)}</strong>
               </Typography>
             </Paper>
 

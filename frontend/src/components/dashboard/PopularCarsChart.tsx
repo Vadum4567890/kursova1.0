@@ -4,7 +4,6 @@ import { DirectionsCar } from '@mui/icons-material';
 import {
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,7 +16,6 @@ import { useAppTheme } from '../../context/ThemeContext';
 interface PopularCarsData {
   name: string;
   Прокатів: number;
-  'Вартість прокату': number;
 }
 
 interface PopularCarsChartProps {
@@ -109,18 +107,6 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
               style: { fill: theme.palette.mode === 'dark' ? '#b0b0b0' : '#666' },
             }}
           />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            stroke={theme.palette.mode === 'dark' ? '#10b981' : '#059669'}
-            tick={{ fill: theme.palette.mode === 'dark' ? '#10b981' : '#059669' }}
-            label={{
-              value: 'Вартість прокату (\u20B4)',
-              angle: 90,
-              position: 'insideRight',
-              style: { fill: theme.palette.mode === 'dark' ? '#10b981' : '#059669' },
-            }}
-          />
           <Tooltip
             contentStyle={{
               backgroundColor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#ffffff',
@@ -144,12 +130,6 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
               fontWeight: 600,
               marginBottom: '8px',
             }}
-            formatter={(value: any, name: string) => {
-              if (name === 'Вартість прокату (без штрафів)' || name === 'Вартість прокату') {
-                return [`${value.toLocaleString('uk-UA')} \u20B4`, name];
-              }
-              return [value, name];
-            }}
           />
           <Legend
             wrapperStyle={{
@@ -165,24 +145,10 @@ const PopularCarsChart: React.FC<PopularCarsChartProps> = ({ data }) => {
             radius={[8, 8, 0, 0]}
             name="Прокатів"
           />
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="Вартість прокату"
-            stroke="url(#lineGradient)"
-            strokeWidth={3}
-            dot={{ fill: '#10b981', r: 5, strokeWidth: 2, stroke: '#ffffff' }}
-            activeDot={{ r: 7, strokeWidth: 2 }}
-            name="Вартість прокату (без штрафів)"
-          />
           <defs>
             <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#667eea" stopOpacity={0.9} />
               <stop offset="100%" stopColor="#764ba2" stopOpacity={0.9} />
-            </linearGradient>
-            <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-              <stop offset="100%" stopColor="#059669" stopOpacity={1} />
             </linearGradient>
           </defs>
         </ComposedChart>

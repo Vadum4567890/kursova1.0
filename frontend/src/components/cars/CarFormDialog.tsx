@@ -449,7 +449,7 @@ export const CarFormDialog: React.FC<CarFormDialogProps> = ({
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Перевір рекомендацію від AI, а потім зафіксуй свою ціну за день і
-                розмір залогу.
+                розмір завдатку.
               </Typography>
             </Grid>
             <Grid item xs={12} md={4}>
@@ -489,7 +489,7 @@ export const CarFormDialog: React.FC<CarFormDialogProps> = ({
 
       <Grid item xs={12} md={6}>
         <TextField
-          label="Залог (₴)"
+          label="Завдаток (₴)"
           type="number"
           value={formData.deposit || 0}
           onChange={(event) =>
@@ -498,7 +498,7 @@ export const CarFormDialog: React.FC<CarFormDialogProps> = ({
           fullWidth
           required
           error={isInvalidDeposit}
-          helperText={isInvalidDeposit ? 'Залог не може бути відʼємним' : 'Повертається після оренди'}
+          helperText={isInvalidDeposit ? 'Завдаток не може бути відʼємним' : 'Повертається після оренди'}
         />
       </Grid>
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { RentalService } from '../services/RentalService';
 import { AuthRequest } from '../middleware/auth';
+import { RentalResolutionType } from '../entities/RentalResolution.entity';
 
 export class RentalController {
   private rentalService: RentalService;
@@ -515,12 +516,25 @@ export class RentalController {
       }
       const action = typeof req.body?.action === 'string' ? req.body.action : '';
       const note = typeof req.body?.note === 'string' ? req.body.note : undefined;
+      const resolutionType =
+        typeof req.body?.resolutionType === 'string' &&
+        Object.values(RentalResolutionType).includes(req.body.resolutionType as RentalResolutionType)
+          ? (req.body.resolutionType as RentalResolutionType)
+          : undefined;
+      const penaltyAmount = req.body?.penaltyAmount !== undefined ? Number(req.body.penaltyAmount) : undefined;
+      const depositRefundAmount =
+        req.body?.depositRefundAmount !== undefined ? Number(req.body.depositRefundAmount) : undefined;
       const rental = await this.rentalService.resolveLifecycleByAdmin(
         req.params.id,
         req.user.id,
         req.user.role,
         action,
-        note
+        {
+          note,
+          resolutionType,
+          penaltyAmount,
+          depositRefundAmount,
+        }
       );
       res.json({ success: true, data: rental });
     } catch (error) {

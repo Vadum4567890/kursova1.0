@@ -9,9 +9,11 @@ import LandingPage from './pages/LandingPage';
 import HomePage from './pages/client/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import TermsPage from './pages/TermsPage';
 import DashboardPage from './pages/DashboardPage';
 import CarsPage from './pages/CarsPage';
 import RentalsPage from './pages/RentalsPage';
+import DisputesPage from './pages/DisputesPage';
 import PenaltiesPage from './pages/PenaltiesPage';
 import ReportsPage from './pages/ReportsPage';
 import SearchPage from './pages/SearchPage';
@@ -24,6 +26,7 @@ import MyCarsPage from './pages/owner/MyCarsPage';
 import CarDetailsPage from './pages/CarDetailsPage';
 import CarChatPage from './pages/CarChatPage';
 import ChatsHubPage from './pages/ChatsHubPage';
+import TermsAndRulesPage from './pages/TermsAndRulesPage';
 
 function App() {
   return (
@@ -41,6 +44,8 @@ function App() {
               <Route index element={<LandingPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
+              <Route path="terms" element={<TermsPage />} />
+              <Route path="terms-and-rules" element={<TermsAndRulesPage />} />
             </Route>
 
             <Route element={<Layout />}>
@@ -105,6 +110,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['admin', 'manager', 'employee']}>
                     <RentalsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/disputes"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'manager', 'employee']}>
+                    <DisputesPage />
                   </ProtectedRoute>
                 }
               />

@@ -34,6 +34,7 @@ import {
   Brightness7,
   Chat,
   Garage,
+  ReportProblem,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -139,6 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       isActive: (p) => p === '/chats' || (p.includes('/cars/') && p.includes('/chat')),
     },
     { label: 'Прокати', path: '/rentals', icon: Assignment, show: isAuthenticated && isStaff },
+    { label: 'Спори', path: '/disputes', icon: ReportProblem, show: isAuthenticated && isStaff },
     { label: 'Мої прокати', path: '/my-rentals', icon: Assignment, show: isAuthenticated && isUser },
     { label: 'Штрафи', path: '/penalties', icon: Gavel, show: isAuthenticated && isStaff },
     { label: 'Мої штрафи', path: '/my-penalties', icon: Gavel, show: isAuthenticated && isUser },

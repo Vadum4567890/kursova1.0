@@ -21,7 +21,14 @@ import {
 import { Visibility, VisibilityOff, PersonAdd, DirectionsCar, DriveEta } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { MIN_PASSWORD_LENGTH, PASSWORD_VALIDATION_MESSAGE } from '../../constants/validation';
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_VALIDATION_MESSAGE,
+  normalizePhoneInput,
+  validateAddress,
+  validateFullName,
+  validatePhone,
+} from '../../constants/validation';
 
 type RoleChoice = 'renter' | 'owner';
 
@@ -50,6 +57,11 @@ const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [profileErrors, setProfileErrors] = useState({
+    fullName: '',
+    phone: '',
+    address: '',
+  });
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -82,6 +94,20 @@ const RegisterPage: React.FC = () => {
     if (!role) return;
     if (submitLock.current) return;
     setError('');
+    const nextProfileErrors = {
+      fullName: validateFullName(fullName),
+      phone: validatePhone(phone),
+      address: validateAddress(address),
+    };
+    setProfileErrors(nextProfileErrors);
+    if (Object.values(nextProfileErrors).some(Boolean)) {
+      setError('Перевірте контактні дані перед завершенням реєстрації');
+      return;
+    }
+
+    const normalizedFullName = fullName.trim().replace(/\s+/g, ' ');
+    const normalizedPhone = normalizePhoneInput(phone);
+    const normalizedAddress = address.trim().replace(/\s+/g, ' ');
     submitLock.current = true;
     setLoading(true);
 
@@ -91,9 +117,9 @@ const RegisterPage: React.FC = () => {
         email,
         password,
         role,
-        fullName: fullName || undefined,
-        address: address || undefined,
-        phone: phone || undefined,
+        fullName: normalizedFullName,
+        address: normalizedAddress,
+        phone: normalizedPhone,
       });
       navigate(role === 'owner' ? '/my-cars' : '/home');
     } catch (err: unknown) {
@@ -272,26 +298,57 @@ const RegisterPage: React.FC = () => {
               fullWidth
               label="Повне ім'я"
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                if (profileErrors.fullName) {
+                  setProfileErrors((prev) => ({ ...prev, fullName: validateFullName(e.target.value) }));
+                }
+              }}
+              onBlur={() => setProfileErrors((prev) => ({ ...prev, fullName: validateFullName(fullName) }))}
               margin="normal"
+              required
               autoComplete="name"
+              error={Boolean(profileErrors.fullName)}
+              helperText={profileErrors.fullName || 'Наприклад: Іван Петренко'}
             />
             <TextField
               fullWidth
               label="Телефон"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (profileErrors.phone) {
+                  setProfileErrors((prev) => ({ ...prev, phone: validatePhone(e.target.value) }));
+                }
+              }}
+              onBlur={() => {
+                const normalized = normalizePhoneInput(phone);
+                setPhone(normalized);
+                setProfileErrors((prev) => ({ ...prev, phone: validatePhone(normalized) }));
+              }}
               margin="normal"
+              required
               autoComplete="tel"
               placeholder="+380..."
+              error={Boolean(profileErrors.phone)}
+              helperText={profileErrors.phone || 'Формат: +380671234567 або 0671234567'}
             />
             <TextField
               fullWidth
               label="Адреса"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                if (profileErrors.address) {
+                  setProfileErrors((prev) => ({ ...prev, address: validateAddress(e.target.value) }));
+                }
+              }}
+              onBlur={() => setProfileErrors((prev) => ({ ...prev, address: validateAddress(address) }))}
               margin="normal"
+              required
               autoComplete="street-address"
+              error={Boolean(profileErrors.address)}
+              helperText={profileErrors.address || 'Місто, вулиця, будинок/квартира'}
             />
             <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
               <Button

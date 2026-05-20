@@ -71,6 +71,7 @@ export interface Rental {
   adminResolvedAt?: string;
   adminResolvedByUserId?: string | null;
   adminResolutionNote?: string | null;
+  resolutions?: RentalResolution[];
   client?: {
     id: number;
     fullName: string;
@@ -86,9 +87,37 @@ export interface Rental {
     brand: string;
     model: string;
     pricePerDay: number;
+    year?: number;
+    imageUrl?: string;
+    imageUrls?: string[];
+    images?: Array<{ imageUrl: string; isPrimary?: boolean }>;
   };
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface RentalResolution {
+  id: string;
+  action: string;
+  resolutionType:
+    | 'admin_activated'
+    | 'admin_completed'
+    | 'renter_no_show'
+    | 'owner_no_show'
+    | 'mutual_cancel'
+    | 'admin_cancel'
+    | 'pickup_dispute'
+    | 'return_dispute';
+  previousStatus: Rental['status'];
+  nextStatus: Rental['status'];
+  previousLifecycleState?: Rental['lifecycleState'];
+  nextLifecycleState?: Rental['lifecycleState'];
+  penaltyAmount: number;
+  depositRefundAmount: number;
+  note?: string | null;
+  actorUserId: string;
+  actorRole: string;
+  createdAt: string;
 }
 
 export interface ReviewableBooking {

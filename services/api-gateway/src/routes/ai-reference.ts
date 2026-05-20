@@ -206,7 +206,7 @@ async function openAiCarPricing(
 ): Promise<{ data: Omit<CarPricingSuggestion, 'provider'> | null; reason?: string }> {
   if (!OPENAI_API_KEY) return { data: null, reason: 'OPENAI_API_KEY не задано' };
   const prompt = `
-Ти авто-аналітик ринку оренди в Україні. Оціни рекомендовану ціну за день та залог.
+Ти авто-аналітик ринку оренди в Україні. Оціни рекомендовану ціну за день та завдаток.
 Поверни ЛИШЕ JSON формату:
 {"pricePerDay":number,"deposit":number,"confidence":"low|medium|high","reasons":["..."],"warnings":["..."]}
 

@@ -155,7 +155,16 @@ export const CarCard: React.FC<CarCardProps> = ({
           onError={handleImageError}
         />
       </Box>
-      <CardContent sx={{ flexGrow: 1, cursor: 'pointer' }} onClick={handleCardClick}>
+      <CardContent
+        sx={{
+          flexGrow: 1,
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 360,
+        }}
+        onClick={handleCardClick}
+      >
         <Typography
           variant="h6"
           component="h2"
@@ -244,7 +253,20 @@ export const CarCard: React.FC<CarCardProps> = ({
           </Typography>
         </Box>
         {car.description && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            title={car.description}
+            sx={{
+              mb: 2,
+              minHeight: 60,
+              display: '-webkit-box',
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              overflowWrap: 'anywhere',
+            }}
+          >
             {car.description}
           </Typography>
         )}

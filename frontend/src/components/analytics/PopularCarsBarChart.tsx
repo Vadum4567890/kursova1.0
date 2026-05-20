@@ -14,7 +14,7 @@ import {
 import { useAppTheme } from '../../context/ThemeContext';
 
 interface PopularCarsBarChartProps {
-  data: Array<{ name: string; Кількість: number; 'Вартість прокату': number }>;
+  data: Array<{ name: string; Кількість: number }>;
 }
 
 const PopularCarsBarChart: React.FC<PopularCarsBarChartProps> = ({ data }) => {
@@ -74,12 +74,6 @@ const PopularCarsBarChart: React.FC<PopularCarsBarChartProps> = ({ data }) => {
               }}
             />
             <Bar dataKey="Кількість" fill="#1976d2" radius={[8, 8, 0, 0]} name="Кількість прокатів" />
-            <Bar
-              dataKey="Вартість прокату"
-              fill="#2e7d32"
-              radius={[8, 8, 0, 0]}
-              name="Вартість прокату (без штрафів)"
-            />
           </BarChart>
         </ResponsiveContainer>
       ) : (

@@ -32,6 +32,7 @@ import {
   Gavel,
   Brightness4,
   Brightness7,
+  ReportProblem,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -94,6 +95,7 @@ const Header: React.FC = () => {
     { label: 'Головна', path: '/', icon: <Dashboard />, show: true },
     { label: 'Автомобілі', path: '/cars', icon: <DirectionsCar />, show: true },
     { label: 'Прокати', path: '/rentals', icon: <Assignment />, show: isAuthenticated && isStaff },
+    { label: 'Спори', path: '/disputes', icon: <ReportProblem />, show: isAuthenticated && isStaff },
     { label: 'Мої прокати', path: '/my-rentals', icon: <Assignment />, show: isAuthenticated && isUser },
     { label: 'Штрафи', path: '/penalties', icon: <Gavel />, show: isAuthenticated && isStaff },
     { label: 'Мої штрафи', path: '/my-penalties', icon: <Gavel />, show: isAuthenticated && isUser },

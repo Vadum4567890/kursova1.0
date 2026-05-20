@@ -140,11 +140,24 @@ export const rentalService = {
       | 'mark_no_show'
       | 'mark_pickup_disputed'
       | 'mark_return_disputed',
-    note?: string
+    options?: {
+      note?: string;
+      resolutionType?:
+        | 'admin_activated'
+        | 'admin_completed'
+        | 'renter_no_show'
+        | 'owner_no_show'
+        | 'mutual_cancel'
+        | 'admin_cancel'
+        | 'pickup_dispute'
+        | 'return_dispute';
+      penaltyAmount?: number;
+      depositRefundAmount?: number;
+    }
   ): Promise<Rental> {
     const response = await api.post<unknown>(`/rentals/${rentalId}/admin/resolve-lifecycle`, {
       action,
-      note,
+      ...options,
     });
     const raw = unwrapData<Record<string, unknown>>(response.data);
     return mapRentalFromApi(raw);

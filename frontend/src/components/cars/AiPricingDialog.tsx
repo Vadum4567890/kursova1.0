@@ -75,7 +75,7 @@ const AiPricingDialog: React.FC<AiPricingDialogProps> = ({ open, formData, onClo
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <AutoAwesome color="primary" />
-        AI-оцінка ціни та залогу
+        AI-оцінка ціни та завдатку
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
@@ -93,7 +93,7 @@ const AiPricingDialog: React.FC<AiPricingDialogProps> = ({ open, formData, onClo
             />
             <Chip
               icon={<Bolt />}
-              label={`Залог: ${current.deposit.toLocaleString('uk-UA')} ₴`}
+              label={`Завдаток: ${current.deposit.toLocaleString('uk-UA')} ₴`}
               color="secondary"
               variant="outlined"
             />

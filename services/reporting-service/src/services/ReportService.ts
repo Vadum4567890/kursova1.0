@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import * as XLSX from 'xlsx';
 import { Repository } from 'typeorm';
-import { Rental, RentalStatus } from '../entities/Rental.entity';
+import { Rental, RentalLifecycleState, RentalStatus } from '../entities/Rental.entity';
 import { AppDataSource } from '../database/data-source';
 import { fetchUserDisplayName } from '../clients/userServiceClient';
 import { fetchCarBrandModel, fetchCarsCatalog, ReportingCarSnapshot } from '../clients/carServiceClient';
@@ -19,11 +19,15 @@ export interface RentalTransactionRow {
   expectedEndDate: string;
   actualEndDate: string | null;
   durationDays: number;
+  lifecycleState: RentalLifecycleState | null;
   totalCost: number;
   penaltyAmount: number;
   depositAmount: number;
   depositToReturn: number;
+  refundedDeposit: number;
   recognizedRevenue: number;
+  projectedRevenue: number;
+  disputedRevenue: number;
   systemCommission: number;
   landlordEarnings: number;
 }
@@ -34,8 +38,11 @@ export interface FinancialReportModel {
   systemRevenue: number;
   landlordRevenue: number;
   totalRevenue: number;
+  recognizedRevenue: number;
+  disputedRevenue: number;
   totalPenalties: number;
   totalDeposits: number;
+  refundedDeposits: number;
   depositLiability: number;
   netRevenue: number;
   projectedRevenue: number;
@@ -115,6 +122,17 @@ function clampDateRange(startDate: Date, endDate: Date, rangeStart: Date, rangeE
 
 function formatCurrency(value: number): string {
   return `${roundCurrency(value).toLocaleString('en-US')} UAH`;
+}
+
+function isDisputedOrRiskyLifecycle(state?: RentalLifecycleState | null): boolean {
+  return [
+    RentalLifecycleState.PICKUP_PARTIALLY_CONFIRMED,
+    RentalLifecycleState.PICKUP_DISPUTED,
+    RentalLifecycleState.NO_SHOW,
+    RentalLifecycleState.RETURN_DUE,
+    RentalLifecycleState.RETURN_PARTIALLY_CONFIRMED,
+    RentalLifecycleState.RETURN_DISPUTED,
+  ].includes(state as RentalLifecycleState);
 }
 
 /** Підпис періоду в PDF/XLSX без сирого ISO (UTC — узгоджено з датами з API). */
@@ -212,6 +230,9 @@ export class ReportService {
     if (row.status !== RentalStatus.ACTIVE && row.status !== RentalStatus.PENDING) {
       return 0;
     }
+    if (isDisputedOrRiskyLifecycle(row.lifecycleState)) {
+      return 0;
+    }
 
     const overlap = clampDateRange(rental.startDate, this.getRentalEffectiveEndDate(rental), startDate, endDate);
     if (!overlap) {
@@ -221,6 +242,29 @@ export class ReportService {
     const overlapDays = calculateCalendarDays(overlap[0], overlap[1]);
     const durationDays = Math.max(1, row.durationDays);
     return roundCurrency((row.totalCost / durationDays) * overlapDays);
+  }
+
+  private getDisputedRevenueInRange(
+    rental: Rental,
+    row: RentalTransactionRow,
+    startDate: Date,
+    endDate: Date
+  ): number {
+    if (row.status !== RentalStatus.ACTIVE && row.status !== RentalStatus.PENDING) {
+      return 0;
+    }
+    if (!isDisputedOrRiskyLifecycle(row.lifecycleState)) {
+      return 0;
+    }
+
+    const overlap = clampDateRange(rental.startDate, this.getRentalEffectiveEndDate(rental), startDate, endDate);
+    if (!overlap) {
+      return 0;
+    }
+
+    const overlapDays = calculateCalendarDays(overlap[0], overlap[1]);
+    const durationDays = Math.max(1, row.durationDays);
+    return roundCurrency((row.totalCost / durationDays) * overlapDays + row.penaltyAmount);
   }
 
   private mapCarCategoryToBucket(category: string): 'economy' | 'business' | 'premium' {
@@ -265,6 +309,7 @@ export class ReportService {
     const penaltyAmount = toNumber(rental.penaltyAmount);
     const depositAmount = toNumber(rental.depositAmount);
     const depositToReturn = completed || cancelled ? Math.max(0, depositAmount - penaltyAmount) : depositAmount;
+    const lifecycleState = rental.lifecycleState || null;
 
     let recognizedRevenue = 0;
     if (completed) {
@@ -272,7 +317,18 @@ export class ReportService {
     } else if (cancelled) {
       recognizedRevenue = Math.max(0, totalCost + penaltyAmount - depositToReturn);
     }
-    const systemCommission = roundCurrency(Math.max(0, totalCost) * this.systemCommissionRate);
+    const projectedRevenue =
+      (rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING) &&
+      !isDisputedOrRiskyLifecycle(lifecycleState)
+        ? totalCost
+        : 0;
+    const disputedRevenue =
+      (rental.status === RentalStatus.ACTIVE || rental.status === RentalStatus.PENDING) &&
+      isDisputedOrRiskyLifecycle(lifecycleState)
+        ? totalCost + penaltyAmount
+        : 0;
+    const refundedDeposit = completed || cancelled ? depositToReturn : 0;
+    const systemCommission = completed ? roundCurrency(Math.max(0, totalCost) * this.systemCommissionRate) : 0;
     const landlordEarnings = roundCurrency(recognizedRevenue - systemCommission);
 
     return {
@@ -284,11 +340,15 @@ export class ReportService {
       expectedEndDate: rental.expectedEndDate.toISOString(),
       actualEndDate: rental.actualEndDate ? rental.actualEndDate.toISOString() : null,
       durationDays,
+      lifecycleState,
       totalCost: roundCurrency(totalCost),
       penaltyAmount: roundCurrency(penaltyAmount),
       depositAmount: roundCurrency(depositAmount),
       depositToReturn: roundCurrency(depositToReturn),
+      refundedDeposit: roundCurrency(refundedDeposit),
       recognizedRevenue: roundCurrency(recognizedRevenue),
+      projectedRevenue: roundCurrency(projectedRevenue),
+      disputedRevenue: roundCurrency(disputedRevenue),
       systemCommission,
       landlordEarnings,
     };
@@ -321,15 +381,20 @@ export class ReportService {
     const cancelledTransactions = transactions.filter((row) => row.status === RentalStatus.CANCELLED);
 
     const recognizedRevenue = transactions.reduce((sum, row) => sum + row.recognizedRevenue, 0);
-    const totalRentalRevenue = transactions.reduce((sum, row) => sum + row.totalCost, 0);
+    const totalRentalRevenue = completedTransactions.reduce((sum, row) => sum + row.totalCost, 0);
     const systemRevenue = transactions.reduce((sum, row) => sum + row.systemCommission, 0);
     const landlordRevenue = transactions.reduce((sum, row) => sum + row.landlordEarnings, 0);
     const projectedRevenue = filtered.reduce(
       (sum, rental, index) => sum + this.getProjectedRevenueInRange(rental, transactions[index], start, end),
       0
     );
+    const disputedRevenue = filtered.reduce(
+      (sum, rental, index) => sum + this.getDisputedRevenueInRange(rental, transactions[index], start, end),
+      0
+    );
     const totalPenalties = transactions.reduce((sum, row) => sum + row.penaltyAmount, 0);
     const totalDeposits = transactions.reduce((sum, row) => sum + row.depositAmount, 0);
+    const refundedDeposits = transactions.reduce((sum, row) => sum + row.refundedDeposit, 0);
     const depositLiability = transactions.reduce((sum, row) => sum + this.getOpenDepositLiability(row), 0);
     const netRevenue = landlordRevenue;
 
@@ -351,9 +416,12 @@ export class ReportService {
       totalRentalRevenue: roundCurrency(totalRentalRevenue),
       systemRevenue: roundCurrency(systemRevenue),
       landlordRevenue: roundCurrency(landlordRevenue),
-      totalRevenue: roundCurrency(recognizedRevenue + projectedRevenue),
+      totalRevenue: roundCurrency(recognizedRevenue + projectedRevenue + disputedRevenue),
+      recognizedRevenue: roundCurrency(recognizedRevenue),
+      disputedRevenue: roundCurrency(disputedRevenue),
       totalPenalties: roundCurrency(totalPenalties),
       totalDeposits: roundCurrency(totalDeposits),
+      refundedDeposits: roundCurrency(refundedDeposits),
       depositLiability: roundCurrency(depositLiability),
       netRevenue: roundCurrency(netRevenue),
       projectedRevenue: roundCurrency(projectedRevenue),
@@ -389,7 +457,11 @@ export class ReportService {
             filtered.reduce((sum, rental, index) => {
               const row = transactions[index];
               if (row.status !== RentalStatus.PENDING) return sum;
-              return sum + this.getProjectedRevenueInRange(rental, row, start, end);
+              return (
+                sum +
+                this.getProjectedRevenueInRange(rental, row, start, end) +
+                this.getDisputedRevenueInRange(rental, row, start, end)
+              );
             }, 0)
           ),
         },
@@ -400,7 +472,11 @@ export class ReportService {
             filtered.reduce((sum, rental, index) => {
               const row = transactions[index];
               if (row.status !== RentalStatus.ACTIVE) return sum;
-              return sum + this.getProjectedRevenueInRange(rental, row, start, end);
+              return (
+                sum +
+                this.getProjectedRevenueInRange(rental, row, start, end) +
+                this.getDisputedRevenueInRange(rental, row, start, end)
+              );
             }, 0)
           ),
         },
@@ -621,16 +697,19 @@ export class ReportService {
       [],
       ['Metric', 'Value'],
       ['Total revenue', report.totalRevenue],
+      ['Recognized revenue', report.recognizedRevenue],
+      ['Projected revenue', report.projectedRevenue],
+      ['Disputed / at-risk revenue', report.disputedRevenue],
       ['System revenue (commission)', report.systemRevenue],
       ['Landlord revenue', report.landlordRevenue],
       [
         'Note (total revenue)',
-        'Recognized from completed/cancelled + projected from active/pending rentals',
+        'Recognized + projected + disputed. Use recognized revenue for closed accounting.',
       ],
       ['Net revenue', report.netRevenue],
       ['Note (net revenue)', 'Recognized revenue from completed/cancelled rentals only'],
-      ['Projected revenue', report.projectedRevenue],
       ['Total penalties', report.totalPenalties],
+      ['Refunded deposits', report.refundedDeposits],
       ['Active deposit liability', report.depositLiability],
       ['Average completed ticket', report.averageCompletedTicket],
       ['Average penalty / completed rental', report.averagePenaltyPerCompletedRental],
@@ -657,11 +736,15 @@ export class ReportService {
         expectedEndDate: row.expectedEndDate,
         actualEndDate: row.actualEndDate || '',
         durationDays: row.durationDays,
+        lifecycleState: row.lifecycleState || '',
         totalCost: row.totalCost,
         penaltyAmount: row.penaltyAmount,
         depositAmount: row.depositAmount,
         depositToReturn: row.depositToReturn,
+        refundedDeposit: row.refundedDeposit,
         recognizedRevenue: row.recognizedRevenue,
+        projectedRevenue: row.projectedRevenue,
+        disputedRevenue: row.disputedRevenue,
         systemCommission: row.systemCommission,
         landlordEarnings: row.landlordEarnings,
       }))
@@ -675,10 +758,15 @@ export class ReportService {
       { wch: 24 },
       { wch: 24 },
       { wch: 14 },
+      { wch: 18 },
       { wch: 14 },
       { wch: 14 },
       { wch: 14 },
       { wch: 16 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
       { wch: 16 },
       { wch: 16 },
       { wch: 16 },
@@ -789,7 +877,7 @@ export class ReportService {
         .fillColor('#64748b')
         .fontSize(8)
         .text(
-          'Total revenue = recognized (completed/cancelled) + projected (active/pending). Landlord and system revenue are split by commission from rental amount (without deposit).',
+          'Total revenue = recognized + projected + disputed. Closed accounting should use recognized revenue and refunded deposit totals.',
           40,
           158,
           { width: 515 }
@@ -797,9 +885,9 @@ export class ReportService {
 
       const cards = [
         { label: 'Total revenue', value: `${report.totalRevenue} UAH`, color: '#1d4ed8' },
-        { label: 'Landlord revenue', value: `${report.landlordRevenue} UAH`, color: '#047857' },
-        { label: 'System commission', value: `${report.systemRevenue} UAH`, color: '#7c3aed' },
-        { label: 'Penalties', value: `${report.totalPenalties} UAH`, color: '#dc2626' },
+        { label: 'Recognized', value: `${report.recognizedRevenue} UAH`, color: '#047857' },
+        { label: 'Projected', value: `${report.projectedRevenue} UAH`, color: '#7c3aed' },
+        { label: 'Disputed', value: `${report.disputedRevenue} UAH`, color: '#dc2626' },
       ];
 
       cards.forEach((card, index) => {
@@ -848,7 +936,7 @@ export class ReportService {
           tableEnd + 18
         )
         .text(
-          `Projected revenue: ${formatCurrency(report.projectedRevenue)} | Active deposit liability: ${formatCurrency(report.depositLiability)}`,
+          `Projected: ${formatCurrency(report.projectedRevenue)} | Disputed: ${formatCurrency(report.disputedRevenue)} | Deposit liability: ${formatCurrency(report.depositLiability)}`,
           40,
           tableEnd + 34
         );

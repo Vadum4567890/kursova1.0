@@ -195,8 +195,11 @@ export interface FinancialReport {
   systemRevenue?: number;
   landlordRevenue?: number;
   totalRevenue: number;
+  recognizedRevenue?: number;
+  disputedRevenue?: number;
   totalPenalties: number;
   totalDeposits: number;
+  refundedDeposits?: number;
   depositLiability?: number;
   netRevenue: number;
   projectedRevenue?: number;
@@ -227,11 +230,15 @@ export interface FinancialReport {
     expectedEndDate: string;
     actualEndDate?: string | null;
     durationDays: number;
+    lifecycleState?: string | null;
     totalCost: number;
     penaltyAmount: number;
     depositAmount: number;
     depositToReturn: number;
+    refundedDeposit?: number;
     recognizedRevenue: number;
+    projectedRevenue?: number;
+    disputedRevenue?: number;
     systemCommission?: number;
     landlordEarnings?: number;
   }>;

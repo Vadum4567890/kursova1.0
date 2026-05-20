@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Penalty } from './Penalty.entity';
+import { RentalResolution } from './RentalResolution.entity';
 
 export enum RentalStatus {
   /** Бронь з майбутньою датою початку (ще не в прокаті) */
@@ -145,4 +146,7 @@ export class Rental {
 
   @OneToMany(() => Penalty, (penalty) => penalty.rental)
   penalties: Penalty[];
+
+  @OneToMany(() => RentalResolution, (resolution) => resolution.rental)
+  resolutions: RentalResolution[];
 }
